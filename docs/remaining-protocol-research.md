@@ -22,6 +22,14 @@ The V2 model explicitly disables the onboard macro-storage feature while
 still accepting macro mappings. These source findings refine the next tests;
 they do not establish physical setter or persistence acceptance.
 
+**2026-11-05 physical read-only follow-up:** this user's awake V3 receiver
+answered storage/count queries with an empty macro catalog and 307200 bytes
+reported free. Both DPI selectors echoed their requested selector and read
+6400 × 6400. Protected settings and bindings matched before/after. This
+establishes those getters on this receiver, while upload, playback and
+selector-zero writes remain unverified. The exact 6400 → 6500 DPI experiment
+has been prepared read-only and awaits approval; see `progress.md`.
+
 ## 1. V2 stored functions
 
 ### Class `05` is a macro family, not a disabled/default marker

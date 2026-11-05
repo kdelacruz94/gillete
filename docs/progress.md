@@ -1141,3 +1141,24 @@ source archive. No host install, HID query/write, service activation, input
 capture or user-config change occurred. Next physical step: V3 receiver awake,
 read-only macro catalog and DPI-selector check; preview any temporary write
 only after those reads succeed. V2's old MapleStory macros remain retired.
+
+## V3 receiver read-only firmware check — 2026-11-05
+
+After the user reported the V3 awake, the opt-in receiver diagnostic completed
+224 getter requests. Macro storage/count queries succeeded: zero catalog
+entries, 307200 bytes reported maximum and free, zero reclaimable bytes.
+No macro data or names were read because the catalog was empty. This verifies
+these two getters on this V3 receiver, not allocation, upload or playback.
+Both DPI selectors returned 6400 × 6400 with their requested selector echoed.
+Normal mode, device identity, inventory, active/assigned slots, binding records
+and saved settings matched before and after. One slot (1) is assigned/active.
+Private complete report: `evidence/v3-firmware-read-20261105-01.local.json`.
+
+A subsequent read-only DPI experiment preparation succeeded. It proposes
+selector-zero 6400 × 6400 → 6500 × 6500, followed by restoration, with saved
+scalar DPI 6400, stages 400/800/1600/3200/6400 (fifth selected) and polling
+1000 Hz. Exact originals and candidate bytes are in ignored
+`evidence/v3-dpi-selector-20261105-01.local/prepared.json`. No setter has run.
+The temporary write still awaits explicit approval. Its recovery can restore
+saved DPI/stages/polling if the candidate unexpectedly affects those values.
+Matching readback alone will not establish sensor behavior or volatility.
