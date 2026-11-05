@@ -32,6 +32,7 @@ from .applications import desktop_application
 from .focus import query_windows
 from .model import Action, ConfigurationError, Layers, MODEL_CONTROLS, MODELS, Profile, Step, sequence
 from .profiles import ProfileStore, Rule
+from .recorder import replace_delays
 from .shortcuts import describe, friendly_key, parse_chord, parse_key, parse_sequence
 
 
@@ -146,6 +147,13 @@ class ActionDialog(QDialog):
         button("Build steps", self.build, row)
         button("Record…", self.record, row)
         layout.addLayout(row)
+        self.sequence_timing = QHBoxLayout()
+        self.sequence_hold = spin(40, 1, 60000)
+        self.sequence_gap = spin(100, 0, 3_600_000)
+        for label, widget in (('Key hold (ms)', self.sequence_hold), ('Between chords (ms)', self.sequence_gap)):
+            self.sequence_timing.addWidget(QLabel(label))
+            self.sequence_timing.addWidget(widget)
+        layout.addLayout(self.sequence_timing)
         self.steps = QTableWidget(0, 3)
         self.steps.setHorizontalHeaderLabels(["Operation", "Key / axis", "Delay (ms) / amount"])
         self.steps.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -157,6 +165,7 @@ class ActionDialog(QDialog):
         button("Remove step", self.remove_step, tools)
         button("Move up", lambda: self.move_step(-1), tools)
         button("Move down", lambda: self.move_step(1), tools)
+        button('Replace delays…', self.retime, tools)
         layout.addLayout(tools)
         self.error = QLabel()
         self.error.setWordWrap(True)
@@ -185,7 +194,7 @@ class ActionDialog(QDialog):
         self.steps.setEnabled(kind == "macro")
         self.steps.setVisible(kind == 'macro')
         self.macro_caption.setVisible(kind == 'macro')
-        for row in (self.macro_build, self.macro_tools):
+        for row in (self.macro_build, self.sequence_timing, self.macro_tools):
             for index in range(row.count()):
                 row.itemAt(index).widget().setVisible(kind == 'macro')
         self.playback.setEnabled(kind in {"macro", "turbo", "hypershift"})
@@ -256,9 +265,25 @@ class ActionDialog(QDialog):
 
     def build(self):
         try:
-            action = sequence(*parse_sequence(self.sequence_text.text()))
+            action = sequence(*parse_sequence(self.sequence_text.text()),
+                              press_ms=self.sequence_hold.value(), gap_ms=self.sequence_gap.value())
             self.load_steps(action.steps)
             self.kind.setCurrentIndex(self.kind.findData("macro"))
+            self.error.clear()
+        except ValueError as error:
+            self.error.setText(str(error))
+
+    def retime(self):
+        value, accepted = QInputDialog.getInt(self, 'Replace macro delays',
+                                             'Set every existing delay to (ms):', 100, 0, 3_600_000)
+        if not accepted:
+            return
+        try:
+            steps = self.read_steps()
+            if not any(step.kind == 'wait' for step in steps):
+                self.error.setText('This macro has no delay steps. Use Add step to insert one.')
+                return
+            self.load_steps(replace_delays(steps, value))
             self.error.clear()
         except ValueError as error:
             self.error.setText(str(error))

@@ -7,7 +7,7 @@ import shiboken6
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from gillete.gui import ActionDialog, MainWindow
-from gillete.model import Action, MODEL_CONTROLS, MODELS, Profile
+from gillete.model import Action, MODEL_CONTROLS, MODELS, Profile, Step
 from gillete.gui_controls import ControlSelector
 from gillete.gui_applications import ApplicationPicker
 from gillete.profiles import Window
@@ -17,6 +17,7 @@ from gillete.gui_startup import StartupPanel
 from gillete.startup import AutostartEntry
 from gillete.applications import DesktopApplication
 from gillete.gui_launch import InstalledApplicationPicker
+from gillete.gui_recording import RecordingDialog
 from gillete.settings import plan
 from types import SimpleNamespace
 
@@ -237,4 +238,153 @@ def test_installed_app_picker_filters_and_saves_only_the_selected_target(app, mo
     dialog.desktop_name.setText('Editor')
     dialog.save()
     assert dialog.action.desktop_id == 'editor.desktop' and dialog.action.argv == ()
+    shiboken6.delete(dialog)
+
+
+def test_macro_builder_timing_and_bulk_retime_preserve_shortcut_order(app, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog
+    dialog = ActionDialog(Action(), {})
+    dialog.sequence_text.setText('Alt+H, O, A')
+    dialog.sequence_hold.setValue(65)
+    dialog.sequence_gap.setValue(175)
+    dialog.build()
+    steps = dialog.read_steps()
+    assert [s.milliseconds for s in steps if s.kind == 'wait'] == [65, 175, 65, 175, 65]
+    monkeypatch.setattr(QInputDialog, 'getInt', lambda *_args: (80, True))
+    dialog.retime()
+    assert [s for s in dialog.read_steps() if s.kind != 'wait'] == [s for s in steps if s.kind != 'wait']
+    assert [s.milliseconds for s in dialog.read_steps() if s.kind == 'wait'] == [80] * 5
+    dialog.save()
+    assert dialog.result() == dialog.DialogCode.Accepted
+    shiboken6.delete(dialog)
+
+
+class RecordingSource:
+    def __init__(self, path, events=(), held=(), caps=None, fail_active=False):
+        self.path, self.events, self.held = path, list(events), held
+        self.fd, self.writer = os.pipe()
+        self.closed = False
+        self.caps, self.fail_active = caps, fail_active
+
+    def capabilities(self):
+        from evdev import ecodes as E
+        return self.caps or {E.EV_KEY: [E.KEY_A]}
+
+    def active_keys(self):
+        if self.fail_active:
+            raise OSError('Device disconnected during setup')
+        return self.held
+
+    def read(self):
+        events, self.events = self.events, []
+        return iter(events)
+
+    def close(self):
+        if not self.closed:
+            os.close(self.fd)
+            os.close(self.writer)
+            self.closed = True
+
+    def grab(self):
+        raise AssertionError('Recording must never grab input')
+
+
+def recording_event(timestamp, kind, code, value):
+    from evdev import InputEvent
+    seconds = int(timestamp)
+    return InputEvent(seconds, round((timestamp - seconds) * 1_000_000), kind, code, value)
+
+
+def setup_recording(monkeypatch, sources, *, virtual=()):
+    from gillete import gui_recording as recording
+    monkeypatch.setattr(recording, 'list_devices', lambda: [*sources, *virtual])
+    monkeypatch.setattr(recording, 'virtual_source', lambda path: path in virtual)
+    opened = []
+    def open_source(path):
+        opened.append(path)
+        return sources[path]
+    monkeypatch.setattr(recording, 'InputDevice', open_source)
+    monkeypatch.setattr(recording.fcntl, 'ioctl', lambda *_args: 0)
+    return opened
+
+
+def test_recording_merges_interfaces_sorts_timestamps_and_excludes_synthetic_and_stop_key(app, monkeypatch):
+    from evdev import ecodes as E
+    a = RecordingSource('keyboard-a', [recording_event(10, E.EV_KEY, E.KEY_LEFTALT, 1),
+                                      recording_event(10.05, E.EV_KEY, E.KEY_LEFTSHIFT, 0),
+                                      recording_event(10.21, E.EV_KEY, E.KEY_LEFTALT, 0),
+                                      recording_event(10.8, E.EV_KEY, E.KEY_F12, 1)], held=(E.KEY_LEFTSHIFT,))
+    b = RecordingSource('keyboard-b', [recording_event(10.02, E.EV_KEY, E.KEY_LEFTALT, 1),
+                                      recording_event(10.1, E.EV_KEY, E.KEY_H, 1),
+                                      recording_event(10.2, E.EV_KEY, E.KEY_H, 0),
+                                      recording_event(10.3, E.EV_KEY, E.KEY_LEFTALT, 0)])
+    mouse = RecordingSource('mouse', [recording_event(10.5, E.EV_KEY, E.BTN_LEFT, 1),
+                                      recording_event(10.6, E.EV_KEY, E.BTN_LEFT, 0),
+                                      recording_event(10.65, E.EV_REL, E.REL_X, 5),
+                                      recording_event(10.7, E.EV_REL, E.REL_WHEEL, -1)],
+                            caps={E.EV_KEY: [E.BTN_LEFT], E.EV_REL: [E.REL_X, E.REL_WHEEL]})
+    sources = {s.path: s for s in (a, b, mouse)}
+    opened = setup_recording(monkeypatch, sources, virtual=('Gillete virtual input',))
+    dialog = RecordingDialog()
+    assert not opened
+    dialog.begin()
+    assert set(opened) == set(sources)
+    # Dispatch the later events first; finishing drains the other interfaces.
+    dialog.drain(b)
+    dialog.drain(a)
+    assert dialog.result() == dialog.DialogCode.Accepted
+    steps = dialog.action.steps
+    keys = [(s.kind, s.key) for s in steps if s.kind in ('down', 'up')]
+    assert keys[:4] == [('down', 'KEY_LEFTALT'), ('down', 'KEY_H'), ('up', 'KEY_H'), ('up', 'KEY_LEFTALT')]
+    assert len(keys) == 6 and all('F12' not in key and 'SHIFT' not in key for _, key in keys)
+    assert [(s.axis, s.value) for s in steps if s.kind == 'relative'] == [('REL_WHEEL', -1)]
+    assert [s.milliseconds for s in steps if s.kind == 'wait'][:3] == [100, 100, 100]
+    assert all(s.closed for s in sources.values()) and not dialog.events and not dialog.sources
+    shiboken6.delete(dialog)
+
+
+def test_failed_recording_setup_and_dropped_events_can_restart_without_stale_keys(app, monkeypatch):
+    from evdev import ecodes as E
+    bad = RecordingSource('keyboard', fail_active=True)
+    sources = {'keyboard': bad}
+    setup_recording(monkeypatch, sources)
+    dialog = RecordingDialog()
+    dialog.begin()
+    assert bad.closed and not dialog.sources and dialog.start_button.isEnabled()
+    dropped = RecordingSource('keyboard', [recording_event(10, E.EV_KEY, E.KEY_A, 1),
+                                           recording_event(10.1, E.EV_SYN, E.SYN_DROPPED, 0)])
+    sources['keyboard'] = dropped
+    dialog.begin()
+    dialog.drain(dropped)
+    assert dialog.action is None and dropped.closed and not dialog.events and not dialog.held
+    assert dialog.start_button.isEnabled() and not dialog.stop_button.isEnabled()
+    good = RecordingSource('keyboard', [recording_event(12, E.EV_KEY, E.KEY_B, 1),
+                                       recording_event(15, E.EV_KEY, E.KEY_B, 0),
+                                       recording_event(15.2, E.EV_KEY, E.KEY_F12, 1)])
+    sources['keyboard'] = good
+    dialog.timing.setCurrentIndex(1)
+    dialog.fixed_delay.setValue(45)
+    dialog.begin()
+    # A signal queued before cleanup must not discard the fresh recording.
+    dialog.drain(dropped)
+    assert dialog.sources == [good]
+    dialog.drain(good)
+    assert dialog.action.steps == (Step('down', key='KEY_B'), Step('wait', milliseconds=45),
+                                   Step('up', key='KEY_B'))
+    assert good.closed
+    shiboken6.delete(dialog)
+
+
+def test_recording_stop_preserves_a_held_key_until_f12_and_accepts_media_interface(app, monkeypatch):
+    from evdev import ecodes as E
+    media = RecordingSource('media', [recording_event(10, E.EV_KEY, E.KEY_VOLUMEUP, 1),
+                                      recording_event(10.4, E.EV_KEY, E.KEY_F12, 1)],
+                            caps={E.EV_KEY: [E.KEY_VOLUMEUP]})
+    setup_recording(monkeypatch, {'media': media})
+    dialog = RecordingDialog()
+    dialog.begin()
+    dialog.drain(media)
+    assert dialog.action.steps == (Step('down', key='KEY_VOLUMEUP'), Step('wait', milliseconds=400),
+                                   Step('up', key='KEY_VOLUMEUP'))
+    assert media.closed
     shiboken6.delete(dialog)

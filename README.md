@@ -38,9 +38,17 @@ Normal or HyperShift and click the physical control. In Program profiles,
 **Choose running application…** fills a rule from an open game or program;
 select **Save rules** to apply it. Title matching is optional.
 The macro editor supports recorded input, editable event rows, and comma-separated
-chords such as `Alt+H, O, A` or `Ctrl+B, Alt+S`. Delays/press timing are editable.
+chords such as `Alt+H, O, A` or `Ctrl+B, Alt+S`. Set **Key hold** and **Between
+chords** before choosing **Build steps**. **Replace delays…** changes all existing
+delay rows without inserting pauses between simultaneous chord members.
 Recording opens physical input devices only after Start and never grabs them;
 another remapper's exclusive ownership may make its mouse events unavailable.
+Choose **Recorded timing** or **Fixed delay between events** before starting.
+Press **F12** to finish without capturing the stop-button click. Keys still held
+at that point are released in the recorded macro, with their final hold timing
+preserved. A dropped or disconnected input ends the recording with a visible
+error; **Start recording** then starts a fresh capture. Pointer movement is
+optional and off by default; virtual inputs are excluded.
 
 **Launch program** supports **Choose application…** for installed desktop apps,
 or **Browse…** for an executable/script with explicit arguments. The app picker

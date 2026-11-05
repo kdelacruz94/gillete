@@ -427,3 +427,33 @@ filtering, literal arguments and the configured working directory. A private
 Engine-to-launch checks covered both layers, one launch per physical press,
 missing programs and nonzero exit status. The real user's app registry was read
 once (94 visible entries), with no launch. Full suite:113 passing tests.
+
+## Macro timing and capture recovery
+
+The recorder now offers recorded timing or a fixed delay between captured events,
+including zero delay. The shortcut-sequence builder exposes key-hold and
+between-chord times. Bulk delay replacement changes only explicit wait steps,
+preserving event order and adjacent chord members.
+
+Capture setup counts an interface only after clock selection, capability checks,
+held-key inspection and notifier creation succeed. Media-key-only and relative
+mouse interfaces are eligible. Dropped input, disconnect or failed setup closes
+all sources and permits a clean retry in the same dialog; a queued callback from
+an old source cannot discard the new recording. F12 remains excluded from the
+macro. Stopping during a chord records its final hold duration and releases its
+keys in reverse order. Invalid timestamps cannot mutate key ownership, and step
+limits include automatic key releases and their delays.
+
+The complete suite passes 125 tests. New cases exercise multi-interface ordering,
+shared modifiers, pre-held keys, mouse clicks/wheel, virtual-input exclusion,
+fixed/recorded timing, F12 during a hold, capture failure/retry, and editing the
+Excel shortcut sequence's timing. These tests use simulated input sources and
+offscreen Qt dialogs; real desktop macro recording still needs acceptance.
+Three abandoned earlier pytest processes were terminated; the current bounded
+suite exited normally. No physical input source was opened, mouse setting was
+changed, remapping was activated, or startup preference was enabled in this work.
+
+The V2 wake-up and existing-macro-intent questions remain unanswered. Continue
+with their responses before the corresponding physical tests. Wired transport,
+physical DPI/polling acceptance, per-profile sensitivity and final migration
+remain unfinished; the goal is not complete.

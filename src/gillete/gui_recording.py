@@ -7,9 +7,23 @@ from pathlib import Path
 
 from evdev import InputDevice, ecodes, list_devices
 from PySide6.QtCore import QSocketNotifier
-from PySide6.QtWidgets import QCheckBox, QDialog, QLabel, QPushButton, QVBoxLayout
+from PySide6.QtWidgets import QCheckBox, QComboBox, QDialog, QFormLayout, QLabel, QPushButton, QSpinBox, QVBoxLayout
 
 from .recorder import Recorder
+
+
+def virtual_source(path):
+    resolved = (Path('/sys/class/input') / Path(path).name / 'device').resolve()
+    return '/virtual/' in str(resolved)
+
+
+def recordable(capabilities):
+    for code in capabilities.get(ecodes.EV_KEY, []):
+        names = ecodes.bytype[ecodes.EV_KEY].get(code, ())
+        names = [names] if isinstance(names, str) else names
+        if any(name.startswith('KEY_') for name in names) or ecodes.BTN_LEFT <= code <= ecodes.BTN_TASK:
+            return True
+    return bool(set(capabilities.get(ecodes.EV_REL, [])) & {ecodes.REL_X, ecodes.REL_Y, ecodes.REL_WHEEL, ecodes.REL_HWHEEL})
 
 
 class RecordingDialog(QDialog):
@@ -32,6 +46,18 @@ class RecordingDialog(QDialog):
         layout.addWidget(self.status)
         self.movement = QCheckBox("Include pointer movement (optional)")
         layout.addWidget(self.movement)
+        timing = QFormLayout()
+        self.timing = QComboBox()
+        self.timing.addItems(['Recorded timing', 'Fixed delay between events'])
+        timing.addRow('Timing', self.timing)
+        self.fixed_delay = QSpinBox()
+        self.fixed_delay.setRange(0, 3_600_000)
+        self.fixed_delay.setValue(100)
+        self.fixed_delay.setSuffix(' ms')
+        self.fixed_delay.setEnabled(False)
+        self.timing.currentIndexChanged.connect(lambda index: self.fixed_delay.setEnabled(index == 1))
+        timing.addRow('Fixed delay', self.fixed_delay)
+        layout.addLayout(timing)
         self.start_button = QPushButton("Start recording")
         self.start_button.clicked.connect(self.begin)
         layout.addWidget(self.start_button)
@@ -44,35 +70,42 @@ class RecordingDialog(QDialog):
         layout.addWidget(cancel)
 
     def begin(self):
-        self.recorder = Recorder(pointer_movement=self.movement.isChecked())
+        if self.sources:
+            return
+        self.action = None
+        self.finishing = False
+        self.events.clear()
+        self.held.clear()
+        self.recorder = Recorder(pointer_movement=self.movement.isChecked(),
+                                 fixed_delay_ms=self.fixed_delay.value() if self.timing.currentIndex() else None)
         self.movement.setEnabled(False)
+        self.timing.setEnabled(False)
+        self.fixed_delay.setEnabled(False)
         failures = []
         for path in list_devices():
-            resolved = (Path("/sys/class/input") / Path(path).name / "device").resolve()
-            if "/virtual/" in str(resolved):
+            if virtual_source(path):
                 continue
             device = None
             try:
                 device = InputDevice(path)
                 # Preserve kernel event timing rather than Qt callback timing.
                 fcntl.ioctl(device.fd, 0x400445A0, struct.pack("i", time.CLOCK_MONOTONIC))
-                keys = device.capabilities().get(ecodes.EV_KEY, [])
-                if ecodes.KEY_A not in keys and ecodes.BTN_LEFT not in keys:
+                if not recordable(device.capabilities()):
                     device.close()
                     continue
-                self.sources.append(device)
                 # Ignore keys already down when recording starts.
-                self.held.update((path, code) for code in device.active_keys())
+                held = device.active_keys()
                 notifier = QSocketNotifier(device.fd, QSocketNotifier.Type.Read, self)
                 notifier.activated.connect(lambda *_args, d=device: self.drain(d))
+                self.sources.append(device)
+                self.held.update((path, code) for code in held)
                 self.notifiers.append(notifier)
             except OSError as error:
                 if device is not None and device not in self.sources:
                     device.close()
                 failures.append(str(error))
         if not self.sources:
-            self.status.setText("No readable physical keyboard or mouse. Check input-device permissions.")
-            self.movement.setEnabled(True)
+            self.failed('No readable physical keyboard or mouse. Check input-device permissions.')
             return
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(True)
@@ -82,6 +115,8 @@ class RecordingDialog(QDialog):
         self.status.setText(message)
 
     def drain(self, device):
+        if device not in self.sources or self.recorder is None:
+            return  # A queued callback may belong to a discarded recording.
         try:
             for event in device.read():
                 if event.type == ecodes.EV_SYN and event.code == ecodes.SYN_DROPPED:
@@ -95,9 +130,7 @@ class RecordingDialog(QDialog):
         except BlockingIOError:
             pass
         except (OSError, ValueError, RuntimeError) as error:
-            self.cleanup()
-            self.stop_button.setEnabled(False)
-            self.status.setText(f"Recording stopped: {error}")
+            self.failed(f'Recording stopped: {error}')
 
     def collect(self, device, event):
         if event.type == ecodes.EV_KEY and event.code == ecodes.KEY_F12:
@@ -116,13 +149,11 @@ class RecordingDialog(QDialog):
             raise ValueError("Recording limit reached; discard this recording and retry")
 
     def finish(self, _checked=False, *, stop_time=None):
-        if self.finishing:
+        if self.finishing or self.recorder is None:
             return
         self.finishing = True
         stop_time = time.monotonic() if stop_time is None else stop_time
         try:
-            if self.recorder is None:
-                return
             # Drain siblings before sorting: Qt can dispatch interface callbacks
             # out of timestamp order, especially during multi-device chords.
             for device in self.sources:
@@ -153,13 +184,24 @@ class RecordingDialog(QDialog):
                         if any(c == code for _, c in self.held):
                             continue
                 self.recorder.feed(event_type, code, value, timestamp)
-            self.action = self.recorder.finish()
+            self.action = self.recorder.finish(timestamp=stop_time)
         except (ValueError, OSError) as error:
-            self.cleanup()
-            self.status.setText(str(error))
-            self.stop_button.setEnabled(False)
+            self.failed(str(error))
             return
         self.accept()
+
+    def failed(self, message):
+        self.cleanup()
+        self.action = self.recorder = None
+        self.events.clear()
+        self.held.clear()
+        self.finishing = False
+        self.start_button.setEnabled(True)
+        self.stop_button.setEnabled(False)
+        self.movement.setEnabled(True)
+        self.timing.setEnabled(True)
+        self.fixed_delay.setEnabled(self.timing.currentIndex() == 1)
+        self.status.setText(message + '\nYou can start a new recording or discard.')
 
     def cleanup(self):
         for notifier in self.notifiers:
@@ -167,9 +209,17 @@ class RecordingDialog(QDialog):
             notifier.deleteLater()
         self.notifiers.clear()
         for source in self.sources:
-            source.close()
+            try:
+                source.close()
+            except OSError:
+                pass  # Continue closing siblings if a disconnected fd failed.
         self.sources.clear()
 
     def done(self, result):
         self.cleanup()
+        self.events.clear()
+        self.held.clear()
+        self.recorder = None
+        if result != self.DialogCode.Accepted:
+            self.action = None
         super().done(result)
