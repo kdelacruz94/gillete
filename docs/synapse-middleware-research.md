@@ -124,7 +124,9 @@ The V3 model declaration does not specify a `macros` field in that object.
 The shared configuration contains a macro-enabled default, but the complete
 effective configuration and upload path still need tracing. Neither omission
 nor the shared macro command builders establish V3 native macro acceptance.
-The separate macro/turbo pass will check those paths and the rate conversion.
+The [macro/turbo follow-up](synapse-macro-turbo-research.md) establishes the
+rate conversion and traces the incoming macro option into the engine subclass.
+Runtime V3 options and actual storage/playback acceptance remain unobserved.
 
 The user has retired the old V2 MapleStory macros. Preserve their original raw
 binding records for restoration; do not spend validation time recovering their
@@ -150,9 +152,9 @@ before a persistent export. Its handle is gone and REA reports no active
 analysis. Do not cite that interrupted run as complete coverage. The direct
 factory-range validation and retained source bytes above remain reproducible.
 
-Next independent research: finish macro/turbo encoding and effective V3 macro
-configuration, then check the precise size-override behavior used by profile
-names and stage tables. Next physical research, when the user resumes it:
+Next independent research: finish native macro event serialization and the
+upload/rollback graph, then check the precise size-override behavior used by
+profile names and stage tables. Next physical research, when the user resumes it:
 run the prepared reversible selector-0 DPI experiment, verify the V3 wired
 read-only route, and design a separately reviewed profile-slot experiment.
 No new hardware capability is enabled by this document.

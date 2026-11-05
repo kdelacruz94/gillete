@@ -1097,3 +1097,13 @@ storage while allowing macro mappings. V3's effective macro configuration
 still needs tracing. See `synapse-middleware-research.md` for exact identities,
 command definitions, limitations and next validation steps. No hardware
 capability was enabled, and no device was accessed.
+
+The macro/turbo follow-up directly establishes first-party turbo interval
+encoding (`floor(1000 / rate)`) and rate decoding (`round(1000 / interval)`)
+for both target builds. Existing `008e` parameters therefore represent
+Synapse's 7 presses/s setting; actual firmware timing remains unmeasured.
+Also confirmed the numeric macro playback families, big-endian references,
+and the engine subclass's assignment of the incoming macro capability flag.
+Preserved the additional subclass chunks and focused REA evidence. See
+`synapse-macro-turbo-research.md`. Native event serialization, full upload
+dependencies and physical V3 macro-storage acceptance remain outstanding.

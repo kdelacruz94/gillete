@@ -77,6 +77,13 @@ host-only Synapse macro. [M3][M4][M5]
 
 ### Turbo: payload meaning is stronger than timing evidence
 
+**First-party follow-up:** [Synapse macro/turbo research](synapse-macro-turbo-research.md)
+now establishes both target builds' client conversion:
+`floor(1000 / keysPerSecond)` when encoding and
+`round(1000 / interval)` when decoding. `008e` is Synapse's encoding for its
+default 7 presses/s. This supersedes the unresolved *client formula* below;
+actual mouse playback timing and held/toggle behavior remain unmeasured.
+
 The preserved values parse structurally as follows. This is supported by the
 upstream function codec and the captures below, **not yet by measured V2
 playback**. Keep the complete original seven bytes. [S1]
