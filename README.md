@@ -61,6 +61,25 @@ Normal or HyperShift and click the physical control. In Program profiles,
 **Choose running application…** fills a rule from an open game or program;
 select **Save rules** to apply it. Title matching is optional.
 
+**Duplicate** keeps the selected profile's mappings, standalone choices and saved
+program rules. Buttons that select that same profile select the copy instead;
+buttons for other profiles keep their targets. Copied rules start disabled.
+In **Program profiles**, toggle **Enabled** and select **Save rules** to activate
+or suspend a rule without deleting it. Existing rules remain enabled when reading
+an older configuration.
+
+**Export** saves the selected profile, every profile its buttons can switch to,
+and their saved program rules in one portable JSON bundle. Save pending rule edits
+first. **Import** reviews the profiles and rules before saving; existing profiles
+are preserved and conflicting IDs/names receive distinct copies. Links between
+imported profiles follow those copies, including self-switch buttons. Imported
+rules start disabled unless **Keep enabled program rules active** is selected;
+rules disabled in the export remain disabled. Existing rules win equal-priority
+ties. Defaults, manual pins and startup choices stay as they were.
+Older single-profile exports still import. A legacy link to another local profile
+is shown in the review; missing linked profiles require a new bundle export.
+Profile bundles contain local configuration, not a backup of mouse memory.
+
 The mapping page shows the HyperShift trigger for the selected mouse. An inherited
 trigger stays **unverified** until you read its active slot in Mouse memory &
 settings; the label then identifies the trigger from that read. A profile with

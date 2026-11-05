@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from copy import deepcopy
 import asyncio
-import json
 from pathlib import Path
 import shlex
 import sys
@@ -13,13 +12,15 @@ from uuid import uuid4
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction, QActionGroup, QIcon
 from PySide6.QtWidgets import (
-    QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
+    QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit, QMainWindow, QMenu,
     QMessageBox, QPushButton, QSpinBox, QSystemTrayIcon, QTabWidget, QTableWidget,
     QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
 )
 
 from .gui_diagnostics import DiagnosticsPanel
+from .gui_profile_transfer import ImportPreview
+from .profile_transfer import duplicate as duplicate_profile, export_document, plan_import, read_bundle, write_export
 from .examples import example_profiles
 from .gui_recording import RecordingDialog
 from .gui_hardware import HardwareJob, HardwarePanel
@@ -417,10 +418,11 @@ class MainWindow(QMainWindow):
         tabs.addTab(mapping_page, "Buttons & macros")
         rules_page = QWidget()
         rules_layout = QVBoxLayout(rules_page)
-        rules_layout.addWidget(QLabel("Application class/title/executable patterns support * and ?. Higher priority wins."))
-        self.rules = QTableWidget(0, 6)
-        self.rules.setHorizontalHeaderLabels(["Profile", "Application class", "Window title", "Executable", "Mouse", "Priority"])
+        rules_layout.addWidget(QLabel("Application class/title/executable patterns support * and ?. Higher priority wins. Only enabled rules match."))
+        self.rules = QTableWidget(0, 7)
+        self.rules.setHorizontalHeaderLabels(["Profile", "Application class", "Window title", "Executable", "Mouse", "Priority", "Enabled"])
         self.rules.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.rules.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
         rules_layout.addWidget(self.rules)
         rule_tools = QHBoxLayout()
         button("Add rule", self.add_rule, rule_tools)
@@ -757,11 +759,17 @@ class MainWindow(QMainWindow):
             self.load_profiles(p.id)
 
     def duplicate(self):
-        p = deepcopy(self.current())
-        p.id, p.name = uuid4().hex, p.name + " copy"
-        self.config.profiles[p.id] = p
-        self.save_config()
-        self.load_profiles(p.id)
+        try:
+            config, identifier, rules = duplicate_profile(self.config, self.current().id)
+            self.config = config
+            if not self.save_config():
+                return
+            self.load_profiles(identifier)
+            for rule in rules:
+                self.add_rule(rule)
+            self.status.setText(f'Profile copied locally; {len(rules)} program rules added disabled.')
+        except (ValueError, OSError) as error:
+            QMessageBox.warning(self, 'Cannot duplicate profile', str(error))
 
     def rename(self):
         name, ok = QInputDialog.getText(self, "Rename profile", "Name", text=self.current().name)
@@ -801,11 +809,13 @@ class MainWindow(QMainWindow):
         self.load_profiles()
 
     def export_profile(self):
-        name, _ = QFileDialog.getSaveFileName(self, "Export profile", self.current().name + ".json", "JSON (*.json)")
+        name, _ = QFileDialog.getSaveFileName(self, "Export profile and linked profiles", self.current().name + ".json", "JSON (*.json)")
         if name:
             try:
-                Path(name).write_text(json.dumps({"version": 1, "profile": self.current().json()}, indent=2) + "\n")
-            except OSError as error:
+                document = export_document(self.config, self.current().id)
+                write_export(Path(name), document)
+                self.status.setText(f'Exported {len(document["profiles"])} profiles and {len(document["rules"])} saved program rules.')
+            except (ValueError, OSError) as error:
                 QMessageBox.warning(self, "Export failed", str(error))
 
     def import_profile(self):
@@ -813,19 +823,20 @@ class MainWindow(QMainWindow):
         if not name:
             return
         try:
-            with Path(name).open("rb") as file:
-                raw = file.read(ProfileStore.MAX_BYTES + 1)
-            if len(raw) > ProfileStore.MAX_BYTES:
-                raise ConfigurationError("Profile file is too large")
-            data = json.loads(raw)
-            if data.get("version") != 1:
-                raise ConfigurationError("Unsupported profile version")
-            p = Profile.parse(data["profile"])
-            if p.id in self.config.profiles:
-                p.id, p.name = uuid4().hex, p.name + " imported"
-            self.config.profiles[p.id] = p
-            self.save_config()
-            self.load_profiles(p.id)
+            plan = plan_import(self.config, read_bundle(Path(name)))
+            preview = ImportPreview(plan, self)
+            if preview.exec() != QDialog.DialogCode.Accepted:
+                return
+            config = plan.configuration(activate_rules=preview.activate.isChecked())
+            imported_rules = config.rules[len(self.config.rules):]
+            self.config = config
+            if not self.save_config():
+                return
+            self.load_profiles(plan.root)
+            for rule in imported_rules:
+                self.add_rule(rule)
+            self.status.setText(f'Imported {len(plan.profiles)} profiles and {len(imported_rules)} program rules '
+                                f'({sum(rule.enabled for rule in imported_rules)} enabled).')
         except (ValueError, TypeError, KeyError, OSError, AttributeError) as error:
             QMessageBox.warning(self, "Import failed", str(error))
 
@@ -848,6 +859,10 @@ class MainWindow(QMainWindow):
         model.setCurrentIndex(max(model.findData(rule.model if rule else ""), 0))
         self.rules.setCellWidget(row, 4, model)
         self.rules.setItem(row, 5, QTableWidgetItem(str(rule.priority if rule else 0)))
+        enabled = QCheckBox()
+        enabled.setAccessibleName('Enable program rule')
+        enabled.setChecked(rule.enabled if rule else True)
+        self.rules.setCellWidget(row, 6, enabled)
 
     def choose_application(self):
         if self.application_job is not None:
@@ -881,7 +896,8 @@ class MainWindow(QMainWindow):
             self.config.rules = [Rule(self.rules.cellWidget(r, 0).currentData(),
                                       self.rules.item(r, 1).text(), self.rules.item(r, 2).text(),
                                       self.rules.item(r, 3).text(), self.rules.cellWidget(r, 4).currentData(),
-                                      int(self.rules.item(r, 5).text())) for r in range(self.rules.rowCount())]
+                                      int(self.rules.item(r, 5).text()), self.rules.cellWidget(r, 6).isChecked())
+                                 for r in range(self.rules.rowCount())]
             if not self.save_config():
                 self.config.rules = old
         except ValueError as error:

@@ -800,3 +800,142 @@ def test_onboard_preview_shows_both_actions_and_keep_stored_without_claiming_a_m
     assert preview.plan.writable and not preview.changes and not preview.save_button.isEnabled()
     assert 'Macro' in preview.table.item(row, 2).text() and '(unchanged)' in preview.table.item(row, 4).text()
     shiboken6.delete(preview)
+
+
+@pytest.fixture
+def transfer_editor(app, tmp_path, monkeypatch):
+    from gillete.profiles import Rule
+    from gillete.gui_service import ServicePanel
+    from gillete.gui_diagnostics import DiagnosticsPanel
+    from gillete import hardware
+    def unexpected(*args, **kwargs):
+        raise AssertionError('Profile transfer must not use hardware or the service')
+    monkeypatch.setattr(hardware, 'transport', unexpected)
+    monkeypatch.setattr(ServicePanel, 'send', unexpected)
+    monkeypatch.setattr(DiagnosticsPanel, 'refresh_devices', lambda *args: None)
+    profile = Profile('default', 'Default', Layers(normal={'side_1': Action('profile', target='default')}))
+    store = ProfileStore(tmp_path / 'profiles.json')
+    config = Configuration(profiles={'default': profile}, rules=[Rule('default', app_class='code')])
+    store.save(config, expected_revision=0)
+    window = MainWindow(store)
+    window.service.timer.stop()
+    warnings = []
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args: warnings.append(args[2]))
+    try:
+        yield window, store, warnings
+    finally:
+        shiboken6.delete(window)
+
+
+def test_duplicate_keeps_unsaved_rules_and_saves_copied_rules_disabled(transfer_editor):
+    window, store, warnings = transfer_editor
+    window.rules.item(0, 1).setText('unsaved edit')
+    window.rules.cellWidget(0, 6).setChecked(False)
+    window.duplicate()
+    identifier = window.current().id
+    saved = store.read()
+    assert identifier != 'default' and saved.profiles[identifier].common.normal['side_1'].target == identifier
+    assert saved.rules[0].app_class == 'code' and saved.rules[0].enabled
+    assert saved.rules[1].profile == identifier and not saved.rules[1].enabled
+    assert window.rules.item(0, 1).text() == 'unsaved edit' and not window.rules.cellWidget(0, 6).isChecked()
+    assert window.rules.rowCount() == 2 and not window.rules.cellWidget(1, 6).isChecked()
+    window.save_rules()
+    saved = store.read()
+    assert saved.rules[0].app_class == 'unsaved edit' and not saved.rules[0].enabled
+    assert not warnings
+
+
+def test_gui_export_keeps_saved_rules_and_linked_profiles(transfer_editor, tmp_path, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog
+    from gillete.profile_transfer import read_bundle
+    window, store, warnings = transfer_editor
+    window.config.profiles['linked'] = Profile('linked', 'Linked')
+    window.current().common.shifted['side_2'] = Action('profile', target='linked')
+    assert window.save_config()
+    window.rules.item(0, 1).setText('not yet saved')
+    path = tmp_path / 'export.json'
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), 'JSON'))
+    window.export_profile()
+    bundle = read_bundle(path)
+    assert set(bundle.profiles) == {'default', 'linked'}
+    assert bundle.rules == tuple(store.read().rules) and bundle.rules[0].app_class == 'code'
+    assert 'saved program rules' in window.status.text() and not warnings
+
+
+@pytest.mark.parametrize('activate', [False, True])
+def test_gui_import_reviews_before_save_and_retains_unsaved_rule_rows(transfer_editor, tmp_path, monkeypatch, activate):
+    from PySide6.QtWidgets import QFileDialog
+    from gillete.gui_profile_transfer import ImportPreview
+    from gillete.profile_transfer import export_document, write_export
+    window, store, warnings = transfer_editor
+    before = store.read().json()
+    path = tmp_path / 'import.json'
+    write_export(path, export_document(window.config, 'default'))
+    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: (str(path), 'JSON'))
+    window.rules.item(0, 1).setText('unsaved edit')
+    window.add_rule()
+    window.rules.item(1, 1).setText('draft rule')
+    def review(dialog):
+        assert store.read().json() == before
+        assert not dialog.activate.isChecked() and dialog.activate.isEnabled()
+        assert dialog.rules.rowCount() == 1 and dialog.rules.item(0, 3).text() == 'Enabled'
+        dialog.activate.setChecked(activate)
+        return dialog.DialogCode.Accepted
+    monkeypatch.setattr(ImportPreview, 'exec', review)
+    window.import_profile()
+    saved = store.read()
+    assert len(saved.profiles) == 2 and len(saved.rules) == 2
+    assert saved.rules[-1].enabled is activate and saved.rules[-1].profile == window.current().id
+    assert window.current().common.normal['side_1'].target == window.current().id
+    assert window.rules.rowCount() == 3
+    assert [window.rules.item(r, 1).text() for r in range(3)] == ['unsaved edit', 'draft rule', 'code']
+    assert window.rules.cellWidget(2, 6).isChecked() is activate
+    assert saved.defaults == before['defaults'] and saved.pinned == before['pinned']
+    assert not warnings
+
+
+@pytest.mark.parametrize('operation', ['duplicate', 'import'])
+def test_failed_transfer_rolls_back_profiles_rules_and_selection(transfer_editor, tmp_path, monkeypatch, operation):
+    from PySide6.QtWidgets import QFileDialog
+    from gillete.gui_profile_transfer import ImportPreview
+    from gillete.profile_transfer import export_document, write_export
+    window, store, warnings = transfer_editor
+    before = store.read().json()
+    path = tmp_path / 'import.json'
+    write_export(path, export_document(window.config, 'default'))
+    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: (str(path), 'JSON'))
+    monkeypatch.setattr(ImportPreview, 'exec', lambda dialog: dialog.DialogCode.Accepted)
+    def fail_save(*args, **kwargs):
+        raise OSError('Disk full')
+    monkeypatch.setattr(store, 'save', fail_save)
+    window.rules.item(0, 1).setText('unsaved edit')
+    (window.duplicate if operation == 'duplicate' else window.import_profile)()
+    assert window.config.json() == before == store.read().json()
+    assert window.current().id == 'default' and window.rules.rowCount() == 1
+    assert window.rules.item(0, 1).text() == 'unsaved edit'
+    assert warnings == ['Disk full']
+
+
+def test_cancelled_import_and_stale_preview_leave_disk_unchanged(transfer_editor, tmp_path, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog
+    from gillete.gui_profile_transfer import ImportPreview
+    from gillete.profile_transfer import export_document, write_export
+    window, store, warnings = transfer_editor
+    before = store.read().json()
+    path = tmp_path / 'import.json'
+    write_export(path, export_document(window.config, 'default'))
+    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: (str(path), 'JSON'))
+    monkeypatch.setattr(ImportPreview, 'exec', lambda dialog: dialog.DialogCode.Rejected)
+    window.import_profile()
+    assert window.config.json() == before == store.read().json() and not warnings
+    def concurrent_edit(dialog):
+        changed = store.read()
+        changed.profiles['default'].name = 'Renamed elsewhere'
+        store.save(changed, expected_revision=changed.revision)
+        return dialog.DialogCode.Accepted
+    monkeypatch.setattr(ImportPreview, 'exec', concurrent_edit)
+    window.import_profile()
+    saved = store.read()
+    assert len(saved.profiles) == 1 and saved.profiles['default'].name == 'Renamed elsewhere'
+    assert window.config.json() == before and window.rules.rowCount() == 1
+    assert len(warnings) == 1 and 'changed elsewhere' in warnings[0]

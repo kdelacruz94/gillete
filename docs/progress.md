@@ -907,3 +907,47 @@ heights now recompute at the actual viewport width so the validation text is
 readable without excessive blank space. Hardware acceptance, settings and
 receiver reconnect/persistence tests remain deferred; no real input ownership,
 remapping, hardware query or startup preference was changed.
+
+## Portable profile bundles and optional program rules
+
+Offline editor checks reproduced two profile-management defects: duplicating a
+profile left self-switch buttons pointing at the original, and single-profile
+exports omitted program rules and profiles referenced by button actions. Copies
+now rebase self-references across shared and per-mouse Normal/HyperShift layers,
+retain other local profile links and standalone choices, and copy their saved
+program rules in a disabled state. Long or repeated names receive bounded,
+distinct names. The source configuration remains unchanged until the new copy
+is saved successfully.
+
+Version2 exports contain the selected profile, the transitive set of linked
+profiles (including cycles), and saved program rules for that set. They exclude
+default selections, pins, startup preferences and hardware recovery data.
+Exports use private atomic replacement, preserving an older backup if writing
+or replacement fails. Import validates the complete graph before review,
+allocates collision-free identities across local and incoming profiles, and
+rewires all imported self/cross references together. A missing dependency in a
+new bundle cannot silently bind to an unrelated local profile with the same ID.
+
+Native import review lists profile names, linked copies and source rule states.
+Rules are retained disabled by default; explicit activation preserves each
+source rule's enabled/disabled state. Existing equal-priority rules retain
+precedence. The Program profiles table now supports enabling/disabling a rule
+without deleting it, with changes applied by Save rules. Older configurations
+default existing rules to enabled. Legacy version1 exports still import; any
+external link must exist locally and is shown in review, otherwise import asks
+for a new bundle containing its dependencies.
+
+The editor preserves unsaved rule rows during successful copy/import and
+rolls back the proposed local configuration on save failure. Cancelling review
+writes nothing, and a concurrent edit detected by the store's revision guard
+is not overwritten. Imported profiles do not replace defaults, pins or startup
+choices. Existing service preflight still applies to new profiles; this work
+does not loosen unknown stored-action or HyperShift reachability checks.
+
+All 403 tests pass. New checks cover cyclic exports, self/cross links in both
+layers and model overrides, macro/standalone preservation, ID and name collisions,
+optional rule activation, legacy links, strict schema/size/count limits, private
+atomic exports, disabled-rule persistence, native review/cancellation, unsaved
+editor rows and failed or conflicting saves. The import-review layout was also
+rendered and inspected offscreen with synthetic profiles. No live hardware,
+input, service or startup state was changed; physical tests remain deferred.

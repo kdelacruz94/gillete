@@ -37,6 +37,7 @@ class Rule:
     executable: str = ""
     model: str = ""
     priority: int = 0
+    enabled: bool = True
 
     def __post_init__(self):
         for name in ("profile", "app_class", "title", "executable", "model"):
@@ -48,9 +49,11 @@ class Rule:
         if self.model and self.model not in MODELS:
             raise ConfigurationError("Unknown rule device")
         integer(self.priority, "Rule priority", -10000, 10000)
+        if type(self.enabled) is not bool:
+            raise ConfigurationError('Rule enabled state must be true or false')
 
     def matches(self, model: str, window: Window) -> bool:
-        if not window.address or (self.model and self.model != model):
+        if not self.enabled or not window.address or (self.model and self.model != model):
             return False
         return all(not pattern or fnmatchcase(getattr(window, name), pattern)
                    for name, pattern in (("app_class", self.app_class),
