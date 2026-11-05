@@ -1,5 +1,7 @@
 import asyncio
 import json
+import signal
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -14,7 +16,8 @@ from gillete.hardware import Snapshot
 from gillete.model import MODELS
 from gillete.onboard import Location
 from gillete.profiles import Configuration, ProfileStore
-from gillete.service import Daemon
+from gillete.protocol import ProtocolError
+from gillete.service import Daemon, request
 
 
 @pytest.mark.parametrize('fail_keyboard_setup', [False, True])
@@ -145,3 +148,157 @@ def test_uncertain_device_setting_is_rolled_back_and_journal_is_recoverable(tmp_
     io.current = b'\1\2'
     restore_setting(io, path, document)
     assert io.current == b'\1\0'
+
+
+def test_saved_startup_waits_for_monitors_and_disable_cancels_pending_choice(tmp_path):
+    async def check():
+        store = ProfileStore(tmp_path / 'profiles.json')
+        config = store.read()
+        config.startup_models = list(MODELS)
+        store.save(config, expected_revision=0)
+        daemon = Daemon(store)
+        installs = []
+        async def install(): installs.append(True)
+        daemon.emergency.install = install
+        await daemon.start_preferences()
+        assert not daemon.requested and not installs
+        await daemon.command({'command': 'disable', 'model': MODELS[0]})
+        daemon.sleep_monitor_ready = True
+        await daemon.start_preferences()
+        assert not daemon.requested
+        daemon.coordinator.available = True
+        daemon.suspended = True
+        await daemon.start_preferences()
+        assert not daemon.requested
+        daemon.suspended = False
+        await daemon.start_preferences()
+        assert daemon.requested == {MODELS[1]} and len(installs) == 1
+        await daemon.start_preferences()
+        assert len(installs) == 1 and not daemon.startup_pending
+        # User startup choices persist; live disabling does not silently rewrite them.
+        assert store.read().startup_models == list(MODELS)
+    asyncio.run(check())
+
+
+def test_startup_failure_is_visible_and_never_retried_without_explicit_enable(tmp_path):
+    async def check():
+        store = ProfileStore(tmp_path / 'profiles.json')
+        config = store.read()
+        config.startup_models = [MODELS[0]]
+        store.save(config, expected_revision=0)
+        daemon = Daemon(store)
+        daemon.coordinator.available = daemon.sleep_monitor_ready = True
+        attempts = []
+        async def conflict():
+            attempts.append(True)
+            raise RuntimeError('Emergency shortcut already bound')
+        daemon.emergency.install = conflict
+        await daemon.start_preferences()
+        await daemon.start_preferences()
+        assert len(attempts) == 1 and not daemon.requested and not daemon.startup_pending
+        assert 'already bound' in daemon.status()['devices'][MODELS[0]]['error']
+        with pytest.raises(ValueError, match='different profile'):
+            await daemon.command({'command': 'enable', 'model': MODELS[1], 'config_path': '/different.json'})
+        assert len(attempts) == 1
+    asyncio.run(check())
+
+
+def test_cancelling_startup_waits_for_shortcut_ownership_before_cleanup(tmp_path):
+    async def check():
+        store = ProfileStore(tmp_path / 'profiles.json')
+        config = store.read()
+        config.startup_models = [MODELS[1]]
+        store.save(config, expected_revision=0)
+        daemon = Daemon(store)
+        daemon.sleep_monitor_ready = daemon.coordinator.available = True
+        started, finish = asyncio.Event(), asyncio.Event()
+        installed = []
+        async def install():
+            started.set()
+            await finish.wait()
+            installed.append(True)
+        daemon.emergency.install = install
+        task = asyncio.create_task(daemon.start_preferences())
+        await started.wait()
+        task.cancel()
+        await asyncio.sleep(0)
+        assert not task.done() and not daemon.requested
+        finish.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert installed == [True] and not daemon.requested
+    asyncio.run(check())
+
+
+def test_focus_loss_rejects_new_input_before_it_can_start_an_action(tmp_path):
+    from gillete.reports import Frame
+    async def check():
+        session = DeviceSession(SimpleNamespace(), ProfileCoordinator(Configuration()), tmp_path, None)
+        seen = []
+        async def feed(frame): seen.append(frame)
+        session.frames.put_nowait((time.monotonic(), Frame('pointer', frozenset({'left_click'}))))
+        with pytest.raises(ProtocolError, match='focus monitoring'):
+            await session.process_frames(SimpleNamespace(feed=feed))
+        assert not seen
+    asyncio.run(check())
+
+
+def test_real_service_socket_startup_config_identity_and_orderly_shutdown(tmp_path, monkeypatch):
+    import gillete.service as services
+    async def check():
+        store = ProfileStore(tmp_path / 'profiles.json')
+        config = store.read()
+        config.startup_models = [MODELS[1]]
+        store.save(config, expected_revision=0)
+        daemon = Daemon(store)
+        ready = asyncio.Event()
+        restored = []
+        class Session:
+            def __init__(self, device, *_args):
+                self.ready = False
+                self.engine = None
+                self.error = ''
+                self.stop_requested = asyncio.Event()
+            async def run(self):
+                self.ready = True
+                ready.set()
+                try:
+                    await self.stop_requested.wait()
+                finally:
+                    self.ready = False
+                    restored.append(True)
+        async def focus():
+            daemon.coordinator.available = True
+            await asyncio.Future()
+        async def sleep_monitor():
+            daemon.sleep_monitor_ready = True
+            await asyncio.Future()
+        shortcut = []
+        async def install(): shortcut.append('installed')
+        async def remove(): shortcut.append('removed')
+        monkeypatch.setattr(services, 'DeviceSession', Session)
+        monkeypatch.setattr(services, 'discover', lambda: [SimpleNamespace(model=MODELS[1])])
+        daemon.focus.run = focus
+        daemon.watch_sleep = sleep_monitor
+        daemon.emergency.install, daemon.emergency.remove = install, remove
+        path = tmp_path / 'runtime/control.sock'
+        task = asyncio.create_task(daemon.run(path))
+        try:
+            await asyncio.wait_for(ready.wait(), 3)
+            state = await request('status', path=path, config_path=store.path)
+            assert state['devices'][MODELS[1]]['active'] and not state['devices'][MODELS[0]]['requested']
+            with pytest.raises(RuntimeError, match='different profile'):
+                await request('disable', model=MODELS[1], path=path, config_path=tmp_path / 'other.json')
+            assert not restored
+            await request('shutdown', path=path, config_path=store.path)
+            await asyncio.wait_for(task, 3)
+            assert restored == [True] and shortcut == ['installed', 'removed']
+            assert not path.exists()
+            with pytest.raises(ValueError, match='shutting down'):
+                await daemon.command({'command': 'enable', 'model': MODELS[1]})
+        finally:
+            daemon.shutdown.set()
+            await task
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                asyncio.get_running_loop().remove_signal_handler(sig)
+    asyncio.run(check())

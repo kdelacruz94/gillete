@@ -125,7 +125,8 @@ service without checking/restoring its mode journal afterward.
   pins, argv-only launch, device ownership/identity checks, mode restore,
   reconnect attempts, idle-gap and active-hold wireless liveness checks,
   logind PrepareForSleep monitor, private same-UID Unix socket.
-  Service starts with both mice disabled. Ctrl+Alt+Pause is added only when
+  Service starts with both mice disabled by default; explicit Startup choices
+  apply at the next start after focus/suspend/shortcut preflight. Ctrl+Alt+Pause is added only when
   enabling; an existing different binding blocks activation. Removing the
   shortcut only removes this app's unchanged binding.
 - keyboard_map: per-output Hyprland `fkeys:basic_13-24` plus
@@ -137,12 +138,24 @@ service without checking/restoring its mode journal afterward.
 - gui_service: service start/stop, per-mouse enable/disable, emergency stop, live
   status/tray tooltip. GUI can close while daemon continues. Hardware panel needs
   software control disabled because the service owns the HID transport lock.
+- startup/gui_startup/gui_instance: opt-in Hyprland/UWSM XDG desktop startup,
+  separate per-mouse startup choices, and one editor per profile file. A second
+  launch reopens the existing hidden window; a crashed editor's socket is
+  reclaimed only after acquiring its process lock. Startup saving never enables
+  a current session. A conflicting autostart entry is preserved. Existing
+  profile configurations load with an empty startup selection.
+- Service requests from the GUI carry the exact profile path; a different
+  configuration cannot accidentally control the current daemon. Enable/disable
+  commands are serialized, shutdown waits for shortcut ownership verification,
+  and supervisors stop before session cleanup. Focus-monitor loss rejects new
+  translated input and restores normal mode until monitoring returns.
 - validation_pad/guided_service: prepared bounded V3 software acceptance test.
 
 ## Verification completed
 
-Latest completed suite: **92 tests passed**, including settings failure/recovery,
-native settings/control/application dialogs and tray profile changes. The native editor and validation pad
+Latest completed suite: **107 tests passed**, including settings failure/recovery,
+startup/service recovery, real editor processes, native settings/control/application
+dialogs and tray profile changes. The native editor and validation pad
 both passed offscreen open/close smoke checks. Explicit Qt top-level deletion
 before QApplication shutdown avoids a Python 3.14/PySide6 6.12 teardown crash.
 Tests also explicitly destroy Qt widgets before their QApplication.
@@ -263,7 +276,7 @@ Files produced by sudo were chowned back to the checkout owner, staying 0600.
    live V2 acceptance without silently losing them.
 3. Physical DPI/stage/polling acceptance (editing/recovery are implemented); slot
    selection/CRUD evidence; wired transport; receiver unplug/replug persistence.
-4. Real recorder acceptance, startup preference,
+4. Real recorder acceptance, real-login startup acceptance,
    system package install/remove verification and eventual agreed input-remapper
    migration. Overall goal is not complete.
 
@@ -337,3 +350,42 @@ The registered goal may still display blocked from an earlier unanswered
 interview; all those questions have since been answered. The goal tool has no
 active/resume mutation. Continue authorized work without creating a duplicate
 or marking this incomplete application complete.
+
+## Startup implementation and software verification (November 5)
+
+The local initial source checkpoint is `ac8f71b`. The next implementation adds
+the Startup tab and single-instance editor behavior. No desktop startup entry
+or startup mouse choice was enabled for the user's real configuration. No
+mouse mode or stored setting was changed by these checks.
+
+- Profile tests cover backward-compatible disabled defaults, persisted startup
+  choices, invalid selections and preserving unrelated external edits.
+- A temporary Desktop Entry was executed by the real GLib/GioUnix launcher to
+  verify spaces, quotes, backslashes, percent signs and shell-looking text all
+  arrive as literal argv values. This launched only a temporary argument recorder.
+- Separate real Qt processes verified reopening a hidden editor and reclaiming
+  the socket after a simulated crash. Tests use isolated runtime/config paths.
+- Real local service sockets with a simulated device session verified startup
+  preflight, configuration identity checks and shutdown cleanup. Separate cases
+  cover disabling a pending startup choice, shortcut conflict, focus loss and
+  cancellation during shortcut installation.
+- A real desktop integration check used an isolated empty profile configuration
+  and an offscreen editor with `start_service=True`. Actual Hyprland focus and
+  logind suspend monitoring became ready, both mice remained disabled, a second
+  GUI launch reused the same daemon socket, and both processes shut down cleanly.
+  No physical input interfaces were opened for remapping.
+
+The underlying desktop on this host uses UWSM and has an active
+graphical-session.target. Startup follows the
+[XDG autostart specification](https://specifications.freedesktop.org/autostart/latest/)
+and [Desktop Entry argument rules](https://specifications.freedesktop.org/desktop-entry/latest/exec-variables.html).
+Plain Hyprland without an autostart manager is documented with the explicit
+`gillete gui --background --start-service` session command. A real login and
+enabled-mouse startup test remain part of final acceptance after cutover approval.
+
+The rebuilt Arch package and wheel passed `tools/check_package.py`, including
+the new startup/single-instance modules, staged native GUI and separate wheel
+installation. The complete automated suite passed 107 tests. Final read-only
+inspection confirmed the user's `startup_models` is empty, desktop startup is
+off, and no Gillete service or hardware test remains running. The V2 wake-up
+question is still pending; do not infer readiness from the software checks.

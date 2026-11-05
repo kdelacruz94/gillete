@@ -58,9 +58,14 @@ class Configuration:
     pinned: dict[str, str] = field(default_factory=dict)
     rules: list[Rule] = field(default_factory=list)
     revision: int = 0
+    startup_models: list[str] = field(default_factory=list)
 
     def validate(self):
         integer(self.revision, "Revision", 0, 2**53 - 1)
+        if (not isinstance(self.startup_models, list)
+                or any(not isinstance(m, str) or m not in MODELS for m in self.startup_models)
+                or len(set(self.startup_models)) != len(self.startup_models)):
+            raise ConfigurationError("Invalid startup mouse selection")
         if not 1 <= len(self.profiles) <= 1000 or len(self.rules) > 1000:
             raise ConfigurationError("Invalid profile or rule count")
         if set(self.defaults) != set(MODELS) or set(self.pinned) - set(MODELS):
@@ -94,11 +99,11 @@ class Configuration:
         return {"version": 1, "revision": self.revision,
                 "profiles": [p.json() for p in self.profiles.values()],
                 "defaults": self.defaults, "pinned": self.pinned,
-                "rules": [asdict(r) for r in self.rules]}
+                "rules": [asdict(r) for r in self.rules], "startup_models": self.startup_models}
 
     @classmethod
     def parse(cls, data: Any) -> Configuration:
-        fields = object_fields(data, {"version", "revision", "profiles", "defaults", "pinned", "rules"}, "configuration")
+        fields = object_fields(data, {"version", "revision", "profiles", "defaults", "pinned", "rules", "startup_models"}, "configuration")
         if type(fields.get("version")) is not int or fields["version"] != 1:
             raise ConfigurationError("Unsupported configuration version")
         profiles, rules = fields.get("profiles"), fields.get("rules", [])
@@ -114,7 +119,7 @@ class Configuration:
             raise ConfigurationError("Defaults/pins must be objects")
         result = cls({p.id: p for p in parsed}, defaults, pinned,
                      [Rule(**object_fields(r, set(Rule.__dataclass_fields__), "rule")) for r in rules],
-                     fields.get("revision", 0))
+                     fields.get("revision", 0), fields.get("startup_models", []))
         result.validate()
         return result
 

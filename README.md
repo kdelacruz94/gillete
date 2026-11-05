@@ -44,10 +44,15 @@ another remapper's exclusive ownership may make its mouse events unavailable.
 
 The shortcut examples are optional imports. Pin/Automatic selections persist
 locally. The Software control tab starts the background service and explicitly
-enables each mouse. Starting the service alone leaves both mice disabled.
+enables each mouse. Both mice start disabled by default. The Startup tab lets
+you explicitly select which mice to enable on future service starts. It waits
+for focus and suspend monitoring, then checks the emergency shortcut and input
+ownership before activation. Saving startup choices does not change current
+software control. Existing configurations retain the disabled default.
 The tray menu provides profile pins and Automatic for each mouse, enable/disable,
 and stopping software actions. Closing the editor hides it when a system tray
 is available; **Quit editor** exits the UI while the service can continue.
+Opening Gillete again brings back the existing editor for that profile file.
 Ctrl+Alt+Pause stops generated actions while the service is active; an existing
 Hyprland binding on that chord is preserved and prevents activation.
 
@@ -57,6 +62,19 @@ profiles without writing onboard bindings. Suspend/disconnect/focus loss cancel
 macros and turbo; ordinary unchanged mouse dragging survives a focus transition.
 Do not enable two remappers for the same mouse. The service reports ownership
 conflicts instead of stopping another application.
+If focus monitoring disconnects, new mapped input is blocked and normal mouse
+mode is restored. Reconnection waits for monitoring to return; macros do not
+resume automatically.
+
+**Start with desktop** is a separate opt-in in the Startup tab. It creates an
+[XDG autostart entry](https://specifications.freedesktop.org/autostart/latest/)
+for Hyprland/UWSM, opening the tray and starting the service at the next login.
+It preserves a conflicting existing entry instead of overwriting it. Plain
+Hyprland sessions need an XDG autostart manager, or may launch
+`gillete gui --background --start-service` from their own session startup.
+Neither desktop startup nor mouse startup choices have been enabled during
+development; enable them only at the agreed migration. Desktop launch arguments
+follow the [Desktop Entry Exec rules](https://specifications.freedesktop.org/desktop-entry/latest/exec-variables.html).
 
 On Hyprland, Gillete applies `fkeys:basic_13-24` and symbol-based shortcut
 resolution only to its virtual output keyboard. This prevents standard XKB

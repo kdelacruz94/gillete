@@ -18,7 +18,8 @@ def main():
     wheel = root / 'dist/gillete-0.1.0-py3-none-any.whl'
     with zipfile.ZipFile(wheel) as archive:
         assert not any('evidence/' in name or '.local' in name for name in archive.namelist())
-        for module in ('settings', 'gui_settings', 'gui_controls', 'gui_applications', 'keyboard_map'):
+        for module in ('settings', 'gui_settings', 'gui_controls', 'gui_applications', 'keyboard_map',
+                       'startup', 'gui_startup', 'gui_instance'):
             assert f'gillete/{module}.py' in archive.namelist()
     with TemporaryDirectory(prefix='gillete-package-check-') as temporary:
         stage = Path(temporary)
@@ -35,7 +36,10 @@ def main():
             assert (stage / filename).is_file()
         sites = list(stage.glob('usr/lib/python*/site-packages'))
         assert len(sites) == 1
+        runtime = stage / 'runtime'
+        runtime.mkdir(mode=0o700)
         environment = {**os.environ, 'PYTHONPATH': str(sites[0]), 'QT_QPA_PLATFORM': 'offscreen',
+                       'XDG_RUNTIME_DIR': str(runtime),
                        'XDG_CONFIG_HOME': str(stage / 'config'), 'XDG_STATE_HOME': str(stage / 'state')}
         run([str(executable), '--config', str(stage / 'profiles.json'), 'validate'], env=environment)
         gui_smoke = '''

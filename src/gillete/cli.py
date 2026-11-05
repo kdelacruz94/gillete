@@ -24,8 +24,10 @@ def main(argv=None):
     sub.add_parser("validate", help="Validate local profiles without activating them")
     example = sub.add_parser("example", help="Preview a requested macro using simulated output")
     example.add_argument("name", choices=("excel", "vscode", "herdr"))
-    sub.add_parser("gui", help="Open the native profile editor")
-    sub.add_parser('daemon', help='Run the user service; mice remain disabled until explicitly enabled')
+    gui = sub.add_parser("gui", help="Open the native profile editor")
+    gui.add_argument('--background', action='store_true', help='Start in the tray when available')
+    gui.add_argument('--start-service', action='store_true', help='Also start the service, using saved startup mouse choices')
+    sub.add_parser('daemon', help='Run the user service; startup mouse choices are off by default')
     control = sub.add_parser('control', help='Control the user service')
     control.add_argument('action', choices=('status', 'enable', 'disable', 'pin', 'stop-actions', 'shutdown'))
     control.add_argument('--model', choices=('v2', 'v3'))
@@ -42,7 +44,8 @@ def main(argv=None):
         elif args.command == 'control':
             from .service import request
             model = MODELS[0 if args.model == 'v2' else 1] if args.model else None
-            result = asyncio.run(request(args.action, model=model, profile=args.profile))
+            result = asyncio.run(request(args.action, model=model, profile=args.profile,
+                                         config_path=store.path if args.config else None))
             print(json.dumps(result if args.action == 'status' else result['devices'], indent=2))
         elif args.command in {"snapshot", "recover"}:
             from .hid import snapshot_device
@@ -70,7 +73,8 @@ def main(argv=None):
             asyncio.run(preview())
         else:
             from .gui import start
-            return start(store)
+            return start(store, background=getattr(args, 'background', False),
+                         start_service=getattr(args, 'start_service', False))
     except (ValueError, OSError, RuntimeError) as error:
         print(f"gillete: {error}", file=sys.stderr)
         return 1

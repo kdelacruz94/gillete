@@ -1,4 +1,4 @@
-"""Native profile/macro editor. Opening it never activates remapping or USB writes."""
+"""Native editor; service startup is opt-in and mouse-memory writes are explicit."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import shlex
 import sys
 from uuid import uuid4
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction, QActionGroup, QIcon
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
@@ -26,6 +26,7 @@ from .gui_hardware import HardwareJob, HardwarePanel
 from .gui_service import ServicePanel
 from .gui_controls import ControlSelector
 from .gui_applications import ApplicationPicker
+from .gui_startup import StartupPanel
 from .focus import query_windows
 from .model import Action, ConfigurationError, Layers, MODEL_CONTROLS, MODELS, Profile, Step, sequence
 from .profiles import ProfileStore, Rule
@@ -312,6 +313,9 @@ class MainWindow(QMainWindow):
         self.service.updated.connect(self.service_status)
         self.service.command_finished.connect(self.service_command_finished)
         tabs.addTab(self.service, 'Software control')
+        self.startup = StartupPanel(self.store, self)
+        self.startup.saved.connect(lambda: self.service_command_finished('pin', None))
+        tabs.addTab(self.startup, 'Startup')
         self.profile.currentIndexChanged.connect(self.refresh)
         self.model.currentIndexChanged.connect(self.refresh)
         self.scope.currentIndexChanged.connect(self.refresh)
@@ -685,22 +689,40 @@ class MainWindow(QMainWindow):
         self.device_info.setPlainText("\n".join(lines) if devices else "No supported Naga mice connected.")
 
 
-def start(store=None):
+def start(store=None, *, background=False, start_service=False):
+    from .gui_instance import EditorInstance
     app = QApplication.instance() or QApplication(sys.argv[:1])
     app.setApplicationName("Gillete")
     app.setDesktopFileName('org.gillete.Gillete')
-    window = MainWindow(store or ProfileStore())
-    window.show()
+    store = store or ProfileStore()
+    instance = EditorInstance(store.path, app)
+    window = None
     try:
+        if not instance.claim(show=not background, start_service=start_service):
+            return 0
+        window = MainWindow(store)
+        def requested(data):
+            if data['show']:
+                window.open_from_tray()
+            if data['start_service']:
+                window.service.start_service()
+        instance.received.connect(requested)
+        if not background or window.tray is None:
+            window.show()
+        if start_service:
+            QTimer.singleShot(0, window.service.start_service)
         return app.exec()
     finally:
         # Dispose of the top-level widget before QApplication's shutdown walk.
         # Signal callbacks can otherwise keep its Python wrapper alive while
         # Qt is destroying its children (observed with Python 3.14/PySide 6.12).
         import shiboken6
-        window.service.shutdown_ui()
-        if window.application_job is not None:
-            window.application_job.wait()
-        if window.hardware.job is not None:
-            window.hardware.job.wait()
-        shiboken6.delete(window)
+        if window is not None:
+            window.service.shutdown_ui()
+            if window.application_job is not None:
+                window.application_job.wait()
+            if window.hardware.job is not None:
+                window.hardware.job.wait()
+            shiboken6.delete(window)
+        instance.close()
+        shiboken6.delete(instance)

@@ -60,8 +60,13 @@ class ServicePanel(QWidget):
         self.timer.start()
 
     def start_service(self):
+        # Repeated desktop/manual launches reuse the current daemon. Only an
+        # absent socket starts a process; timeouts and config conflicts do not.
+        self.send('ensure-service')
+
+    def spawn_service(self):
         ok, _ = QProcess.startDetached(sys.executable, ['-m', 'gillete.cli', '--config', str(self.store.path), 'daemon'])
-        self.info.setPlainText('Starting service… Mice remain disabled.' if ok else 'Could not start the service.')
+        self.info.setPlainText('Starting service… Saved startup mouse choices will apply.' if ok else 'Could not start the service.')
 
     def poll(self):
         self.send('status', quiet=True)
@@ -71,7 +76,15 @@ class ServicePanel(QWidget):
             if not quiet:
                 self.pending.append((command, model, quiet, profile))
             return
-        self.job = HardwareJob(lambda: asyncio.run(request(command, model=model, profile=profile)), self)
+        async def run():
+            try:
+                return await request('status' if command == 'ensure-service' else command,
+                                     model=model, profile=profile, config_path=self.store.path)
+            except (FileNotFoundError, ConnectionRefusedError):
+                if command == 'ensure-service':
+                    return None
+                raise
+        self.job = HardwareJob(lambda: asyncio.run(run()), self)
         self.job.succeeded.connect(lambda data: self.succeeded(command, data))
         self.job.failed.connect(lambda error: self.failed(error, quiet))
         self.job.finished.connect(self.finished)
@@ -85,6 +98,9 @@ class ServicePanel(QWidget):
             self.send(command, model, quiet, profile)
 
     def succeeded(self, command, data):
+        if command == 'ensure-service' and data is None:
+            self.spawn_service()
+            return
         self.status(data)
         self.command_finished.emit(command, data)
 
@@ -107,7 +123,9 @@ class ServicePanel(QWidget):
                  'Suspend monitoring: ' + ('ready' if data['suspend_monitor'] else 'unavailable')]
         for model, name in zip(MODELS, ('Naga V2 HyperSpeed', 'Naga V3 Pro')):
             state = data['devices'][model]
-            self.labels[model].setText(f"{name} — {'active' if state['active'] else 'starting' if state['requested'] else 'disabled'} · {state['mode']}"
+            phase = ('active' if state['active'] else 'starting' if state['requested'] else
+                     'waiting for desktop' if model in data.get('startup_pending', []) else 'disabled')
+            self.labels[model].setText(f"{name} — {phase} · {state['mode']}"
                                        + (f" · profile {state['profile']}" if state['profile'] else ''))
             self.enable[model].setEnabled(not state['requested'])
             self.disable[model].setEnabled(state['requested'] or state['active'])

@@ -140,6 +140,8 @@ class DeviceSession:
                 self.needs_mode_check = False
             previous = timestamp
             async with self.coordinator.lock:
+                if not self.coordinator.available:
+                    raise ProtocolError('Hyprland focus monitoring is unavailable; reconnecting')
                 await router.feed(frame)
 
     async def process_controls(self, controls):

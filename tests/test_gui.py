@@ -13,6 +13,8 @@ from gillete.gui_applications import ApplicationPicker
 from gillete.profiles import Window
 from gillete.profiles import ProfileStore
 from gillete.gui_settings import SettingsDialog, SettingsPreview
+from gillete.gui_startup import StartupPanel
+from gillete.startup import AutostartEntry
 from gillete.settings import plan
 from types import SimpleNamespace
 
@@ -183,3 +185,31 @@ def test_application_picker_matches_literal_app_ids_and_optional_titles(app):
     assert rule.matches(MODELS[1], selected)
     assert not rule.matches(MODELS[1], Window('b', selected.app_class, 'Game 1hello', selected.executable))
     shiboken6.delete(picker)
+
+
+def test_startup_preferences_preserve_external_profile_edits_and_do_not_activate(app, tmp_path, monkeypatch):
+    from gillete import service
+    async def forbidden(*args, **kwargs): raise AssertionError('Preferences must not send service commands')
+    monkeypatch.setattr(service, 'request', forbidden)
+    store = ProfileStore(tmp_path / 'profiles.json')
+    entry = AutostartEntry(store.path, path=tmp_path / 'autostart/gillete.desktop')
+    panel = StartupPanel(store, entry=entry)
+    changed = store.read()
+    changed.profiles['default'].name = 'Changed elsewhere'
+    store.save(changed, expected_revision=0)
+    panel.mice[MODELS[1]].setChecked(True)
+    panel.save_mice()
+    assert store.read().startup_models == [MODELS[1]]
+    assert store.read().profiles['default'].name == 'Changed elsewhere'
+    assert not entry.path.exists()
+    panel.desktop.setChecked(True)
+    assert entry.enabled()
+    panel.desktop.setChecked(False)
+    assert not entry.enabled()
+    before = store.path.read_bytes()
+    def fail(*args, **kwargs): raise OSError('Disk full')
+    monkeypatch.setattr(store, 'save', fail)
+    panel.mice[MODELS[0]].setChecked(True)
+    panel.save_mice()
+    assert 'Not saved' in panel.result.text() and store.path.read_bytes() == before
+    shiboken6.delete(panel)
