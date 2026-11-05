@@ -988,3 +988,51 @@ receivers' preflight before simulated output setup. Real engines, profile
 storage and daemon reload/command paths are exercised with synthetic device
 state and recorded outputs. No mouse node, uinput device, compositor setting
 or user configuration was touched. Physical acceptance remains deferred.
+
+## Native read-only binding persistence verification
+
+Receiver unplug/replug remains an explicit acceptance gap. The existing
+one-button test kept device handles open and only supported a reported mouse
+power cycle. Added a separate native workflow tied to a completed binding-save
+journal, so future saved configurations can be checked through both restart
+steps without another setter or an open handle spanning the unplug.
+
+The baseline checks the journal's product, hardware serial, successful-save
+status, changed entries and current values. Backups, restored transactions,
+settings journals, malformed/duplicate locations and unchanged-only saves are
+not accepted as proof of a new binding save. Every known control on both layers
+is read in every assigned slot and bank0. The active mirror must agree with the
+selected stored slot. Hardware serial, firmware, assigned/active slots, inventory
+and USB/HID route are checked around the read. A getter-only transport has no
+binding setter, allows at most400 requests and a120-second budget between
+operations; an in-flight kernel call can outlast that deadline.
+
+After READY, the user reports a mouse power cycle with the receiver left
+connected. A second read must match the baseline, including opaque response
+metadata. The dialog then observes disappearance of the selected receiver,
+waits for its configuration interface to reappear at the same USB port, and
+checks a third read with a changed USB bus/device enumeration. Rediscovery
+allows new hidraw numbers; serial/firmware checks prevent accepting another
+mouse. The two receiver PIDs are supported by this diagnostic; the unverified
+wired route remains unavailable.
+
+The original recovery journal is hashed and checked before/after each phase,
+never edited. A separate new private directory holds a mode0600 receipt with
+baseline/readback evidence, phase outcomes, reported power cycling and observed
+receiver disconnection. Physical output is explicitly unverified. This is
+binding readback evidence, not a claim about macro timing, settings persistence,
+all possible assignments or completed model support. Cancelling or timing out
+waits for the current read before closing and records an incomplete outcome;
+completed read evidence may remain in that receipt. An explicit retry is offered
+for transient read failures after preparation. No setter is retried or issued.
+
+All 454 tests pass, including 27 backend and6 native-dialog cases. Checks cover
+both receiver models, an untouched V3 slot changing, wrong identity/firmware,
+active-mirror and metadata changes, source-journal mutation during reads,
+same-port/new-enumeration requirements, incomplete interface discovery, query
+budgets and getter-only enforcement, private receipts and cancellation during
+the final read. Dialog tests use real Qt worker threads with simulated reads,
+exercise retry and close/timeout behavior, and verify that the main window
+cannot quit while this modal operation is active. Native READY layout was
+rendered offscreen. No physical HID/input access or user settings changed;
+actual receiver-replug acceptance is still deferred.

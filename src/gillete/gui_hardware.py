@@ -96,6 +96,7 @@ class HardwarePanel(QWidget):
         self.current_profile = current_profile
         self.snapshot = None
         self.job = None
+        self.verification = None
         layout = QVBoxLayout(self)
         description = QLabel("Read the mouse before preparing an onboard save. Only assigned onboard slots are listed.\n"
                              "Local profiles, macros and automatic program switching are separate from mouse memory.")
@@ -132,6 +133,9 @@ class HardwarePanel(QWidget):
         restore.clicked.connect(self.restore_mouse)
         actions.addWidget(restore)
         layout.addLayout(actions)
+        self.verify_button = QPushButton('Verify a saved binding journal after restart…')
+        self.verify_button.clicked.connect(self.verify_persistence)
+        layout.addWidget(self.verify_button)
         self.status = QLabel("No mouse configuration has been read in this window.")
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
@@ -141,13 +145,16 @@ class HardwarePanel(QWidget):
 
     @property
     def busy(self):
-        return self.job is not None
+        return self.job is not None or self.verification is not None
 
     def invalidate(self):
         self.snapshot = None
         self.preview.setEnabled(False)
         self.backup_button.setEnabled(False)
         self.settings_button.setEnabled(False)
+        device = self.devices.currentData()
+        self.verify_button.setEnabled(device is not None and device.product_id in (0xB4, 0xE8))
+        self.verify_button.setToolTip('Read-only verification for the two validated receiver routes; wired support is pending.')
         self.snapshot_changed.emit(None)
 
     def refresh_devices(self):
@@ -259,6 +266,28 @@ class HardwarePanel(QWidget):
         self.invalidate()
         self.status.setText(f"Stored assignments verified by readback. Recovery journal: {path}\n"
                             "This save has not been power-cycle tested. Read the mouse again before another save.")
+
+    def verify_persistence(self):
+        device = self.devices.currentData()
+        if device is None or self.busy:
+            return
+        filename, _ = QFileDialog.getOpenFileName(self, 'Choose a completed binding save journal',
+                                                  str(hardware.journal_directory()), 'JSON (*.json)')
+        if not filename:
+            return
+        from .gui_persistence import PersistenceDialog
+        directory = hardware.journal_directory() / f'persistence-{uuid4().hex}'
+        self.verification = PersistenceDialog(device, Path(filename), directory, self)
+        try:
+            self.verification.exec()
+            outcome = self.verification.verification
+            self.invalidate()
+            result = 'not started' if outcome.phase == 'new' else outcome.phase.replace('-', ' ')
+            self.status.setText('Binding verification: ' + result +
+                                (f' • Receipt: {outcome.path}' if outcome.owned else ''))
+        finally:
+            self.verification.deleteLater()
+            self.verification = None
 
     def edit_settings(self):
         if self.snapshot is None:

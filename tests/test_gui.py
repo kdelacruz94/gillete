@@ -939,3 +939,180 @@ def test_cancelled_import_and_stale_preview_leave_disk_unchanged(transfer_editor
     assert len(saved.profiles) == 1 and saved.profiles['default'].name == 'Renamed elsewhere'
     assert window.config.json() == before and window.rules.rowCount() == 1
     assert len(warnings) == 1 and 'changed elsewhere' in warnings[0]
+
+
+def wait_for_gui(app, predicate):
+    import time
+    from PySide6.QtTest import QTest
+    deadline = time.monotonic() + 3
+    while not predicate() and time.monotonic() < deadline:
+        app.processEvents()
+        QTest.qWait(1)
+    assert predicate()
+
+
+@pytest.fixture
+def persistence_dialog(app, tmp_path, monkeypatch):
+    from gillete import gui_persistence as gui, persistence as core
+    from gillete.compile_onboard import CONTROL_IDS
+    from gillete.devices import Device
+    from gillete.onboard import Location, durable_json
+    model = MODELS[0]
+    device = Device(model, 'Test mouse', '2.4 GHz', 0xB4, '/test', 'test',
+                    [{'kind': 'hidraw', 'number': '00', 'path': '/dev/hidraw9'}])
+    state = core.State(0xB4, model, 'test', b'\1\2', (1,), 1, set(CONTROL_IDS[model].values()),
+                       {Location(bank, c, layer): bytes((bank, c, 0)) + bytes.fromhex('02020073000000')
+                        for bank in (0, 1) for c in CONTROL_IDS[model].values() for layer in (0, 1)})
+    source = tmp_path / 'save.json'
+    durable_json(source, {'version': 1, 'product': 0xB4, 'serial': 'test', 'status': 'applied-readback-verified',
+                         'entries': [{'bank': 1, 'control': 0x4b, 'layer': 0,
+                                      'before': '0202001e000000', 'after': '02020073000000'}]})
+    world = SimpleNamespace(devices=[device], address={'busnum': '1', 'devnum': '2'}, reads=0)
+    def read(_device):
+        world.reads += 1
+        return deepcopy(state), dict(world.address)
+    monkeypatch.setattr(core, 'read_state', read)
+    monkeypatch.setattr(gui, 'discover', lambda: world.devices)
+    dialog = gui.PersistenceDialog(device, source, tmp_path / 'receipt')
+    try:
+        yield dialog, world
+    finally:
+        dialog.reject()
+        wait_for_gui(app, lambda: dialog.job is None)
+        shiboken6.delete(dialog)
+
+
+def test_persistence_dialog_waits_for_explicit_steps_and_preserves_completed_receipt(app, persistence_dialog):
+    import json
+    dialog, world = persistence_dialog
+    check = dialog.verification
+    assert world.reads == 0 and not check.directory.exists()
+    dialog.show()
+    dialog.advance()
+    wait_for_gui(app, lambda: dialog.job is None)
+    assert check.phase == 'awaiting-power-cycle' and 'READY' in dialog.status.text()
+    assert world.reads == 1 and dialog.action.isEnabled()
+    dialog.advance()
+    wait_for_gui(app, lambda: dialog.job is None)
+    assert check.phase == 'awaiting-disconnect' and not dialog.action.isEnabled()
+    device = world.devices[0]
+    world.devices.clear()
+    dialog.tick()
+    assert check.phase == 'awaiting-reconnect' and not dialog.action.isEnabled()
+    world.devices.append(device)
+    world.address['devnum'] = '3'
+    dialog.tick()
+    assert dialog.action.isEnabled()
+    dialog.advance()
+    wait_for_gui(app, lambda: dialog.job is None)
+    assert check.phase == 'verified-readback' and world.reads == 3
+    assert 'Physical button output still needs' in dialog.status.text()
+    assert not dialog.timer.isActive() and dialog.action.isHidden()
+    dialog.reject()
+    assert json.loads(check.path.read_text())['status'] == 'verified-readback'
+
+
+@pytest.mark.parametrize('outcome', ['cancelled', 'timed-out'])
+def test_persistence_dialog_waits_for_inflight_read_before_closing(app, persistence_dialog, monkeypatch, outcome):
+    import json
+    import threading
+    from gillete import persistence as core
+    dialog, world = persistence_dialog
+    original = core.read_state
+    started, finish = threading.Event(), threading.Event()
+    def delayed(device):
+        started.set()
+        assert finish.wait(2)
+        return original(device)
+    monkeypatch.setattr(core, 'read_state', delayed)
+    dialog.show()
+    dialog.advance()
+    try:
+        assert started.wait(1)
+        dialog.close_check(outcome)
+        assert dialog.isVisible() and dialog.job is not None and dialog.pending_close == outcome
+        assert not dialog.timer.isActive() and not dialog.action.isEnabled()
+    finally:
+        finish.set()
+        wait_for_gui(app, lambda: dialog.job is None)
+    assert not dialog.isVisible() and world.reads == 1
+    receipt = json.loads(dialog.verification.path.read_text())
+    assert receipt['status'] == outcome and not receipt['receiver_replug_readback_verified']
+
+
+def test_persistence_dialog_retries_timed_out_read_only_after_user_action(app, persistence_dialog, monkeypatch):
+    from gillete import persistence as core
+    from gillete.protocol import DeviceUnavailable
+    dialog, world = persistence_dialog
+    dialog.advance()
+    wait_for_gui(app, lambda: dialog.job is None)
+    read = core.read_state
+    def unavailable(device):
+        raise DeviceUnavailable('mouse asleep')
+    monkeypatch.setattr(core, 'read_state', unavailable)
+    dialog.advance()
+    wait_for_gui(app, lambda: dialog.job is None)
+    assert dialog.retry and dialog.action.text() == 'Retry read'
+    assert dialog.verification.phase == 'awaiting-power-cycle'
+    assert not dialog.verification.document['power_cycle_readback_verified']
+    monkeypatch.setattr(core, 'read_state', read)
+    dialog.tick()
+    assert world.reads == 1
+    dialog.advance()
+    wait_for_gui(app, lambda: dialog.job is None)
+    assert dialog.verification.phase == 'awaiting-disconnect' and world.reads == 2
+
+
+def test_cancelling_final_persistence_read_does_not_leave_a_completed_outcome(app, persistence_dialog, monkeypatch):
+    import json
+    import threading
+    from gillete import persistence as core
+    dialog, world = persistence_dialog
+    dialog.advance()
+    wait_for_gui(app, lambda: dialog.job is None)
+    dialog.advance()
+    wait_for_gui(app, lambda: dialog.job is None)
+    device = world.devices.pop()
+    dialog.tick()
+    world.devices.append(device)
+    world.address['devnum'] = '3'
+    dialog.tick()
+    started, finish = threading.Event(), threading.Event()
+    read = core.read_state
+    def delayed(device):
+        started.set()
+        assert finish.wait(2)
+        return read(device)
+    monkeypatch.setattr(core, 'read_state', delayed)
+    dialog.advance()
+    try:
+        assert started.wait(1)
+        dialog.reject()
+        assert dialog.pending_close == 'cancelled'
+    finally:
+        finish.set()
+        wait_for_gui(app, lambda: dialog.job is None)
+    assert json.loads(dialog.verification.path.read_text())['status'] == 'cancelled'
+
+
+def test_persistence_panel_is_busy_during_modal_verification_and_leaves_profiles_alone(transfer_editor, monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QFileDialog
+    from gillete.devices import Device
+    from gillete.gui_persistence import PersistenceDialog
+    window, store, warnings = transfer_editor
+    before = store.read().json()
+    device = Device(MODELS[0], 'Test', '2.4 GHz', 0xB4, '/test', 'test')
+    window.hardware.devices.clear()
+    window.hardware.devices.addItem('Test receiver', device)
+    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: (str(tmp_path / 'save.json'), 'JSON'))
+    prevented = []
+    monkeypatch.setattr(QMessageBox, 'information', lambda *args: prevented.append(args[2]))
+    def cancel(dialog):
+        assert window.hardware.busy and dialog.job is None
+        window.request_quit()
+        assert prevented
+        dialog.reject()
+        return dialog.DialogCode.Rejected
+    monkeypatch.setattr(PersistenceDialog, 'exec', cancel)
+    window.hardware.verify_persistence()
+    assert not window.hardware.busy and store.read().json() == before and not warnings

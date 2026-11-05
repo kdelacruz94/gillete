@@ -214,6 +214,27 @@ journals for the entire affected group. Physical settings acceptance is ongoing.
 The same read shows reported battery level and firmware when those queries
 succeed; unavailable values are identified explicitly.
 
+**Verify a saved binding journal after restart…** opens a read-only, user-paced
+check for either receiver. Select a completed **Save to Mouse** binding journal
+and stop software control first. After the baseline is read, the dialog asks
+you to power-cycle the mouse while leaving the receiver connected. Confirm
+when it is awake. It then asks you to unplug the receiver, waits until its
+absence is observed, and lets you check again after reconnecting to the same
+USB port. A new USB enumeration, the same hardware identity and firmware,
+unchanged assigned slots, and matching stored/active bindings are required.
+
+The check writes a separate private receipt under the recovery directory and
+leaves the save journal intact. Changed or restored journals, stale bindings,
+and active-slot mismatches cannot pass. Each read has a bounded query/time
+budget; the dialog has a five-minute overall limit and waits for an in-flight
+read before closing. A transient timeout after preparation allows an explicit
+retry. Closing the check leaves your saved assignments in place.
+The receipt distinguishes a reported mouse power cycle from observed receiver
+disconnection/re-enumeration. It verifies readback of the recorded bindings;
+physical button output, settings persistence and broader model acceptance
+remain separate tests. This workflow has been tested in simulation; the user's
+receiver-replug acceptance is still pending.
+
 ## Diagnostics and tests
 
 ```bash
