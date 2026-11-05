@@ -257,6 +257,30 @@ are still required before enabling automatic profile DPI. This tool neither
 enables that feature nor substitutes software pointer scaling. Physical execution
 of this experiment remains deferred during the current development session.
 
+V3 wired inspection has its own read-only diagnostic:
+
+```bash
+# Read descriptors and driver associations from sysfs; no HID queries.
+python -m gillete.wired_probe --output evidence/v3-wired-descriptors1.local.json
+# Also test the two candidate configuration routes with getter requests.
+python -m gillete.wired_probe --query-routes --output evidence/v3-wired-reads1.local.json
+```
+
+Use a new report path each time. The second command requires an awake V3 on its
+USB cable in normal mode. Its receiver may stay attached: the cable is selected
+by product ID and USB ancestry. The tool records all four descriptors, hashes,
+report sizes and bound drivers. It checks device-node identity around queries
+and tries interface03 only if the interface00 bootstrap fails. A working route
+is checked for firmware, normal mode, profile inventory, active/stored bindings
+and settings. Reports include private hardware identity and raw assignments.
+Queries are bounded to 256 requests/120 seconds per route between kernel calls.
+
+No input is captured, and no mode, setting, profile or binding setter is admitted.
+A successful report identifies a read-only route; it does not enable wired
+remapping or saving. Wired physical-control capture and write/persistence
+acceptance remain separate requirements. The bundled descriptor fixtures and
+firmware reply are public contributor evidence, not measurements of your mouse.
+
 Service CLI commands:
 
 ```bash

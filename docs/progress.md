@@ -805,3 +805,66 @@ independence and driver-mode operation remain required. `temporary_dpi_supported
 stays false in every report. Per-profile sensitivity, native firmware actions,
 wired transport and the remaining physical acceptance/migration work remain
 unfinished, with hardware testing still deferred by the user.
+
+## Wired descriptor and read-only route validation path
+
+Rechecked the actual public descriptor dump and wired firmware response already
+pinned by the protocol research. Report sizes agree for pointer and boot keyboard,
+but wired interface01 omits receiver notification IDs8/9, mouse report10 and
+keyboard LED output. The wired firmware reply is a four-byte payload; the
+receiver's existing two-byte query would reject that response. These facts
+support separate wired inspection, not physical button correlations. No wired
+decoder relaxation, transport enablement or production capability was inferred.
+
+`gillete.wired_probe` defaults to descriptor-only sysfs inspection. It identifies
+the exact E7 USB ancestor and all four `bInterfaceNumber` values, retaining raw
+descriptor bytes, hashes, report-size summaries, HID/USB driver associations,
+resolved HID instances and USB enumeration numbers. Listing order cannot swap
+the keyboard roles. The receiver may remain attached but is recorded separately
+and never selected by a shared serial. Incomplete, oversized, ambiguous or moved
+interfaces abort inspection.
+
+The bounded size parser handles short HID items, cumulative report fields,
+global Push/Pop, collections and numbered-report prefixes following
+[USB HID 1.11](https://www.usb.org/sites/default/files/hid1_11.pdf), sections6.2.2
+and8. It reports lengths, not usage semantics or button meanings. Unknown/long
+constructs and inconsistent descriptors require review. An unnumbered 90-byte
+feature body remains distinct from the leading-zero 91-byte hidraw envelope.
+The public [issue2885 descriptor dump](https://github.com/openrazer/openrazer/issues/2885)
+and the first firmware reply from pinned
+[OpenSnek wired reads](https://github.com/gh123man/OpenSnek/blob/b4e0f666d21b52efc0a64a0e128a1278aa1b3ad2/captures/usb/2026-10-18-naga-v3-pro-wired/reads.txt)
+are checked-in functional byte fixtures without hardware identity or user input.
+
+Explicit `--query-routes` first requires the known report-size layout, then
+submits only allowlisted getter shapes: firmware04bytes, mode02bytes and
+polling01byte on candidate interface00. Interface03 is attempted once only if
+that bootstrap fails. A normal-mode, inventory or state-verification failure on
+an answering route is reported without a further sweep. Strict framing rejects
+status0 request echoes and the incorrect two-byte firmware payload. Transactions
+remain1f; no setters, transaction sweeps, input reads/grabs or service changes
+are allowed by this diagnostic.
+
+On a working route, normal mode, serial, assigned/active slots, inventory,
+bank0/active-slot binding functions, firmware and saved settings are captured
+before/after. The route is reported verified only when those reads match.
+Bounded work allows256 queries/120seconds per route between operations; kernel
+I/O may exceed the deadline. Descriptor/driver/enumeration identity is checked
+before opening, after opening and after querying. A changed/reused HID node
+invalidates the result and prevents trying another route. Reports are new-only,
+mode0600, under newly created mode0700 parents; summaries omit device identity
+and binding contents. No actual descriptor collection or HID request was made
+against the user's hardware during this continuation.
+
+All 353 tests pass, including 47 wired/descriptor cases. Tests cover both public descriptor sets, exact firmware framing,
+malformed descriptors, global-stack/padding arithmetic, sysfs interface order
+and identity races, receiver/cable separation, route fallback, request echoes,
+normal-mode gating, inventory rejection, state drift, unplugged verification,
+strict getter shapes and private one-shot reports. Production E7 configuration,
+mode switching, remapping and writes remain gated. Physical wired reads,
+driver-mode button capture and persistence tests remain required; this is not
+evidence that the user's wired transport works yet.
+
+Arch, wheel and source artifacts were rebuilt. Staged package checks cover the
+native GUI/CLI plus the new diagnostic entrypoint. The source archive now ships
+the public JSON fixture; all 47 wired tests also pass from the extracted source
+using its own imports. No host package installation or service activation occurred.

@@ -1,8 +1,8 @@
-"""Physical controls from Naga receiver reports in verified driver mode.
+"""Physical controls from B4/E8 receiver reports in verified driver mode.
 
-V3 correspondence was captured locally in v3-driver-capture1 on the 12-button
-plate. V2 pointer/keyboard layouts are locally read descriptors; its driver-mode
-button correspondence still needs the separate physical acceptance test.
+Both receiver control inventories were captured locally on the 12-button sides.
+Similar E7 wired report sizes do not establish its physical button correlations;
+wired driver-mode activation remains gated independently of these decoders.
 """
 
 from dataclasses import dataclass
