@@ -127,9 +127,22 @@ def stable_state(state, *, include_zero=True):
     return result
 
 
-def target_value(before):
+def target_value(before, purpose='readback', requested_dpi=None):
     old = selector_zero(bytes.fromhex(before['selector_zero']), before['product'])
     saved = decode_dpi(bytes.fromhex(before['settings']['dpi']), before['product'])
+    if purpose == 'sensor-power-cycle':
+        if requested_dpi is not None and (type(requested_dpi) is not int or not 100 <= requested_dpi < min(old)):
+            raise ProtocolError('Requested sensor DPI must be an integer from 100 below both original axes')
+        pair = ([requested_dpi] * 2 if requested_dpi is not None else
+                [max(100, (value // 200) * 100) for value in old])
+        if any(value in (old[i], saved[i]) for i, value in enumerate(pair)):
+            raise ProtocolError('Cannot prepare a distinct half-sensitivity value at this DPI')
+        return (b'\0' + b''.join(v.to_bytes(2, 'big') for v in pair)
+                + bytes.fromhex(before['selector_zero'])[5:]).hex()
+    if purpose != 'readback':
+        raise ProtocolError('Unknown DPI experiment purpose')
+    if requested_dpi is not None:
+        raise ProtocolError('A requested DPI is only valid for the user-paced sensor experiment')
     # Each axis differs from both original getters by a small bounded amount.
     pair = [next(value + delta for delta in (100, -100, 200, -200)
                  if 100 <= value + delta <= DPI_MAX[before['product']] and value + delta != saved[i])
@@ -143,14 +156,16 @@ def validate_document(document):
             or document.get('kind') != KIND or document.get('temporary_dpi_supported') is not False):
         raise ProtocolError('Not a temporary-DPI experiment journal')
     validate_state(document.get('before'))
-    if document.get('target') != target_value(document['before']):
+    if document.get('target') != target_value(document['before'], document.get('purpose', 'readback'),
+                                             document.get('requested_dpi')):
         raise ProtocolError('DPI target differs from the bounded prepared experiment')
 
 
-def prepare_document(io):
+def prepare_document(io, *, purpose='readback', requested_dpi=None):
     before = capture(io)
     return {'version': 1, 'kind': KIND, 'status': 'prepared-read-only', 'before': before,
-            'target': target_value(before), 'selector_readback_independent': False,
+            'purpose': purpose, 'requested_dpi': requested_dpi, 'target': target_value(before, purpose, requested_dpi),
+            'selector_readback_independent': False,
             'original_state_restored': False, 'temporary_dpi_supported': False}
 
 
@@ -224,6 +239,8 @@ def exercise(io, prepared, path, *, hold_seconds=3, stopped=lambda: False, wait=
     if type(hold_seconds) is not int or not 0 <= hold_seconds <= 10:
         raise ProtocolError('DPI experiment duration must be 0–10 seconds')
     validate_document(prepared)
+    if prepared.get('purpose', 'readback') != 'readback':
+        raise ProtocolError('Use the user-paced sensor experiment for this preparation')
     if path.exists():
         raise ProtocolError('This experiment has already started; use its recovery journal')
     document = deepcopy(prepared)
@@ -327,7 +344,8 @@ def recover(path):
     document = read_journal(path)
     validate_document(document)
     if document.get('status') not in {'armed', 'recovery-required', 'test-failed-restored',
-                                      'readback-roundtrip-restored', 'original-state-restored'}:
+                                      'readback-roundtrip-restored', 'original-state-restored',
+                                      'sensor-observation-restored', 'awaiting-user-observation'}:
         raise ProtocolError('Recovery requires a journal from an attempted experiment')
     document['original_state_restored'] = False
     # Cancellation requests are deferred until restoration has completed.

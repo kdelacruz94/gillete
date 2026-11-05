@@ -315,6 +315,16 @@ application capability automatically.
 A separate development experiment can test DPI getter independence before
 per-program hardware sensitivity is implemented:
 
+For a user-paced sensitivity/power-cycle observation, `gillete.dpi_sensor_probe`
+provides read-only `prepare` followed by explicit `run`. Preparation can select
+an exact lower DPI with `--dpi` (prepare-only); otherwise it uses roughly half
+the original value. The run waits up to three minutes for reported observations
+in its private run directory, then verifies protected state and restores the
+original settings. Timeout/cancellation also attempts restoration, with a
+retained journal recoverable through `gillete.dpi_probe recover`. A reported
+power cycle is labeled as user-reported, not observed USB removal. No automatic
+hardware capability is enabled by these experiments.
+
 ```bash
 python -m gillete.dpi_probe prepare --product 00b4 --directory evidence/v2-dpi-selector1.local
 # Review the exact proposed DPI change and original saved settings first.

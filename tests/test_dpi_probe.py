@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from gillete import dpi_probe as probe
+from gillete import dpi_sensor_probe as sensor
 from gillete.compile_onboard import CONTROL_IDS
 from gillete.devices import PRODUCTS
 from gillete.protocol import DeviceStatusError, DeviceUnavailable, ProtocolError
@@ -378,3 +379,87 @@ def test_prepared_target_stays_in_range_and_differs_from_both_getters(dpi):
     pair = probe.selector_zero(bytes.fromhex(prepared['target']), mouse.product)
     assert all(100 <= v <= 30000 and v not in (dpi, 1800) for v in pair)
     assert prepared['target'].endswith('aabb')
+
+
+@pytest.mark.parametrize('reset', [True, False])
+def test_sensor_observation_records_reported_cycle_and_restores_without_claiming_support(tmp_path, reset):
+    mouse = Mouse(0xE8)
+    prepared = probe.prepare_document(mouse, purpose=sensor.PURPOSE)
+    assert probe.selector_zero(bytes.fromhex(prepared['target']), mouse.product) == (900, 900)
+    events = []
+    def feedback():
+        if reset:
+            mouse.zero = bytes.fromhex(prepared['before']['selector_zero'])
+        return {'slower': True, 'power_cycled': True, 'speed_after_cycle': 'original' if reset else 'slower'}
+    result = sensor.exercise(mouse, prepared, tmp_path / 'journal.json', feedback, ready=lambda: events.append('ready'))
+    assert result['status'] == 'sensor-observation-restored' and events == ['ready']
+    assert result['power_cycle_readback'] == ('original' if reset else 'candidate')
+    assert result['user_report']['slower'] and not result['temporary_dpi_supported']
+    assert result['original_state_restored'] and probe.capture(mouse) == prepared['before']
+    assert len(mouse.writes) == (1 if reset else 2)
+    assert json.loads((tmp_path / 'journal.json').read_text()) == result
+
+
+@pytest.mark.parametrize('failure', ['timeout', 'cancel', 'invalid', 'alias', 'changed-settings', 'lost-ack'])
+def test_sensor_observation_failures_restore_original_values(tmp_path, failure):
+    mouse = Mouse(0xE8, alias=failure == 'alias')
+    prepared = probe.prepare_document(mouse, purpose=sensor.PURPOSE)
+    if failure == 'lost-ack': mouse.fail_at = {1}
+    clock = [0]
+    def wait(_): clock[0] = 181
+    def feedback():
+        if failure == 'timeout': return None
+        if failure == 'invalid': return {'power_cycled': True}
+        if failure == 'changed-settings': mouse.values['polling'] = b'\2'
+        return {'slower': True, 'power_cycled': True, 'speed_after_cycle': 'unsure'}
+    result = sensor.exercise(mouse, prepared, tmp_path / 'journal.json', feedback,
+                             ready=lambda: None, stopped=lambda: failure == 'cancel' and bool(mouse.writes),
+                             now=lambda: clock[0], wait=wait)
+    assert result['status'] == 'test-failed-restored'
+    assert result['original_state_restored'] and probe.capture(mouse) == prepared['before']
+    assert not result['temporary_dpi_supported']
+
+
+def test_sensor_recovery_handles_interruption_while_waiting_for_user(tmp_path, monkeypatch):
+    mouse = Mouse(0xE8)
+    document = probe.prepare_document(mouse, purpose=sensor.PURPOSE)
+    path = tmp_path / 'journal.json'
+    document['status'] = 'awaiting-user-observation'
+    mouse.zero = bytes.fromhex(document['target'])
+    path.write_text(json.dumps(document))
+    monkeypatch.setattr(probe, 'connected', lambda _: mouse)
+    monkeypatch.setattr(probe, 'transport', lambda _: mouse)
+    result = probe.recover(path)
+    assert result['status'] == 'original-state-restored' and result['original_state_restored']
+    assert probe.capture(mouse) == document['before']
+
+
+def test_sensor_target_and_mode_are_validated_before_any_write(tmp_path):
+    mouse = Mouse(0xE8)
+    prepared = probe.prepare_document(mouse, purpose=sensor.PURPOSE)
+    with pytest.raises(ProtocolError, match='user-paced'):
+        probe.exercise(mouse, prepared, tmp_path / 'wrong.json')
+    prepared['target'] = '00006400640000'
+    with pytest.raises(ProtocolError):
+        sensor.exercise(mouse, prepared, tmp_path / 'wrong.json', lambda: None)
+    assert not mouse.writes and not (tmp_path / 'wrong.json').exists()
+
+
+def test_requested_sensor_dpi_uses_exact_prepared_lower_value_and_restores(tmp_path):
+    mouse = Mouse(0xE8)
+    prepared = probe.prepare_document(mouse, purpose=sensor.PURPOSE, requested_dpi=1200)
+    assert probe.selector_zero(bytes.fromhex(prepared['target']), mouse.product) == (1200, 1200)
+    report = {'slower': True, 'power_cycled': True, 'speed_after_cycle': 'original'}
+    result = sensor.exercise(mouse, prepared, tmp_path / 'journal.json', lambda: report)
+    assert result['original_state_restored'] and probe.capture(mouse) == prepared['before']
+    assert mouse.writes[0].payload == bytes.fromhex(prepared['target'])
+
+
+@pytest.mark.parametrize('requested', [True, 99, 1800, 2000, 50001, '1200', 1200.0])
+def test_requested_sensor_dpi_is_bounded_lower_and_cannot_change_readback_experiment(requested):
+    mouse = Mouse(0xE8)
+    with pytest.raises(ProtocolError):
+        probe.prepare_document(mouse, purpose=sensor.PURPOSE, requested_dpi=requested)
+    with pytest.raises(ProtocolError):
+        probe.prepare_document(mouse, requested_dpi=1200)
+    assert not mouse.writes

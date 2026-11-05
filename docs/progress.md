@@ -1182,3 +1182,36 @@ driver-mode compatibility. `temporary_dpi_supported` remains false; automatic
 per-program DPI is still disabled. A subsequent experiment needs a measurable
 sensor change and explicit persistence/driver-mode acceptance, with its own
 reviewed changes and restoration plan.
+
+## User-paced V3 sensitivity/power-cycle experiment
+
+Added `dpi_sensor_probe` using the existing complete snapshots, identity/mode/
+profile guards and restoration path. The selector-zero candidate is written
+once, checked independently of saved settings, and held for at most three
+minutes while the user observes movement and power-cycles the mouse. No USB
+queries occur during that waiting phase. The explicit user report is retained
+separately from post-cycle readback. Timeout, cancellation, invalid reports and
+errors attempt restoration; interruptions retain recoverable journals, including
+the waiting phase. No input grab, recording, profile setter or binding setter
+is used. Automatic temporary-DPI support remains disabled.
+
+The user authorized the next sensitivity/power-cycle validation, woke the V3,
+and the prepared 6400 → 3200 test reached READY. The user reported both
+speeds too fast to distinguish, and specified a usual DPI of **1200**. The run
+was cancelled and original settings/bindings restored successfully, with no
+power-cycle or sensitivity success claimed. Journal:
+`evidence/v3-dpi-sensor-20261105-01.local/run/journal.json`.
+
+Added an explicit lower-DPI preparation option so the revised test can use
+1200 without changing the user's saved profile. It is validated against the
+original values, included in the recovery document and cannot be overridden
+at run time. A fresh read-only 6400 → 1200 preparation is in
+`evidence/v3-dpi-sensor-1200-20261105-01.local/prepared.json`.
+The original 6400 is still the restoration target; 1200 is the user's recorded
+preference, not authorization to overwrite saved stages permanently.
+
+All 520 tests pass, including user-report versus actual readback, retained
+candidate/reset outcomes, timeouts, cancellation, malformed reports, saved
+settings drift, aliased storage, lost ACK, interrupted waiting recovery,
+exact requested values and invalid/unchanged/increasing targets. Source and
+wheel package validation also cover the new module and DPI tests.
