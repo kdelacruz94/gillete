@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from .gui_diagnostics import DiagnosticsPanel
+from .device_action_support import support as device_action_support
 from .gui_profile_transfer import ImportPreview
 from .profile_transfer import duplicate as duplicate_profile, export_document, plan_import, read_bundle, write_export
 from .examples import example_profiles
@@ -57,10 +58,11 @@ def spin(value, low=1, high=3600000):
 
 
 class ActionDialog(QDialog):
-    def __init__(self, action: Action, profiles, parent=None, *, standalone_model=None, control=None):
+    def __init__(self, action: Action, profiles, parent=None, *, standalone_model=None, control=None, model=None, snapshot=None):
         super().__init__(parent)
         self.action = action
         self.standalone_model, self.control = standalone_model, control
+        self.action_model, self.snapshot = model, snapshot
         self.setWindowTitle("Edit assignment")
         self.resize(650, 620)
         layout = QVBoxLayout(self)
@@ -98,6 +100,10 @@ class ActionDialog(QDialog):
         self.device_action.addItem('Cycle onboard profile', 'onboard_profile_cycle')
         self.device_action.setCurrentIndex(1 if action.target == 'onboard_profile_cycle' else 0)
         form.addRow('Native device action', self.device_action)
+        self.support_note = QLabel()
+        self.support_note.setWordWrap(True)
+        self.support_note.setTextFormat(Qt.TextFormat.PlainText)
+        form.addRow('Software use', self.support_note)
         self.playback = QComboBox()
         for label, mode in [("Once", "once"), ("Fixed count", "count"),
                             ("While held", "held"), ("Toggle on/off", "toggle")]:
@@ -186,10 +192,18 @@ class ActionDialog(QDialog):
         self.kind.currentIndexChanged.connect(self.refresh)
         self.launch_type.currentIndexChanged.connect(self.refresh)
         self.playback.currentIndexChanged.connect(self.refresh)
+        self.device_action.currentIndexChanged.connect(self.refresh)
+        self.dpi_direction.currentIndexChanged.connect(self.refresh)
         self.refresh()
 
     def refresh(self):
         kind = self.kind.currentData()
+        state = None
+        if self.action_model and not self.standalone_model and kind in ('dpi', 'device'):
+            action = Action(kind, target=self.dpi_direction.currentData() if kind == 'dpi' else self.device_action.currentData())
+            state = device_action_support(action, self.action_model, self.snapshot)
+        self.support_note.setText(state.text if state else '')
+        self.form.setRowVisible(self.support_note, state is not None)
         self.keys.setEnabled(kind in {"keys", "turbo"})
         self.target.setEnabled(kind == "profile")
         self.argv.setEnabled(kind == "launch")
@@ -616,7 +630,7 @@ class MainWindow(QMainWindow):
         stored_models = {snapshot.model: from_snapshot(snapshot)[0]} if snapshot and snapshot.bank == snapshot.active else {}
         stored = stored_models.get(model)
         self.shift_status.setText(availability(profile, model, stored).message)
-        self.control_selector.refresh(model, profile, stored)
+        self.control_selector.refresh(model, profile, stored, snapshot)
         row = self.mapping.currentRow()
         selected_column = max(1, self.mapping.currentColumn())
         selected = self.mapping_rows[row][1] if 0 <= row < len(self.mapping_rows) else 'side_1'
@@ -629,7 +643,7 @@ class MainWindow(QMainWindow):
             self.mapping.setItem(row, 0, QTableWidgetItem(name))
             row_stored = stored_models.get(row_model)
             for column, shifted in ((1, False), (2, True)):
-                assignment = mapping_view(profile, row_model, control, shifted, row_stored)
+                assignment = mapping_view(profile, row_model, control, shifted, row_stored, snapshot)
                 text = assignment.text
                 if foreign:
                     alternatives = profile.standalone.get(row_model, Layers())
@@ -694,7 +708,7 @@ class MainWindow(QMainWindow):
                                     'Edit its Normal assignment to change the trigger.')
             return
         action = editing_action(profile, model, control, column == 2, scope)
-        dialog = ActionDialog(action, self.config.profiles, self)
+        dialog = ActionDialog(action, self.config.profiles, self, model=model, snapshot=snapshot)
         name = 'Shared mapping' if scope == 'common' else MODEL_NAMES[model] + ' override'
         dialog.setWindowTitle(name + ' — ' + control.replace('_', ' ').title() + (' · HyperShift' if column == 2 else ' · Normal'))
         current = mapping_view(profile, model, control, column == 2, stored)

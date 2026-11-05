@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFileDialog
 
 from . import hardware
 from .compile_onboard import CONTROL_IDS, describe_function
+from .device_action_support import decode_wheel_mode
 from .devices import discover
 from .gui_settings import SettingsDialog
 from .model import MODEL_CONTROLS, Layers
@@ -211,13 +212,19 @@ class HardwarePanel(QWidget):
                  "Device identity verified; serial omitted from this display."]
         for name, raw in snapshot.metadata.items():
             if name.endswith('_error'):
-                lines.append(f'{name.removesuffix("_error").title()}: unavailable ({raw})')
+                lines.append(f'{name.removesuffix("_error").replace("_", " ").title()}: unavailable ({raw})')
                 continue
             value = bytes.fromhex(raw)
             if name == 'battery' and len(value) == 2:
                 lines.append(f'Battery: {round(value[1] * 100 / 255)}% (reported at this read)')
             elif name == 'firmware' and len(value) == 2:
                 lines.append(f'Firmware: {value[0]}.{value[1]}')
+            elif name == 'wheel_mode':
+                try:
+                    decode_wheel_mode(value)
+                    lines.append('Wheel-mode control: read successfully; hardware-write validation is pending.')
+                except ValueError as error:
+                    lines.append('Wheel-mode control: unavailable (' + str(error) + ')')
             else:
                 lines.append(f'{name.title()}: unrecognized response')
         settings = snapshot.settings

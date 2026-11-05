@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from .onboard import durable_json
+from .device_action_support import decode_wheel_mode
 from .protocol import Command, ProtocolError
 from .settings import SettingsPlan, SettingsTransaction, Stages, encode_dpi, query
 
@@ -60,19 +61,20 @@ class Controls:
         SettingsTransaction(self.io, path, self.snapshot.serial, self.snapshot.active, mode=3).apply(SettingsPlan(before, after))
 
     def native(self, target):
+        if self.io.product not in (0xE7, 0xE8):
+            raise ProtocolError('Native device controls are supported only on the V3')
         if target == 'onboard_profile_cycle':
             if self.snapshot.assigned == (self.snapshot.bank,):
                 return
             # Switching hardware banks also replaces the stored fallback map.
             # Keep this unavailable until that full transition is implemented.
             raise ProtocolError('Multiple onboard-bank cycling is not integrated with the service yet')
-        if target != 'wheel_mode_cycle' or self.io.product not in (0xE7, 0xE8):
+        if target != 'wheel_mode_cycle':
             raise ProtocolError('Unsupported native control')
         query = bytes((1, 0))
         before = self.read(2, 0xB0, query)
-        if len(before) != 2 or before[0] != 1 or before[1] not in (0, 1, 2):
-            raise ProtocolError('Unrecognized wheel mode')
-        self.write_checked(2, 0x30, 0xB0, before, bytes((1, (before[1] + 1) % 3)), query)
+        mode = decode_wheel_mode(before)
+        self.write_checked(2, 0x30, 0xB0, before, bytes((1, (mode + 1) % 3)), query)
 
 
 def restore_setting(io, path, document):

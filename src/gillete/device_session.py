@@ -13,6 +13,7 @@ from evdev import InputDevice
 
 from .applications import launch_command
 from .device_controls import Controls
+from .device_action_support import issues as device_action_issues
 from .driver_mode import ModeLease
 from .engine import Engine
 from .hardware import inspect, read_journal, transport
@@ -162,6 +163,11 @@ class DeviceSession:
                           for issue in availability(profile, self.device.model, self.engine.stored).issues)
         if issues:
             raise ProtocolError('HyperShift configuration needs attention: ' + '; '.join(issues))
+        for profile in profiles:
+            issues.extend(f'{profile.name}: {issue}' for issue in
+                          device_action_issues(profile, self.device.model, self.engine.stored, self.snapshot))
+        if issues:
+            raise ProtocolError('Device-action configuration needs attention: ' + '; '.join(issues))
 
     def recover_previous_mode(self):
         # Only this app's mode leases are considered; no binding journal is

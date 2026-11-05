@@ -306,7 +306,8 @@ def test_disconnect_releases_turbo_before_waiting_for_an_admitted_usb_operation(
         device = Device(model, 'Test', '2.4 GHz', 0xB4, '/test', 'test')
         snapshot = Snapshot(0xB4, model, 'test', 1, (1,), 1, set(CONTROL_IDS[model].values()),
                             {Location(1, c, l): bytes((1, c, 0)) + bytes.fromhex('0202001e000000')
-                             for c in CONTROL_IDS[model].values() for l in (0, 1)}, {})
+                             for c in CONTROL_IDS[model].values() for l in (0, 1)},
+                            {'dpi': '01070807080000', 'stages': '01010101032003200000' + '00' * 28})
         class IO:
             product, mode, closed = 0xB4, bytes(2), False
             def __enter__(self): return self
@@ -353,6 +354,7 @@ def test_disconnect_releases_turbo_before_waiting_for_an_admitted_usb_operation(
         try:
             async with asyncio.timeout(1):
                 while not session.ready:
+                    assert not task.done(), session.error
                     await asyncio.sleep(.001)
             writer.send(b'\0\0\x1e' + bytes(5))
             await asyncio.wait_for(pressed.wait(), 1)

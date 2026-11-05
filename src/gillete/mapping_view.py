@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from .hypershift import resolve_action
+from .device_action_support import support
 from .model import Action, Layers, MODEL_CONTROLS, MODELS, Profile
 from .shortcuts import describe
 
@@ -15,13 +16,14 @@ class MappingView:
     action: Action | None
     description: str
     source: str
+    notice: str = ''
 
     @property
     def text(self):
-        return self.description + '\n' + self.source
+        return '\n'.join(part for part in (self.description, self.source, self.notice) if part)
 
 
-def view(profile, model, control, shifted=False, stored=None):
+def view(profile, model, control, shifted=False, stored=None, snapshot=None):
     """Use the engine's effective action, including inherited mouse triggers.
 
     A passthrough normal action delegates to the mouse's shifted assignment on
@@ -65,7 +67,8 @@ def view(profile, model, control, shifted=False, stored=None):
         source += ' · Normal trigger stays active'
     elif shifted and layer == 'normal' and configured.kind != 'passthrough':
         source += ' · inherited from Normal'
-    return MappingView(resolved, description, source)
+    state = support(resolved, model, snapshot)
+    return MappingView(resolved, description, source, state.text if state else '')
 
 
 def scoped_profile(profile, scope):

@@ -32,7 +32,7 @@ def main():
                        'validation_plan', 'guided_service', 'validation_pad', 'mapping_view', 'dpi_probe',
                        'descriptors', 'wired_probe', 'diagnostics', 'gui_diagnostics',
                        'profile_transfer', 'gui_profile_transfer', 'profile_activation',
-                       'persistence', 'gui_persistence'):
+                       'persistence', 'gui_persistence', 'device_action_support'):
             assert f'gillete/{module}.py' in archive.namelist()
     with TemporaryDirectory(prefix='gillete-package-check-') as temporary:
         stage = Path(temporary)
@@ -61,7 +61,8 @@ def main():
         run([sys.executable, '-I', '-c',
              'import sys; from pathlib import Path; sys.path.insert(0, str(Path("src").resolve())); '
              'import gillete; assert Path(gillete.__file__).is_relative_to(Path.cwd()); '
-             'import pytest; raise SystemExit(pytest.main(["-q", "tests/test_wired_probe.py", "tests/test_persistence.py"]))'],
+             'import pytest; raise SystemExit(pytest.main(["-q", "tests/test_wired_probe.py", "tests/test_persistence.py", '
+             '"tests/test_device_action_support.py"]))'],
             cwd=source_root, env=environment)
         run([str(executable), '--config', str(stage / 'profiles.json'), 'validate'], env=environment)
         gui_smoke = '''

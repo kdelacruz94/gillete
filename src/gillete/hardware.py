@@ -135,7 +135,10 @@ def inspect(device: Device, bank: int | None = None) -> Snapshot:
             except (OSError, ProtocolError) as error:
                 settings[name + "_error"] = str(error)
         metadata = {}
-        for name, command in (('battery', Command(7, 0x80, bytes(2))), ('firmware', Command(0, 0x81, bytes(2)))):
+        metadata_queries = [('battery', Command(7, 0x80, bytes(2))), ('firmware', Command(0, 0x81, bytes(2)))]
+        if device.product_id in (0xE7, 0xE8):
+            metadata_queries.append(('wheel_mode', Command(2, 0xB0, b'\1\0')))
+        for name, command in metadata_queries:
             try:
                 metadata[name] = io.execute(command).hex()
             except (OSError, ProtocolError) as error:

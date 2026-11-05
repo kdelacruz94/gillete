@@ -1116,3 +1116,64 @@ def test_persistence_panel_is_busy_during_modal_verification_and_leaves_profiles
     monkeypatch.setattr(PersistenceDialog, 'exec', cancel)
     window.hardware.verify_persistence()
     assert not window.hardware.busy and store.read().json() == before and not warnings
+
+
+def test_action_editor_explains_native_limits_without_discarding_draft_or_onboard_choices(app):
+    native = Action('device', target='wheel_mode_cycle')
+    dialog = ActionDialog(native, {}, model=MODELS[0])
+    try:
+        assert not dialog.support_note.isHidden() and 'Naga V3 Pro' in dialog.support_note.text()
+        dialog.save()
+        assert dialog.result() == dialog.DialogCode.Accepted and dialog.action == native
+    finally:
+        shiboken6.delete(dialog)
+    snapshot = SimpleNamespace(model=MODELS[1], product=0xE8, assigned=(1,), active=1, metadata={'wheel_mode': '0100'})
+    dialog = ActionDialog(native, {}, model=MODELS[1], snapshot=snapshot)
+    try:
+        assert 'validation is pending' in dialog.support_note.text()
+        dialog.device_action.setCurrentIndex(dialog.device_action.findData('onboard_profile_cycle'))
+        assert 'No effect' in dialog.support_note.text()
+        snapshot.assigned = (1, 2)
+        dialog.refresh()
+        assert 'not implemented' in dialog.support_note.text() and 'Switch profile' in dialog.support_note.text()
+        dialog.kind.setCurrentIndex(dialog.kind.findData('keys'))
+        assert dialog.support_note.isHidden()
+    finally:
+        shiboken6.delete(dialog)
+    dialog = ActionDialog(Action('device', target='onboard_profile_cycle'), {}, standalone_model=MODELS[1],
+                          model=MODELS[1], snapshot=snapshot)
+    try:
+        assert dialog.support_note.isHidden()  # Linux-adapter limits do not change firmware encoding.
+        dialog.save()
+        assert dialog.result() == dialog.DialogCode.Accepted
+    finally:
+        shiboken6.delete(dialog)
+
+
+def test_mapping_and_selector_availability_follow_effective_overrides_and_last_read(transfer_editor):
+    from gillete.compile_onboard import CONTROL_IDS
+    from gillete.hardware import Snapshot
+    from gillete.onboard import Location
+    window, store, warnings = transfer_editor
+    profile = window.current()
+    profile.common.normal['side_1'] = Action('device', target='wheel_mode_cycle')
+    profile.overrides[MODELS[0]] = Layers(normal={'side_1': Action('keys', keys=('KEY_A',))})
+    window.refresh()
+    row = next(i for i, pair in enumerate(window.mapping_rows) if pair == (MODELS[0], 'side_1'))
+    assert 'unavailable' not in window.mapping.item(row, 1).text()
+    window.model.setCurrentIndex(window.model.findData(MODELS[1]))
+    row = next(i for i, pair in enumerate(window.mapping_rows) if pair == (MODELS[1], 'side_1'))
+    assert 'Needs a mouse read' in window.mapping.item(row, 1).text()
+    model = MODELS[1]
+    snapshot = Snapshot(0xE8, model, 'test', 1, (1,), 1, set(CONTROL_IDS[model].values()),
+                        {Location(1, c, s): bytes((1, c, 0)) + bytes.fromhex('00010000000000')
+                         for c in CONTROL_IDS[model].values() for s in (0, 1)}, {}, {'wheel_mode': '0102'})
+    window.hardware.snapshot = snapshot
+    window.refresh()
+    assert 'validation is pending' in window.mapping.item(row, 1).text()
+    assert 'validation is pending' in window.control_selector.buttons['side_1'].toolTip()
+    snapshot.metadata.clear()
+    window.refresh()
+    assert 'Software action unavailable' in window.mapping.item(row, 1).text()
+    assert 'Software action unavailable' in window.control_selector.buttons['side_1'].toolTip()
+    assert not warnings and store.read().profiles['default'].common.normal['side_1'].kind == 'profile'

@@ -91,6 +91,19 @@ of these selectable profiles. Editing an unrelated draft does not stop the
 current mapping. Disabling the active program rule selects the applicable
 fallback and cancels its macros if the selected profile changes.
 
+DPI and native-device assignments show their software prerequisites in the
+mapping cells, control selector and action editor. Native wheel-mode and
+onboard-slot actions are V3-only; shared profiles can provide a different V2
+override. A V3 with one assigned onboard slot has nothing to cycle. Cycling
+multiple onboard slots from the service is still unimplemented; use **Switch
+profile** for Linux profiles or choose another software mapping. DPI-stage
+buttons need valid DPI/stage reads, and native wheel cycling needs a recognized
+wheel-mode read. The next explicit V3 mouse read includes that optional query.
+These checks apply before software input ownership, live pins and configuration
+reloads. Inactive drafts remain editable, and the checks follow effective
+overrides and HyperShift inheritance. Readable prerequisites do not establish
+physical setter behavior; hardware acceptance remains pending.
+
 The mapping page shows the HyperShift trigger for the selected mouse. An inherited
 trigger stays **unverified** until you read its active slot in Mouse memory &
 settings; the label then identifies the trigger from that read. A profile with

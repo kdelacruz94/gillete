@@ -56,6 +56,7 @@ class ControlSelector(QWidget):
         self.current_model = MODELS[0]
         self.profile = None
         self.stored = None
+        self.snapshot = None
         self.selected = None
         self.layer.currentIndexChanged.connect(self.update_assignment)
 
@@ -87,9 +88,10 @@ class ControlSelector(QWidget):
         self.group.setExclusive(True)
         self.assignment.setText(text)
 
-    def refresh(self, model, profile, stored=None):
+    def refresh(self, model, profile, stored=None, snapshot=None):
         self.current_model, self.profile = model, profile
         self.stored = stored
+        self.snapshot = snapshot
         for control, button in self.buttons.items():
             supported = control in MODEL_CONTROLS[model]
             button.setVisible(supported)
@@ -102,7 +104,7 @@ class ControlSelector(QWidget):
         self.select(self.selected)
 
     def describe_assignment(self, control, shifted):
-        return view(self.profile, self.current_model, control, shifted, self.stored).text
+        return view(self.profile, self.current_model, control, shifted, self.stored, self.snapshot).text
 
     def update_assignment(self):
         if self.profile is not None and self.selected in MODEL_CONTROLS[self.current_model]:

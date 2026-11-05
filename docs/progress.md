@@ -1036,3 +1036,44 @@ exercise retry and close/timeout behavior, and verify that the main window
 cannot quit while this modal operation is active. Native READY layout was
 rendered offscreen. No physical HID/input access or user settings changed;
 actual receiver-replug acceptance is still deferred.
+
+## Device-action prerequisites before software ownership
+
+Offline reproduction found that a V2 native-wheel assignment and a V3
+multiple-slot cycle assignment passed service preflight, then raised an error
+on their first button press. Known-action decoding alone did not establish
+that the corresponding adapter could execute with this model and snapshot.
+
+A shared device-action support check now drives the editor and session
+preflight. Native wheel-mode/onboard-slot actions require V3; one assigned
+onboard slot is explicitly a no-op, while multiple-slot cycling remains
+unimplemented and rejects software activation. The message suggests a local
+profile switch or another explicit software mapping. DPI-stage actions require
+valid scalar and stage-table reads while preserving legitimate differences
+between those two values. Native wheel-mode cycling requires its recognized
+two-byte readback. Hardware inspection now adds this optional getter only for
+V3; failures remain metadata errors and do not block unrelated actions.
+
+Preflight checks each effective Normal/HyperShift action in the already
+computed selectable profile set. Model-specific overrides, inherited triggers
+and inactive drafts retain their behavior. Startup rejects an unusable device
+action before output/input ownership, and live pins/reloads use the same
+checks. Runtime still reads the actual current values again before a setter;
+it does not trust the editor's old snapshot. The native adapter also rejects
+both V3-only action types on V2 consistently instead of silently treating V2
+onboard cycling as a no-op.
+
+Mapping cells, visual control details and the action editor distinguish missing
+reads, known unavailability, and implemented prerequisites. Local drafts remain
+saveable; software-adapter limits do not alter standalone firmware encoding.
+Recognized readback is explicitly not physical setter acceptance. No new
+hardware capability, onboard slot selection or per-program DPI was enabled.
+
+All 480 tests pass, including 24 added backend cases and two native-editor
+cases. Coverage includes rejected getters, malformed DPI/wheel values,
+per-model limits, single/multiple slots, both layers, inherited-trigger masking,
+startup before ownership, inactive drafts versus pins/rules, runtime rechecking
+and preservation of local drafts. The existing slow-USB cleanup tests now
+provide valid simulated DPI readback and still verify immediate generated-key
+release while the admitted operation finishes. No live mouse query, setter,
+input ownership or user configuration change was performed.
