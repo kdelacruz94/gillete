@@ -705,8 +705,49 @@ A simulated logind stream verifies suspend cancellation and no macro restart on
 resume; cancelled keyboard setup is checked before any mouse ownership.
 
 These results do not verify physical receiver reconnects, radio delivery timing,
-or real system suspend/resume. Hotplug retry classification still uses error-message
-fragments and merits a separate check for OS-level input errors. Hardware tests
+or real system suspend/resume. At this checkpoint, hotplug retry classification
+still used error-message fragments; the next section records its replacement. Hardware tests
 remain deferred by the user; neither mouse, input-remapper nor startup preferences
 were changed. Full firmware/wired/settings/persistence/sensitivity/migration
 acceptance remains unfinished.
+
+## Explicit reconnect outcomes and recovery failures
+
+An offline reproduction showed that `ENODEV` / "No such device" incorrectly
+disabled automatic reconnect, while a mapping error in a profile named "Timeout"
+incorrectly kept retrying. Retry decisions now use exception types and firmware
+status codes, independent of display wording. Device OS errors are classified
+only around HID/evdev operations; missing executables, journal failures,
+permissions and competing input ownership retain their own meaning. Missing
+interfaces during enumeration can retry, but ambiguous identities and unverified
+transport routes cannot activate. A known return to normal mode can reconnect;
+an unexpected mode requires attention.
+
+Session cleanup preserves an explicit retry outcome. Availability failures during
+mode restoration retain the mode journal for recovery before the next inspection
+and input ownership. Identity, journal, output-release and other cleanup failures
+veto automatic activation. Worker errors arriving while shutdown waits for an
+admitted USB operation are now recorded instead of discarded. Native-setting
+rollback also wraps a failed identity query as an unresolved recovery failure,
+so a disconnect there cannot conceal an uncertain write behind a retryable error.
+An outer recovery error stays fatal even when its cause is device unavailability.
+
+The supervisor retains the five-second delay and requires available focus/suspend
+monitoring and exactly one transport. Unexpected cancellation or an exception
+escaping session cleanup stops automatic activation. Software control now shows
+the retry countdown and waiting state alongside the reason. The HID exchange
+continues to send each request only once and poll for its reply; retry permission
+does not authorize repeating an uncertain setter. A new session starts without
+the previous session's macros or held output keys.
+
+All 263 tests pass. New coverage includes OS/status classification, device-open
+and feature-ioctl failures, missing versus ambiguous interfaces, busy/stale reply
+deadlines without resending, evdev ownership/permissions, raw-input EOF, supervisor
+backoff and gating, known versus unexpected modes, and the native retry display.
+A simulated mouse exercises disconnect with a retained active mode journal,
+recovery before the next inspection, and fresh ownership without restarting
+actions. Fault injection covers identity changes, journal disk failures, output
+cleanup, rollback identity loss and late transaction failures. Tests use simulated
+hardware and local packet sockets; physical receiver removal, wake/reconnect and
+system suspend acceptance remain unverified. No hardware request, real remapping,
+input-remapper change or startup preference change occurred in this continuation.

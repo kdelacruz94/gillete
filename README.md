@@ -104,6 +104,13 @@ conflicts instead of stopping another application.
 If focus monitoring disconnects, new mapped input is blocked and normal mouse
 mode is restored. Reconnection waits for monitoring to return; macros do not
 resume automatically.
+When a mouse disappears or its reply times out, the service waits five seconds
+before trying a new session. Software control shows the retry countdown or the
+reason it is waiting. Reconnection requires one transport for that model and
+working desktop monitoring; any retained mode lease is recovered before new
+input ownership. Mapping, permission, ownership and recovery errors stop automatic
+activation and remain visible until addressed. A device retry never resends an
+uncertain settings write or restarts an old macro.
 
 **Start with desktop** is a separate opt-in in the Startup tab. It creates an
 [XDG autostart entry](https://specifications.freedesktop.org/autostart/latest/)

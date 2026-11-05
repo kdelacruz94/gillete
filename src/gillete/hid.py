@@ -5,19 +5,38 @@ This transport rejects setting commands; opening it never detaches a driver,
 grabs input, or changes device mode. Requires access to the chosen hidraw node.
 """
 
+from contextlib import contextmanager
+import errno
 import fcntl
 import os
 from pathlib import Path
 import struct
 import time
 
-from .protocol import Command, DeviceStatusError, ProtocolError
+from .protocol import Command, DeviceUnavailable, ProtocolError
 
 CONFIG_INTERFACE = {0x00B4: "00", 0x00E8: "03"}  # Observed on the user's receivers.
 
 READ_COMMANDS = frozenset({(0, 0x81), (0, 0x82), (0, 0x84), (0, 0x85),
                            (2, 0x84), (2, 0x8C), (2, 0xB0), (4, 0x85), (4, 0x86),
                            (5, 0x80), (5, 0x81), (5, 0x84), (7, 0x80)})
+
+
+@contextmanager
+def device_io():
+    """Classify OS failures only around an actual device operation.
+
+    Missing executables/journals, permission errors, and ownership conflicts
+    are not device disconnects. Do not wrap arbitrary application/file work.
+    """
+    try:
+        yield
+    except OSError as error:
+        if isinstance(error, TimeoutError) or error.errno in {
+                errno.ENOENT, errno.ENODEV, errno.ENXIO, errno.EIO, errno.ETIMEDOUT,
+                errno.EPIPE, errno.ENOTCONN, errno.ESHUTDOWN}:
+            raise DeviceUnavailable(f'Mouse transport unavailable: {error}') from error
+        raise
 
 
 def feature_ioctl(number: int, length: int = 91) -> int:
@@ -36,10 +55,12 @@ class ReadOnlyHID:
         node = Path(self.path)
         if node.parent != Path("/dev") or not node.name.startswith("hidraw"):
             raise ProtocolError("Choose a discovered hidraw device")
-        self.fd = os.open(node, os.O_RDWR | os.O_CLOEXEC | os.O_NONBLOCK | os.O_NOFOLLOW)
+        with device_io():
+            self.fd = os.open(node, os.O_RDWR | os.O_CLOEXEC | os.O_NONBLOCK | os.O_NOFOLLOW)
         try:
             raw = bytearray(8)
-            fcntl.ioctl(self.fd, 0x80084803, raw, True)  # HIDIOCGRAWINFO
+            with device_io():
+                fcntl.ioctl(self.fd, 0x80084803, raw, True)  # HIDIOCGRAWINFO
             bus, vendor, product = struct.unpack("IHH", raw)
             if bus != 3 or vendor != 0x1532 or product != self.product:
                 raise ProtocolError("Device identity changed before opening")
@@ -64,14 +85,16 @@ class ReadOnlyHID:
         if self.fd is None:
             raise RuntimeError("Transport is closed")
         outgoing = bytearray(b"\0" + command.encode())
-        result = fcntl.ioctl(self.fd, feature_ioctl(6), outgoing, True)
+        with device_io():
+            result = fcntl.ioctl(self.fd, feature_ioctl(6), outgoing, True)
         if result not in (0, 90, 91):
             raise ProtocolError(f"Incomplete feature request: {result}")
         deadline = time.monotonic() + 0.8
         while True:
             time.sleep(0.025)
             incoming = bytearray(91)
-            count = fcntl.ioctl(self.fd, feature_ioctl(7), incoming, True)
+            with device_io():
+                count = fcntl.ioctl(self.fd, feature_ioctl(7), incoming, True)
             if count != 91:
                 raise ProtocolError(f"Expected 91 bytes including report ID, got {count}")
             report = bytes(incoming[1:])
@@ -79,7 +102,7 @@ class ReadOnlyHID:
             if command.matches(report) and report[0] != 1:
                 return command.decode(report)
             if time.monotonic() >= deadline:
-                raise ProtocolError("No matching completed reply; request was not resent")
+                raise DeviceUnavailable("No matching completed reply; request was not resent")
 
 
 class BindingHID(ReadOnlyHID):

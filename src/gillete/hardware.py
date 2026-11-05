@@ -15,7 +15,7 @@ from .devices import Device, discover
 from .hid import BindingHID, CONFIG_INTERFACE
 from .model import Profile
 from .onboard import Location, Programmer, durable_json
-from .protocol import Command, ProtocolError
+from .protocol import Command, DeviceUnavailable, ProtocolError
 from .settings import SettingsDraft, SettingsTransaction, SPECS, plan as settings_plan, query as settings_query
 
 
@@ -26,12 +26,16 @@ def journal_directory() -> Path:
 def transport(device: Device) -> BindingHID:
     # Rediscovery avoids trusting a stale /dev/hidraw number after hotplug.
     matches = [d for d in discover() if d.usb_path == device.usb_path and d.product_id == device.product_id]
+    if not matches:
+        raise DeviceUnavailable("Mouse disconnected or moved; refresh connected devices")
     if len(matches) != 1:
-        raise ProtocolError("Mouse disconnected or moved; refresh connected devices")
+        raise ProtocolError('Mouse transport identity is ambiguous')
     if device.product_id not in CONFIG_INTERFACE:
         raise ProtocolError("This transport's configuration interface still needs validation")
     nodes = [i for i in matches[0].interfaces if i["kind"] == "hidraw"
              and i["number"] == CONFIG_INTERFACE[device.product_id]]
+    if not nodes:
+        raise DeviceUnavailable('Mouse configuration interface is not available yet')
     if len(nodes) != 1:
         raise ProtocolError("Configuration interface is missing or ambiguous")
     return BindingHID(nodes[0]["path"], device.product_id)

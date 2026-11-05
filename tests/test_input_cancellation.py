@@ -19,7 +19,7 @@ from gillete.hardware import Snapshot
 from gillete.model import Action, Layers, MODELS, Profile
 from gillete.profiles import Configuration, Rule, Window
 from gillete.onboard import Location
-from gillete.protocol import ProtocolError
+from gillete.protocol import DeviceUnavailable, ProtocolError
 from gillete.reports import Frame
 from gillete.runtime import Router
 
@@ -297,7 +297,9 @@ def test_uncertain_input_buffer_stops_before_queued_actions_execute(tmp_path, fa
     asyncio.run(check())
 
 
-def test_disconnect_releases_turbo_before_waiting_for_an_admitted_usb_operation(tmp_path, monkeypatch):
+@pytest.mark.parametrize('worker_error', [None, DeviceUnavailable('No reply after disconnect'),
+                                        ProtocolError('Settings recovery required at timeout.json')])
+def test_disconnect_releases_turbo_before_waiting_for_an_admitted_usb_operation(tmp_path, monkeypatch, worker_error):
     import gillete.device_session as sessions
     async def check():
         model = MODELS[0]
@@ -332,6 +334,7 @@ def test_disconnect_releases_turbo_before_waiting_for_an_admitted_usb_operation(
             def dpi(self, target):
                 loop.call_soon_threadsafe(blocked.set)
                 if not finish.wait(3): raise RuntimeError('Test USB operation was not released')
+                if worker_error is not None: raise worker_error
         monkeypatch.setattr(sessions, 'inspect', lambda *_: snapshot)
         monkeypatch.setattr(sessions, 'transport', lambda *_: io)
         monkeypatch.setattr(sessions, 'UInputOutput', Output)
@@ -356,7 +359,7 @@ def test_disconnect_releases_turbo_before_waiting_for_an_admitted_usb_operation(
             writer.send(bytes(8))
             writer.send(b'\0\0\x1f' + bytes(5))
             await asyncio.wait_for(blocked.wait(), 1)
-            session.fail(OSError('Mouse input disconnected'))
+            session.fail(DeviceUnavailable('Mouse input disconnected'))
             async with asyncio.timeout(.5):
                 while session.engine.macros.jobs or session.engine.ledger.holders:
                     await asyncio.sleep(.001)
@@ -373,6 +376,9 @@ def test_disconnect_releases_turbo_before_waiting_for_an_admitted_usb_operation(
         assert io.mode == bytes(2) and io.closed and session.output.closed
         assert 'disconnected' in session.error and not session.ready
         assert not session.engine.macros.jobs and not session.engine.ledger.holders
+        assert session.retryable is (worker_error is None or isinstance(worker_error, DeviceUnavailable))
+        if worker_error is not None:
+            assert 'Session worker failed' in session.error and str(worker_error) in session.error
         keys = [value for kind, code, value in session.output.events if kind == 'key' and code == E.KEY_1]
         assert keys and keys[::2] == [1] * (len(keys) // 2) and keys[1::2] == [0] * (len(keys) // 2)
     asyncio.run(check())

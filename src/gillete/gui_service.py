@@ -123,7 +123,11 @@ class ServicePanel(QWidget):
                  'Suspend monitoring: ' + ('ready' if data['suspend_monitor'] else 'unavailable')]
         for model, name in zip(MODELS, ('Naga V2 HyperSpeed', 'Naga V3 Pro')):
             state = data['devices'][model]
-            phase = ('active' if state['active'] else 'starting' if state['requested'] else
+            retry = state.get('retry_in_ms', 0)
+            phase = ('active' if state['active'] else
+                     f'retrying in {(retry + 999) // 1000}s' if state['requested'] and retry else
+                     'waiting to reconnect' if state['requested'] and state['error'] else
+                     'starting' if state['requested'] else
                      'waiting for desktop' if model in data.get('startup_pending', []) else 'disabled')
             self.labels[model].setText(f"{name} — {phase} · {state['mode']}"
                                        + (f" · profile {state['profile']}" if state['profile'] else ''))

@@ -62,6 +62,7 @@ class Daemon:
         await self.coordinator.reload(config)
 
     def status(self):
+        now = time.monotonic()
         return {'running': True, 'config_path': str(self.store.path.resolve()),
                 'startup_pending': sorted(self.startup_pending),
                 'focus_available': self.coordinator.available,
@@ -73,6 +74,8 @@ class Daemon:
                                     'active': bool(self.sessions.get(model) and self.sessions[model].ready),
                                     'profile': self.sessions[model].engine.profile.id if self.sessions.get(model) and self.sessions[model].engine else None,
                                     'error': self.errors.get(model, ''),
+                                    'retry_in_ms': (int(max(0, self.retry_at.get(model, 0) - now) * 1000)
+                                                    if model in self.requested and model not in self.sessions else 0),
                                     'action_error': getattr(self.sessions.get(model), 'action_error', ''),
                                     'active_macros': sum(not job.done() for job in self.sessions[model].engine.macros.jobs.values()) if self.sessions.get(model) and self.sessions[model].engine else 0,
                                     'mode': 'pinned' if model in self.coordinator.config.pinned else 'automatic'} for model in MODELS}}
@@ -170,42 +173,46 @@ class Daemon:
 
     async def supervise(self):
         while not self.shutdown.is_set():
-            await self.start_preferences()
-            for model, task in list(self.tasks.items()):
-                if self.sessions[model].ready:
-                    self.errors.pop(model, None)
-                if task.done():
-                    session = self.sessions.pop(model)
-                    self.tasks.pop(model)
-                    try:
-                        task.result()
-                    except Exception as error:
-                        session.error = str(error)
-                    if session.error:
-                        self.errors[model] = session.error
-                        temporary = any(word in session.error.lower() for word in (
-                            'timeout', 'disconnected', 'restarted', 'no matching completed', 'focus monitoring is unavailable'))
-                        if not temporary:
-                            self.requested.discard(model)
-                    self.retry_at[model] = time.monotonic() + 5
-            devices = discover()
-            if not self.coordinator.available:
-                for session in self.sessions.values():
-                    session.stop_requested.set()
-            for model in list(self.requested):
-                if (model in self.sessions or self.suspended or not self.sleep_monitor_ready
-                        or not self.coordinator.available):
-                    continue
-                if time.monotonic() < self.retry_at.get(model, 0):
-                    continue
-                matches = [d for d in devices if d.model == model]
-                if len(matches) != 1:
-                    self.errors[model] = 'Connect exactly one transport for this mouse' if matches else 'Mouse not connected'
-                    continue
-                session = DeviceSession(matches[0], self.coordinator, journal_directory(), self.pin)
-                self.sessions[model] = session
-                self.tasks[model] = asyncio.create_task(session.run())
+            await self.supervise_once()
             await asyncio.sleep(.5)
+
+    async def supervise_once(self):
+        await self.start_preferences()
+        for model, task in list(self.tasks.items()):
+            if self.sessions[model].ready:
+                self.errors.pop(model, None)
+            if task.done():
+                session = self.sessions.pop(model)
+                self.tasks.pop(model)
+                try:
+                    task.result()
+                except asyncio.CancelledError:
+                    session.error, session.retryable = 'Mouse session was cancelled', False
+                except Exception as error:
+                    # An exception escaping run() has no verified cleanup outcome.
+                    session.error, session.retryable = str(error) or type(error).__name__, False
+                if session.error:
+                    self.errors[model] = session.error
+                    if not session.retryable:
+                        self.requested.discard(model)
+                self.retry_at[model] = time.monotonic() + 5
+        devices = discover()
+        if not self.coordinator.available:
+            for session in self.sessions.values():
+                session.stop_requested.set()
+        for model in list(self.requested):
+            if (model in self.sessions or self.suspended or not self.sleep_monitor_ready
+                    or not self.coordinator.available):
+                continue
+            if time.monotonic() < self.retry_at.get(model, 0):
+                continue
+            matches = [d for d in devices if d.model == model]
+            if len(matches) != 1:
+                self.errors[model] = 'Connect exactly one transport for this mouse' if matches else 'Mouse not connected'
+                continue
+            session = DeviceSession(matches[0], self.coordinator, journal_directory(), self.pin)
+            self.sessions[model] = session
+            self.tasks[model] = asyncio.create_task(session.run())
 
     async def watch_config(self):
         while not self.shutdown.is_set():

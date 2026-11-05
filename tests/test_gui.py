@@ -357,6 +357,31 @@ def test_shared_shift_edit_is_available_behind_a_mouse_specific_trigger(app, tmp
         shiboken6.delete(window)
 
 
+def test_service_panel_distinguishes_backoff_waiting_and_actionable_failure(app, tmp_path):
+    from gillete.gui_service import ServicePanel
+    from gillete.service import Daemon
+    store = ProfileStore(tmp_path / 'profiles.json')
+    panel = ServicePanel(store)
+    panel.timer.stop()
+    data = Daemon(store).status()
+    try:
+        state = data['devices'][MODELS[0]]
+        state.update(requested=True, retry_in_ms=4500, error='Mouse transport unavailable')
+        panel.status(data)
+        assert 'retrying in 5s' in panel.labels[MODELS[0]].text()
+        assert panel.disable[MODELS[0]].isEnabled() and not panel.enable[MODELS[0]].isEnabled()
+        state['retry_in_ms'] = 0
+        panel.status(data)
+        assert 'waiting to reconnect' in panel.labels[MODELS[0]].text()
+        state.update(requested=False, error='Invalid mapping in profile Timeout')
+        panel.status(data)
+        assert 'disabled' in panel.labels[MODELS[0]].text()
+        assert 'Invalid mapping in profile Timeout' in panel.info.toPlainText()
+        assert panel.enable[MODELS[0]].isEnabled() and not panel.disable[MODELS[0]].isEnabled()
+    finally:
+        shiboken6.delete(panel)
+
+
 def test_application_picker_matches_literal_app_ids_and_optional_titles(app):
     selected = Window('a', '[Wine]*game?', 'Game [1]*?', '/usr/bin/wine')
     picker = ApplicationPicker([selected])

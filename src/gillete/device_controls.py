@@ -36,9 +36,9 @@ class Controls:
             durable_json(path, document)
         except BaseException:
             # Include an uncertain SET in recovery even if its ACK was lost.
-            if self.io.device_serial() != self.snapshot.serial:
-                raise ProtocolError(f'Device identity changed; recovery retained at {path}')
             try:
+                if self.io.device_serial() != self.snapshot.serial:
+                    raise ProtocolError('Device identity changed before setting rollback')
                 self.io._exchange(Command(category, setter, before))
                 if self.read(category, getter, query) != before:
                     raise ProtocolError('Setting rollback readback mismatch')

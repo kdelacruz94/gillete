@@ -13,6 +13,14 @@ class ProtocolError(ValueError):
     pass
 
 
+class DeviceUnavailable(ProtocolError):
+    """A device disappeared or did not answer; a later session may retry.
+
+    This never authorizes resending a setter. Transactions still require their
+    existing readback, rollback and identity checks after an uncertain result.
+    """
+
+
 class DeviceStatusError(ProtocolError):
     def __init__(self, status: int):
         self.status = status

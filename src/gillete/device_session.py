@@ -1,6 +1,7 @@
 """One explicitly enabled mouse: input ownership, mode lease and cleanup."""
 
 import asyncio
+import errno
 import fcntl
 import os
 from pathlib import Path
@@ -15,12 +16,24 @@ from .device_controls import Controls
 from .driver_mode import ModeLease
 from .engine import Engine
 from .hardware import inspect, read_journal, transport
+from .hid import device_io
 from .hypershift import availability
 from .macros import KeyLedger
-from .protocol import Command, ProtocolError
+from .protocol import Command, DeviceStatusError, DeviceUnavailable, ProtocolError
 from .reports import decode
 from .runtime import Router, UInputOutput
 from .stored_actions import from_snapshot, unresolved
+
+
+class SessionInterrupted(ProtocolError):
+    """A known normal-mode restart or lost desktop monitor needs a new session."""
+
+
+def retryable_session_error(error):
+    # Classify the outer failure only. A recovery/identity error must not become
+    # retryable merely because a transport timeout appears in its cause chain.
+    return (isinstance(error, (DeviceUnavailable, SessionInterrupted))
+            or isinstance(error, DeviceStatusError) and error.status in (1, 4))
 
 
 class DeviceSession:
@@ -30,6 +43,7 @@ class DeviceSession:
         self.stop_requested = asyncio.Event()
         self.ready = False
         self.error = ''
+        self.retryable = True
         self.action_error = ''
         self.engine = None
         self.snapshot = None
@@ -45,6 +59,10 @@ class DeviceSession:
     def current_input(self, generation):
         return (self.engine is not None and generation == self.engine.generation
                 and self.coordinator.available and not self.stop_requested.is_set())
+
+    def cleanup_error(self, label, error, *, allow_retry=False):
+        self.error += f' {label}: {str(error) or type(error).__name__}'
+        self.retryable = self.retryable and allow_retry and retryable_session_error(error)
 
     async def hardware_call(self, fn, *args, generation=None):
         async with self.io_lock:
@@ -70,9 +88,10 @@ class DeviceSession:
             return False
         try:
             for _ in range(128):
-                raw = os.read(fd, 4096)
+                with device_io():
+                    raw = os.read(fd, 4096)
                 if not raw:
-                    raise OSError('Mouse input disconnected')
+                    raise DeviceUnavailable('Mouse input disconnected')
                 frame = decode(self.device.model, self.fds[fd], raw)
                 if frame is not None:
                     self.frames.put_nowait((time.monotonic(), self.engine.generation, frame))
@@ -158,30 +177,42 @@ class DeviceSession:
     def open_inputs(self):
         for node in self.device.interfaces:
             if node['kind'] == 'input':
-                source = InputDevice(node['path'])
+                with device_io():
+                    source = InputDevice(node['path'])
                 self.evdev.append(source)
                 if source.info.vendor != 0x1532 or source.info.product != self.device.product_id:
                     raise ProtocolError('Input identity changed')
-                if source.active_keys():
+                with device_io():
+                    held = source.active_keys()
+                if held:
                     raise ProtocolError('Release all mouse buttons before enabling software remapping')
                 try:
-                    source.grab()
+                    with device_io():
+                        source.grab()
                 except OSError as error:
-                    raise ProtocolError('Another application owns a mouse interface; suspend its remapping first') from error
+                    if error.errno == errno.EBUSY:
+                        raise ProtocolError('Another application owns a mouse interface; suspend its remapping first') from error
+                    raise
             elif node['kind'] == 'hidraw' and node['number'] in ('00', '01', '02'):
-                fd = os.open(node['path'], os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC | os.O_NOFOLLOW)
+                with device_io():
+                    fd = os.open(node['path'], os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC | os.O_NOFOLLOW)
                 self.fds[fd] = node['number']
                 info = bytearray(8)
-                fcntl.ioctl(fd, 0x80084803, info, True)
+                with device_io():
+                    fcntl.ioctl(fd, 0x80084803, info, True)
                 if struct.unpack('IHH', info) != (3, 0x1532, self.device.product_id):
                     raise ProtocolError('Raw input identity changed')
-        if len(self.fds) != 3 or set(self.fds.values()) != {'00', '01', '02'} or not self.evdev:
-            raise ProtocolError('Mouse input interfaces are incomplete')
+        if len(self.fds) > 3 or len(set(self.fds.values())) != len(self.fds):
+            raise ProtocolError('Mouse input interfaces are ambiguous')
+        if set(self.fds.values()) != {'00', '01', '02'} or not self.evdev:
+            raise DeviceUnavailable('Mouse input interfaces are incomplete; waiting for enumeration')
 
     async def verify_mode(self):
         mode = await self.hardware_call(self.io.execute, Command(0, 0x84, bytes(2)))
+        if mode == b'\0\0':
+            raise SessionInterrupted('Mouse returned to normal mode or restarted; reconnecting')
         if mode != b'\3\0':
-            raise ProtocolError('Mouse mode changed or the mouse restarted; reconnecting')
+            raise ProtocolError('Unexpected mouse mode; recovery requires attention')
 
     async def process_frames(self, router):
         previous = time.monotonic()
@@ -197,7 +228,7 @@ class DeviceSession:
                 if self.stop_requested.is_set():
                     return
                 if not self.coordinator.available:
-                    raise ProtocolError('Hyprland focus monitoring is unavailable; reconnecting')
+                    raise SessionInterrupted('Hyprland focus monitoring is unavailable; reconnecting')
                 await router.feed(frame, activate=generation == self.engine.generation)
 
     async def process_controls(self, controls):
@@ -224,6 +255,7 @@ class DeviceSession:
 
     async def run(self):
         tasks = []
+        primary_error = None
         loop = asyncio.get_running_loop()
         self.failure = loop.create_future()
         attached = False
@@ -241,7 +273,7 @@ class DeviceSession:
                                  input_boundary=self.capture_pending)
             self.validate_profiles(self.coordinator.config)
             if not self.coordinator.available:
-                raise ProtocolError('Hyprland focus monitoring is unavailable')
+                raise SessionInterrupted('Hyprland focus monitoring is unavailable')
             if self.stop_requested.is_set():
                 return
             self.output = UInputOutput(f'{self.device.product_id:04x}')
@@ -282,7 +314,9 @@ class DeviceSession:
                 if isinstance(result, Exception):
                     raise result
         except Exception as error:
-            self.error = str(error)
+            primary_error = error
+            self.error = str(error) or type(error).__name__
+            self.retryable = retryable_session_error(error)
         finally:
             self.ready = False
             self.stop_requested.set()
@@ -300,41 +334,45 @@ class DeviceSession:
                 elif self.engine is not None:
                     await self.engine.disconnect()
             except Exception as error:
-                self.error += f' Input release failed: {error}'
-            await asyncio.gather(*tasks, return_exceptions=True)
+                self.cleanup_error('Input release failed', error)
+            # An admitted setting transaction can fail during shutdown after
+            # the initial disconnect. Do not lose its rollback/recovery error.
+            for result in await asyncio.gather(*tasks, return_exceptions=True):
+                if isinstance(result, Exception) and result is not primary_error:
+                    self.cleanup_error('Session worker failed', result, allow_retry=True)
             if self.output is not None:
                 try:
                     self.engine.ledger.release_all()
                 except Exception as error:
-                    self.error += f' Output release failed: {error}'
+                    self.cleanup_error('Output release failed', error)
                 finally:
                     try:
                         await self.output.restore_keyboard()
                     except Exception as error:
-                        self.error += f' Keyboard options restore failed: {error}'
+                        self.cleanup_error('Keyboard options restore failed', error)
                     try:
                         self.output.close()
                     except Exception as error:
-                        self.error += f' Output close failed: {error}'
+                        self.cleanup_error('Output close failed', error)
             if self.lease is not None and self.lease.document is not None:
                 try:
                     await self.hardware_call(self.lease.restore)
                 except Exception as error:
-                    self.error += f' Mode recovery retained at {self.lease.path}: {error}'
+                    self.cleanup_error(f'Mode recovery retained at {self.lease.path}', error, allow_retry=True)
             if self.io is not None:
                 try:
                     self.io.__exit__()
                 except Exception as error:
-                    self.error += f' HID close failed: {error}'
+                    self.cleanup_error('HID close failed', error)
             for fd in self.fds:
                 try:
                     os.close(fd)
                 except OSError as error:
-                    self.error += f' Input close failed: {error}'
+                    self.cleanup_error('Input close failed', error)
             for source in self.evdev:
                 try:
                     source.close()  # also releases any successful grabs
                 except OSError as error:
-                    self.error += f' Input release failed: {error}'
+                    self.cleanup_error('Input release failed', error)
             self.fds.clear()
             self.evdev.clear()
