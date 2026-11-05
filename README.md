@@ -172,6 +172,26 @@ It submits read-query feature reports, never setting commands. Snapshot output
 contains device identity and should be kept private. Running the entire GUI as
 root is not required or recommended.
 
+The development software-test harness supports both receivers, with a read-only
+preview before live activation:
+
+```bash
+python -m gillete.guided_service prepare --product 00b4 --directory evidence/v2-software-test1.local
+# Review the printed temporary mappings before running the test.
+python -m gillete.guided_service run --directory evidence/v2-software-test1.local --seconds 180
+```
+
+Use `00e8` for V3 and a new directory for each attempt. This test changes live
+mouse behavior and generates keys. Its private profile masks undecoded firmware
+actions and device-setting actions explicitly; the preview lists the effect
+inside and outside the test window. The current V2 plan also disables the four
+old MapleStory macros retired by the owner. Normal decoding remains strict.
+The test window shows model-specific instructions and starts its countdown only
+when the service is active with that window's profile. Closing it stops the test;
+Ctrl+Alt+Pause stops generated actions. Cleanup verifies normal mode, saved
+bindings, profile selection and saved settings. Recovery journals remain under
+the test directory's `run/state/gillete/onboard/` if verification fails.
+
 An opt-in firmware diagnostic prepares private evidence for unresolved macro
 storage and DPI selectors, without changing mappings or settings:
 

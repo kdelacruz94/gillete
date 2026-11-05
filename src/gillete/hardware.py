@@ -86,6 +86,20 @@ class Snapshot:
         return compile_profile(profile, self.model, self.bank, self.baseline)
 
 
+def snapshot_document(snapshot):
+    return {'product': snapshot.product, 'model': snapshot.model, 'serial': snapshot.serial,
+            'bank': snapshot.bank, 'assigned': list(snapshot.assigned), 'active': snapshot.active,
+            'controls': sorted(snapshot.controls), 'settings': snapshot.settings, 'metadata': snapshot.metadata,
+            'records': [{**where.json(), 'raw': raw.hex()} for where, raw in sorted(snapshot.records.items())]}
+
+
+def load_snapshot(document):
+    return Snapshot(document['product'], document['model'], document['serial'], document['bank'],
+                    tuple(document['assigned']), document['active'], set(document['controls']),
+                    {Location(r['bank'], r['control'], r['layer']): bytes.fromhex(r['raw']) for r in document['records']},
+                    document['settings'], document.get('metadata', {}))
+
+
 def read_records(io, model, bank):
     records = {}
     for layer in (0, 1):

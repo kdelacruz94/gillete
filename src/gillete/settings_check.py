@@ -9,8 +9,8 @@ import signal
 import sys
 
 from .devices import discover
-from .hardware import Snapshot, apply_settings, inspect, read_journal, restore
-from .onboard import Location, durable_json
+from .hardware import apply_settings, inspect, load_snapshot, read_journal, restore, snapshot_document
+from .onboard import durable_json
 from .protocol import ProtocolError
 from .settings import DPI_MAX, SettingsDraft, Stages, decode_dpi, decode_polling, describe, plan
 
@@ -34,20 +34,6 @@ def test_draft(snapshot):
     active = stages.active % len(values) + 1
     values[active - 1] = pair
     return SettingsDraft(pair, tuple(values), active, 500 if polling == 1000 else 1000)
-
-
-def snapshot_document(snapshot):
-    return {'product': snapshot.product, 'model': snapshot.model, 'serial': snapshot.serial,
-            'bank': snapshot.bank, 'assigned': list(snapshot.assigned), 'active': snapshot.active,
-            'controls': sorted(snapshot.controls), 'settings': snapshot.settings, 'metadata': snapshot.metadata,
-            'records': [{**where.json(), 'raw': raw.hex()} for where, raw in snapshot.records.items()]}
-
-
-def load_snapshot(document):
-    return Snapshot(document['product'], document['model'], document['serial'], document['bank'],
-                    tuple(document['assigned']), document['active'], set(document['controls']),
-                    {Location(r['bank'], r['control'], r['layer']): bytes.fromhex(r['raw']) for r in document['records']},
-                    document['settings'], document.get('metadata', {}))
 
 
 def prepare(product, directory):

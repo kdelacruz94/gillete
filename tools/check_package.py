@@ -21,7 +21,8 @@ def main():
         for module in ('settings', 'gui_settings', 'gui_controls', 'gui_applications', 'keyboard_map',
                        'startup', 'gui_startup', 'gui_instance'):
             assert f'gillete/{module}.py' in archive.namelist()
-        for module in ('applications', 'gui_launch', 'gui_standalone', 'macro_reads', 'firmware_probe'):
+        for module in ('applications', 'gui_launch', 'gui_standalone', 'macro_reads', 'firmware_probe',
+                       'validation_plan', 'guided_service', 'validation_pad'):
             assert f'gillete/{module}.py' in archive.namelist()
     with TemporaryDirectory(prefix='gillete-package-check-') as temporary:
         stage = Path(temporary)
@@ -70,6 +71,8 @@ raise SystemExit(start(ProfileStore(Path(sys.argv[2]))))
              'from gillete.cli import main; raise SystemExit(main(["--config", sys.argv[1], "validate"]))',
              str(stage / 'wheel-profiles.json')], env=environment)
         run([str(interpreter), '-I', '-m', 'gillete.firmware_probe', '--help'],
+            env=environment, stdout=subprocess.PIPE)
+        run([str(interpreter), '-I', '-m', 'gillete.guided_service', '--help'],
             env=environment, stdout=subprocess.PIPE)
     print('PASS: Arch paths/launcher, isolated native GUI, wheel install and CLI; no host installation or remapping.')
 

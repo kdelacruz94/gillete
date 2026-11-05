@@ -69,6 +69,43 @@ def settings_snapshot():
         'stages': '0101050104b004b000000203e803e800000304b004b000000406400640000005070807080000'})
 
 
+@pytest.mark.parametrize('model', MODELS)
+def test_validation_pad_starts_countdown_only_for_matching_ready_signal(app, tmp_path, model):
+    from gillete.validation_pad import Pad
+    from gillete.onboard import durable_json
+    ready = tmp_path / 'ready.json'
+    pad = Pad(tmp_path / 'input.json', model=model, title='unique test', seconds=30, ready=ready)
+    try:
+        assert pad.preparation.isActive() and not pad.duration.isActive()
+        pad.check_ready()
+        assert not pad.duration.isActive()
+        expected = 'front small index-finger' if model == MODELS[0] else 'ring-finger'
+        assert expected in pad.instructions.text()
+        durable_json(ready, {'version': 1, 'model': model, 'title': 'unique test', 'seconds': 30})
+        pad.check_ready()
+        assert pad.status.text().startswith('READY')
+        assert pad.duration.isActive() and pad.duration.interval() == 30_000
+        assert not pad.preparation.isActive() and not pad.readiness.isActive()
+        pad.close()
+        assert not pad.duration.isActive()
+    finally:
+        shiboken6.delete(pad)
+
+
+def test_validation_pad_rejects_another_tests_readiness(app, tmp_path):
+    from gillete.validation_pad import Pad
+    from gillete.onboard import durable_json
+    ready = tmp_path / 'ready.json'
+    pad = Pad(tmp_path / 'input.json', model=MODELS[0], title='test one', seconds=30, ready=ready)
+    try:
+        pad.show()
+        durable_json(ready, {'version': 1, 'model': MODELS[0], 'title': 'test two', 'seconds': 30})
+        pad.check_ready()
+        assert not pad.isVisible() and not pad.duration.isActive()
+    finally:
+        shiboken6.delete(pad)
+
+
 def test_settings_dialog_preserves_existing_values_then_selects_a_stage(app, monkeypatch):
     snapshot = settings_snapshot()
     dialog = SettingsDialog(snapshot)

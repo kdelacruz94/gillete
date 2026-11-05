@@ -46,24 +46,31 @@ on the physical V3 recheck. Test3 exited 0; normal mode and all 50 saved
 descriptors were verified unchanged. No guided test is running. A later async
 question to wake the V2 for settings preparation was answered Later, as noted above.
 
-The completed retest command was:
+Future software tests now require separate preparation and execution (the old
+single-command V3 harness used for test3 has been replaced):
 
 ```sh
-.venv/bin/python -u -m gillete.guided_service --directory evidence/v3-software-test3.local --seconds 180
+.venv/bin/python -m gillete.guided_service prepare --product 00b4 --directory evidence/v2-software-test1.local
+# Review the printed overrides with the user before starting live control.
+.venv/bin/python -u -m gillete.guided_service run --directory evidence/v2-software-test1.local --seconds 180
 ```
 
-Use a new directory for any future test. The command opens a foreground input
-pad, creates an isolated config, starts a private daemon, enables only the V3,
-and prints READY after actual activation. Tell the user to use the test window:
-side 12 = F24; ring + side 12 = F23; side 11 = Ctrl+K then M; rear button behind
-wheel toggles repeated 1. Start repeat again and leave the window to test focus
-cancellation. Closing the pad ends the test and restores normal mode. No existing
-local profile file is changed. The helper verifies all 50 stored descriptors.
+Use a new directory per attempt and product00e8 for the V3 receiver. Preparation
+only reads; execution checks the prepared mouse state before starting an isolated
+service. The pad's countdown starts after actual activation in that focused window.
+On both mice, side12 = F24, HyperShift+side12 = F23, side11 = Ctrl+K then M.
+The V2 front index button is the trigger and rear index button toggles repeated1;
+V3 uses the ring button and rear button behind the wheel. Leaving the window
+cancels repetition; returning requires a fresh press. Known stored actions remain
+outside the pad, with explicit unknown/settings masks documented in the preview.
+Both original layers, profile inventory/selection and saved DPI/stage/polling
+values are compared after mode restoration. No regular profile file is changed.
 
 Inspect output before claiming READY or success. The V3 often sleeps: timeout on initial read means no change;
-ask the user to wake it and retry the already-authorized test. The helper's
-shutdown/timeout paths deserve another check before a live run. Do not kill a
-service without checking/restoring its mode journal afterward.
+ask the user to wake it when they resume the deferred physical session. Commands
+are bound to the test's configuration identity, mode journals are isolated under
+its run/state directory, and evidence failures cannot skip recovery. Do not kill
+a service without checking/restoring its mode journal afterward.
 
 ## Installed development build
 
@@ -166,7 +173,8 @@ service without checking/restoring its mode journal afterward.
   commands are serialized, shutdown waits for shortcut ownership verification,
   and supervisors stop before session cleanup. Focus-monitor loss rejects new
   translated input and restores normal mode until monitoring returns.
-- validation_pad/guided_service: prepared bounded V3 software acceptance test.
+- validation_plan/validation_pad/guided_service: reviewed, bounded V2/V3 receiver
+  software acceptance tests with isolated configuration/state and restoration.
 
 ## Verification completed
 
@@ -282,8 +290,10 @@ Files produced by sudo were chowned back to the checkout owner, staying 0600.
   left/right are keyboard-turbo PgUp/PgDn (`0d04004b008e00` /
   `0d04004e008e00`); shifted left click is `0e0301008e0000`; shifted side7 is
   `0d04001c008e00` (Y turbo). Shifted sides1,2,4,10 contain
-  `05020000000000`, still unknown. All remain preserved; no software substitute
-  has been chosen. Existing input-remapper presets remain untouched under
+  `05020000000000`, still undecoded but retired by the user. The isolated test
+  disables those four macros and temporarily masks the other four unknown turbo
+  actions; it never guesses their timing. All saved bytes remain preserved.
+  Existing input-remapper presets remain untouched under
   `~/.config/input-remapper-2/presets/Razer Razer Naga V2 HyperSpeed/`.
 
 ## Still required before completion/migration
@@ -305,9 +315,9 @@ repeat the V3 core acceptance.
 
 The settings editor and transactions are now implemented. A read-only prepare
 attempt for `evidence/v2-settings-test1.local` timed out on the initial mode read;
-it created no test directory and changed no settings. An async question asks the
-user to wake the V2 and reply Awake, or choose Later. Do not treat elapsed time
-as readiness. Once awake, run:
+it created no test directory and changed no settings. The user chose Later and
+asked to continue building. Do not treat elapsed time as readiness. When the user
+resumes hardware testing and wakes the mouse, run:
 
 ```sh
 .venv/bin/python -m gillete.settings_check prepare --product 00b4 --directory evidence/v2-settings-test1.local
@@ -573,3 +583,52 @@ zero/duplicate IDs, data bounds, malformed echoes, stale HID frames without a
 resent request, preflight sleep/driver-mode failures, external state differences,
 query/time limits and private report handling. No candidate getter was sent to
 a physical mouse, and no hardware readiness or new capability is claimed.
+
+## V2/V3 software acceptance preparation and lifecycle
+
+The old V3-only harness now has separate `prepare` (read-only) and `run` commands
+for both receivers. `validation_plan` builds model-specific profiles without
+opening hardware. It explicitly disables the four retired V2 MapleStory macros,
+temporarily disables other undecoded functions without interpreting their bytes,
+and masks stored DPI/native device-setting actions to prevent accidental writes.
+These masks apply inside and outside the pad. All other known original actions
+retain passthrough, including pointer drag ownership and known shifted actions
+whose normal assignment is masked. The ordinary stored-action decoder and
+unknown-action activation guard are unchanged.
+
+The preview records raw originals and effective inside/outside actions for every
+changed control/layer. Both mice test side12 F24/F23, side11 Ctrl+K then M and
+toggle1 at a 200ms interval. V2 uses front index as held HyperShift and rear index
+for toggle1; V3 uses ring/rear-wheel buttons. Outside the pad, those test buttons
+return to their known stored actions (the V2 rear index is currently LeftCtrl).
+No regular profiles or startup preferences are changed.
+
+Execution checks the original identity, bindings, assigned/active slot, inventory
+and saved settings before activation. The test directory is claimed once. All
+service commands include its unique config path; daemon mode journals use its
+private XDG state directory. PID/title identify the pad, wildcard characters are
+escaped, and READY requires the test profile active in that exact focused window.
+The pad starts its duration only on a matching readiness receipt, with a separate
+90-second preparation limit. Closed windows/signals stop startup; owned children
+have bounded termination, and a cancelled window-query child is reaped. Cleanup
+stops the owned service before journal recovery, checks saved settings/profile
+selection as well as all descriptors, and performs recovery before writing logs.
+Disconnected/unverifiable state is reported as failure with recovery data kept.
+
+All 186 tests pass, including both complete test profiles through the engine,
+HyperShift, shortcut timing, turbo cancellation/fresh press, preserved pointer
+drags, stale preview rejection, config identity, readiness, window-close/startup
+failure, disk failure during evidence saving, and unsuccessful restoration.
+Qt countdown checks run offscreen; controller tests use simulated hardware and
+service children, with a real harmless child used to check cancellation/reaping.
+Offline builds against the original private captures preserve 42 V2 / 50 V3 raw
+descriptors and list 12 effective overrides each. The private
+`evidence/naga_*-software-preview.local.json` files are offline previews, not
+prepared live tests; fresh read-only preparation is still required.
+
+Arch/wheel/source artifacts were rebuilt and staged package/GUI/CLI checks pass.
+No physical read/write, input grab, real remapping, startup change, system package
+installation or input-remapper change occurred. The user chose to defer hardware
+testing; that remains in effect. Firmware actions, wired operation, settings and
+reconnect persistence, per-profile sensitivity, broader service acceptance and
+final migration remain unfinished.

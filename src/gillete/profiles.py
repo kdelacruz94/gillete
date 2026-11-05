@@ -15,6 +15,12 @@ from typing import Any
 from .model import ConfigurationError, MODELS, Profile, integer, object_fields
 
 
+def literal_pattern(value):
+    """Match an application ID or title literally in a wildcard rule."""
+    escapes = {'[': '[[]', '*': '[*]', '?': '[?]'}
+    return ''.join(escapes.get(char, char) for char in value)
+
+
 @dataclass(frozen=True)
 class Window:
     address: str = ""

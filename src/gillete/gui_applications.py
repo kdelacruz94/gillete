@@ -3,14 +3,7 @@
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QDialog, QDialogButtonBox,
                               QHeaderView, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout)
 
-from .profiles import Rule
-
-
-def literal_pattern(value):
-    # Application IDs and window titles are literal here; only manually edited
-    # rule fields should acquire wildcard semantics.
-    escapes = {'[': '[[]', '*': '[*]', '?': '[?]'}
-    return ''.join(escapes.get(char, char) for char in value)
+from .profiles import Rule, literal_pattern
 
 
 class ApplicationPicker(QDialog):
