@@ -227,6 +227,36 @@ both. A rejected query stops that section. Readback alone establishes neither
 native macro playback nor temporary DPI writes; this diagnostic enables no new
 application capability automatically.
 
+A separate development experiment can test DPI getter independence before
+per-program hardware sensitivity is implemented:
+
+```bash
+python -m gillete.dpi_probe prepare --product 00b4 --directory evidence/v2-dpi-selector1.local
+# Review the exact proposed DPI change and original saved settings first.
+python -m gillete.dpi_probe run --directory evidence/v2-dpi-selector1.local --hold-seconds 3
+# Only if the experiment retains an unresolved recovery journal:
+python -m gillete.dpi_probe recover --journal evidence/v2-dpi-selector1.local/run/journal.json
+```
+
+`prepare` is read only. `run` briefly changes DPI through candidate selector zero
+and restores it; recovery may also restore original saved DPI/stages/polling if
+their readback changed. Use a new private directory and an awake mouse in normal
+mode, with software control disabled. Both receivers are supported by this
+experiment; wired operation remains gated. All known controls in the active
+mirror and every assigned slot are checked, including opaque Synapse bindings.
+No binding, profile-selection or mode setter is used. Interrupting the experiment
+requests cleanup; disconnected or unverifiable restoration retains its journal.
+
+The hold is limited to 0–10 seconds, with a separate query/time budget checked
+between device operations; restoration runs even after that budget expires.
+Kernel I/O itself can exceed the deadline. A successful result establishes only
+the observed getter separation and restoration. Coupled getters do not prove a
+permanent write; separated getters do not prove sensor behavior or persistence.
+Physical movement, power-cycle/receiver-replug checks and driver-mode validation
+are still required before enabling automatic profile DPI. This tool neither
+enables that feature nor substitutes software pointer scaling. Physical execution
+of this experiment remains deferred during the current development session.
+
 Service CLI commands:
 
 ```bash

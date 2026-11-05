@@ -751,3 +751,57 @@ cleanup, rollback identity loss and late transaction failures. Tests use simulat
 hardware and local packet sockets; physical receiver removal, wake/reconnect and
 system suspend acceptance remain unverified. No hardware request, real remapping,
 input-remapper change or startup preference change occurred in this continuation.
+
+## Reversible DPI-selector experiment preparation
+
+Per-program hardware sensitivity still depends on verifying a nonpersistent DPI
+setter. Rechecked the pinned fork's packet builder: its scalar DPI setter always
+emits selector1 despite accepting a storage argument. No claim of selector0
+support follows from that source. The new separate `gillete.dpi_probe` provides
+`prepare`, `run` and `recover` for an explicit candidate `04:05` selector0
+experiment; the service, normal transport allowlist and profile schema are
+unchanged. No physical preparation or write was performed in this continuation.
+
+Preparation captures firmware, serial, normal mode, assigned/active slots,
+inventory, all known controls in bank0 and every assigned slot, stored
+DPI/stages/polling and selector0 DPI. It validates each response and previews a
+small target distinct from both getters, preserving opaque scalar bytes. Raw
+original bindings, including retired or undecoded macros, remain private and
+unchanged. The execution directory is claimed once, and the complete recovery
+journal is flushed before a setter. Fresh inspection rejects stale settings,
+bindings, identity or profile selection before mutation.
+
+Execution checks selector0 and saved-settings readback immediately, holds the
+value for 0–10 seconds, then compares the complete captured state. It sends the
+candidate once; rejection, ignored writes, timeout and cancellation all enter
+cleanup. Restoration repairs changed saved values in dependency order, including
+the independent scalar after a stage-table write, then restores selector0.
+If that restoration changes saved readback, one additional saved repair is
+allowed only after the earlier repair was verified. There is no blind SET retry
+or unbounded write loop. Final verification compares both DPI getters, saved
+settings, identity/profile/inventory and all captured binding functions. Reply
+metadata is retained in evidence but is not mistaken for a changed assignment.
+
+Identity, firmware, mode or profile changes prevent recovery writes. An uncertain
+restoration ACK retains the journal; explicit recovery first reads current state
+and skips values already restored. Partial restoration is never reported as
+success. Signals request cancellation between operations; recovery bypasses the
+experiment's query/time budget. A saved read-only preparation is not accepted as
+an attempted-write recovery journal. Journal and report files are mode0600 in
+new private directories; terminal output omits hardware identity and bindings.
+
+All 306 tests pass, including 43 new tests using independent/aliased simulated
+storage, multiple V3 slots, opaque descriptors, stale previews, device/firmware
+identity changes, ignored/rejected writes, lost SET/restore ACKs, disconnect/wake,
+coupled stage/scalar restoration, unresolvable getter aliasing, cancellation,
+budget exhaustion, journal disk failure and one-shot CLI execution. No real HID,
+evdev, uinput or compositor operation was performed by those tests.
+
+Even a successful physical roundtrip would establish only observed getter
+independence and restoration. Coupled selector0/1 readback does not itself prove
+a nonvolatile write; separate readback does not prove sensor changes or absence
+of hidden permanent writes. Sensor behavior, power-cycle and receiver-replug
+independence and driver-mode operation remain required. `temporary_dpi_supported`
+stays false in every report. Per-profile sensitivity, native firmware actions,
+wired transport and the remaining physical acceptance/migration work remain
+unfinished, with hardware testing still deferred by the user.

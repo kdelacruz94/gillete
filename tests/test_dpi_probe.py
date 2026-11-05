@@ -1,0 +1,380 @@
+import json
+import signal
+from types import SimpleNamespace
+
+import pytest
+
+from gillete import dpi_probe as probe
+from gillete.compile_onboard import CONTROL_IDS
+from gillete.devices import PRODUCTS
+from gillete.protocol import DeviceStatusError, DeviceUnavailable, ProtocolError
+from gillete.settings import SPECS, Stages
+
+
+class Mouse:
+    """Independent, aliased or unresponsive storage; never opens real hardware."""
+    def __init__(self, product=0xB4, *, alias=False):
+        self.product, self.alias = product, alias
+        self.serial, self.mode, self.firmware = 'dpi-test', bytes(2), b'\1\2'
+        self.assigned, self.active = ((1,) if product == 0xB4 else (1, 3)), 1
+        self.controls = tuple(CONTROL_IDS[PRODUCTS[product][0]].values())
+        self.values = {'stages': bytes.fromhex('0101020104b004b0aabb0203200320ccdd') + bytes(21),
+                       'dpi': bytes.fromhex('01070807080000'), 'polling': b'\1'}
+        self.zero = b'\0' + self.values['dpi'][1:]
+        self.writes, self.reads = [], []
+        self.binding_change, self.reply_flag = False, 0
+        self.fail_at, self.sleep_after_write, self.ignore_setters = set(), False, False
+        self.awake = True
+
+    def __enter__(self): return self
+    def __exit__(self, *_): pass
+    def device_serial(self):
+        if not self.awake: raise DeviceUnavailable('Mouse unavailable')
+        return self.serial
+    def require_normal_mode(self):
+        self.device_serial()
+        if self.mode != bytes(2): raise ProtocolError('Normal mode required')
+
+    def read_binding_record(self, bank, control, layer):
+        function = bytes.fromhex('05020000000000')  # Opaque old macro references stay raw.
+        if self.binding_change and bank == self.assigned[-1]:
+            function = bytes.fromhex('0202001e000000')
+        return bytes((bank, control, self.reply_flag)) + function
+
+    def execute(self, command):
+        self.device_serial()
+        self.reads.append(command)
+        pair, data = (command.category, command.operation), command.payload
+        if pair == (0, 0x84): return self.mode
+        if pair == (0, 0x81): return self.firmware
+        if pair == (5, 0x80): return bytes((len(self.assigned),))
+        if pair == (5, 0x81): return bytes((1 if self.product == 0xB4 else 5, *self.assigned))
+        if pair == (5, 0x84): return bytes((self.active,))
+        if pair == (2, 0x84): return bytes((len(self.controls), *self.controls))[:len(data)]
+        if pair == (2, 0x8C): return self.read_binding_record(*data[:3])
+        if pair == (4, 0x85):
+            assert data in (bytes(7), b'\1' + bytes(6))
+            return self.zero if data[0] == 0 else self.values['dpi']
+        for name, (category, _, getter, payload) in SPECS.items():
+            if pair == (category, getter):
+                assert data == payload
+                return self.values[name]
+        raise AssertionError('Unexpected query')
+
+    def _exchange(self, command):
+        self.device_serial()
+        self.writes.append(command)
+        pair, raw = (command.category, command.operation), command.payload
+        assert pair in {(4, 5), (4, 6), (0, 5)}, 'No mode, profile or binding setters allowed'
+        if not self.ignore_setters:
+            if pair == (4, 5):
+                assert len(raw) == 7 and raw[0] in (0, 1)
+                if raw[0] == 0: self.zero = raw
+                else: self.values['dpi'] = raw
+                if self.alias:
+                    self.zero, self.values['dpi'] = b'\0' + raw[1:], b'\1' + raw[1:]
+            elif pair == (4, 6):
+                self.values['stages'] = raw
+                stage = Stages.decode(raw, self.product)
+                self.values['dpi'] = b'\1' + b''.join(v.to_bytes(2, 'big') for v in stage.values[stage.active - 1]) + bytes(2)
+            else:
+                self.values['polling'] = raw
+        if self.sleep_after_write:
+            self.awake = False
+        if len(self.writes) in self.fail_at:
+            raise DeviceUnavailable('ACK lost after applying setter')
+
+
+@pytest.mark.parametrize('product', [0xB4, 0xE8])
+def test_independent_roundtrip_preserves_every_bank_and_opaque_bytes_without_enabling_support(tmp_path, product):
+    mouse = Mouse(product)
+    mouse.zero = bytes.fromhex('00064006a41234')
+    prepared = probe.prepare_document(mouse)
+    assert not mouse.writes
+    assert len(prepared['before']['records']) == len(mouse.controls) * 2 * (1 + len(mouse.assigned))
+    waits = []
+    result = probe.exercise(mouse, prepared, tmp_path / 'journal.json', hold_seconds=2, wait=waits.append)
+    assert result['status'] == 'readback-roundtrip-restored'
+    assert result['selector_readback_independent'] and result['original_state_restored']
+    assert not result['temporary_dpi_supported']
+    assert len(waits) == 20 and sum(waits) == pytest.approx(2)
+    assert [c.payload for c in mouse.writes] == [bytes.fromhex(prepared['target']), bytes.fromhex(prepared['before']['selector_zero'])]
+    assert all(c.payload[-2:] == b'\x12\x34' for c in mouse.writes)
+    assert probe.stable_state(probe.capture(mouse)) == probe.stable_state(prepared['before'])
+    assert prepared['status'] == 'prepared-read-only'
+    assert json.loads((tmp_path / 'journal.json').read_text()) == result
+    assert (tmp_path / 'journal.json').stat().st_mode & 0o777 == 0o600
+
+
+def test_aliasing_saved_storage_fails_the_experiment_and_restores_original_saved_dpi(tmp_path):
+    mouse = Mouse(alias=True)
+    prepared = probe.prepare_document(mouse)
+    result = probe.exercise(mouse, prepared, tmp_path / 'journal.json', hold_seconds=0)
+    assert result['status'] == 'test-failed-restored'
+    assert 'changed saved-settings readback' in result['experiment_error']
+    assert not result['selector_readback_independent'] and result['original_state_restored']
+    assert [c.payload[0] for c in mouse.writes] == [0, 1]
+    assert probe.capture(mouse) == prepared['before']
+
+
+def test_ignored_candidate_is_not_claimed_successful_or_repeated(tmp_path):
+    mouse = Mouse()
+    prepared = probe.prepare_document(mouse)
+    mouse.ignore_setters = True
+    result = probe.exercise(mouse, prepared, tmp_path / 'journal.json', hold_seconds=0)
+    assert result['status'] == 'test-failed-restored'
+    assert len(mouse.writes) == 1 and not result['selector_readback_independent']
+
+
+@pytest.mark.parametrize('status', [3, 5])
+def test_rejected_candidate_stops_without_unnecessary_restore_setters(tmp_path, status):
+    mouse = Mouse()
+    prepared = probe.prepare_document(mouse)
+    def rejected(command):
+        mouse.writes.append(command)
+        raise DeviceStatusError(status)
+    mouse._exchange = rejected
+    result = probe.exercise(mouse, prepared, tmp_path / 'journal.json', hold_seconds=0)
+    assert result['status'] == 'test-failed-restored'
+    assert len(mouse.writes) == 1 and not result['selector_readback_independent']
+
+
+def test_aliasing_that_cannot_restore_both_getters_is_reported_as_unresolved(tmp_path):
+    mouse = Mouse()
+    mouse.zero = bytes.fromhex('00064006400000')
+    prepared = probe.prepare_document(mouse)
+    original = mouse._exchange
+    def exchange(command):
+        mouse.alias = True
+        original(command)
+    mouse._exchange = exchange
+    result = probe.exercise(mouse, prepared, tmp_path / 'journal.json', hold_seconds=0)
+    assert result['status'] == 'recovery-required'
+    assert not result['original_state_restored'] and not result['selector_readback_independent']
+    assert [c.payload[0] for c in mouse.writes] == [0, 1, 0, 1]
+    assert mouse.values['dpi'].hex() == prepared['before']['settings']['dpi']
+    assert mouse.zero.hex() != prepared['before']['selector_zero']
+
+
+def test_lost_ack_restores_using_readback_without_resending_the_target(tmp_path):
+    mouse = Mouse()
+    prepared = probe.prepare_document(mouse)
+    mouse.fail_at = {1}
+    result = probe.exercise(mouse, prepared, tmp_path / 'journal.json', hold_seconds=0)
+    assert result['status'] == 'test-failed-restored' and 'ACK lost' in result['experiment_error']
+    assert [c.payload.hex() for c in mouse.writes] == [prepared['target'], prepared['before']['selector_zero']]
+
+
+def test_lost_restore_ack_retains_journal_and_explicit_recovery_needs_no_repeat_set(tmp_path, monkeypatch):
+    mouse = Mouse()
+    prepared = probe.prepare_document(mouse)
+    mouse.fail_at = {2}
+    path = tmp_path / 'journal.json'
+    result = probe.exercise(mouse, prepared, path, hold_seconds=0)
+    assert result['status'] == 'recovery-required' and not result['original_state_restored']
+    assert mouse.zero.hex() == prepared['before']['selector_zero']
+    monkeypatch.setattr(probe, 'connected', lambda _: mouse)
+    monkeypatch.setattr(probe, 'transport', lambda _: mouse)
+    assert probe.main(['recover', '--journal', str(path)]) == 0
+    document = json.loads(path.read_text())
+    assert document['original_state_restored'] and 'recovery_error' not in document
+    assert len(mouse.writes) == 2  # Readback resolves uncertainty without another write.
+
+
+def test_disconnect_then_wake_can_recover_original_bytes_from_disk(tmp_path, monkeypatch):
+    mouse = Mouse()
+    prepared = probe.prepare_document(mouse)
+    mouse.sleep_after_write = True
+    path = tmp_path / 'journal.json'
+    result = probe.exercise(mouse, prepared, path, hold_seconds=0)
+    assert result['status'] == 'recovery-required'
+    assert json.loads(path.read_text())['before'] == prepared['before']
+    mouse.awake, mouse.sleep_after_write = True, False
+    monkeypatch.setattr(probe, 'connected', lambda _: mouse)
+    monkeypatch.setattr(probe, 'transport', lambda _: mouse)
+    result = probe.recover(path)
+    assert result['original_state_restored'] and probe.capture(mouse) == prepared['before']
+    assert len(mouse.writes) == 2
+
+
+@pytest.mark.parametrize('change', ['serial', 'mode', 'firmware', 'profile', 'binding', 'dpi', 'zero'])
+def test_stale_preparation_rejects_before_any_write_or_journal(tmp_path, change):
+    mouse = Mouse(0xE8)
+    prepared = probe.prepare_document(mouse)
+    if change == 'serial': mouse.serial = 'replacement'
+    elif change == 'mode': mouse.mode = b'\3\0'
+    elif change == 'firmware': mouse.firmware = b'\2\0'
+    elif change == 'profile': mouse.active = 3
+    elif change == 'binding': mouse.binding_change = True
+    elif change == 'dpi': mouse.values['dpi'] = bytes.fromhex('01032003200000')
+    else: mouse.zero = bytes.fromhex('00032003200000')
+    path = tmp_path / 'journal.json'
+    with pytest.raises(ProtocolError): probe.exercise(mouse, prepared, path, hold_seconds=0)
+    assert not mouse.writes and not path.exists()
+
+
+@pytest.mark.parametrize('change', ['serial', 'mode', 'firmware', 'profile'])
+def test_changed_identity_mode_or_profile_during_hold_prevents_recovery_writes(tmp_path, change):
+    mouse = Mouse(0xE8)
+    prepared = probe.prepare_document(mouse)
+    def alter(_):
+        if change == 'serial': mouse.serial = 'replacement'
+        elif change == 'mode': mouse.mode = b'\3\0'
+        elif change == 'firmware': mouse.firmware = b'\2\0'
+        else: mouse.active = 3
+    result = probe.exercise(mouse, prepared, tmp_path / 'journal.json', hold_seconds=1, wait=alter)
+    assert result['status'] == 'recovery-required' and len(mouse.writes) == 1
+
+
+def test_changes_to_an_inactive_bank_are_detected_but_never_overwritten(tmp_path):
+    mouse = Mouse(0xE8)
+    prepared = probe.prepare_document(mouse)
+    def alter(_): mouse.binding_change = True
+    result = probe.exercise(mouse, prepared, tmp_path / 'journal.json', hold_seconds=1, wait=alter)
+    assert result['status'] == 'recovery-required'
+    assert not result['selector_readback_independent'] and not result['original_state_restored']
+    assert mouse.zero.hex() == prepared['before']['selector_zero']
+    assert len(mouse.writes) == 2 and all((c.category, c.operation) == (4, 5) for c in mouse.writes)
+
+
+def test_changed_reply_metadata_does_not_fabricate_a_binding_difference(tmp_path):
+    mouse = Mouse()
+    prepared = probe.prepare_document(mouse)
+    def alter(_): mouse.reply_flag = 1
+    result = probe.exercise(mouse, prepared, tmp_path / 'journal.json', hold_seconds=1, wait=alter)
+    assert result['status'] == 'readback-roundtrip-restored'
+    assert result['after_restore']['records'] != prepared['before']['records']
+
+
+def test_coupled_stage_and_scalar_recovery_preserves_independent_original_dpi(tmp_path):
+    mouse = Mouse()
+    prepared = probe.prepare_document(mouse)
+    def alter(_):
+        raw = bytearray(mouse.values['stages'])
+        raw[1] = 2
+        mouse.values['stages'] = bytes(raw)
+        mouse.values['polling'] = b'\2'
+    result = probe.exercise(mouse, prepared, tmp_path / 'journal.json', hold_seconds=1, wait=alter)
+    assert result['status'] == 'test-failed-restored'
+    assert [(c.category, c.operation) for c in mouse.writes] == [(4, 5), (4, 6), (4, 5), (0, 5), (4, 5)]
+    assert probe.capture(mouse) == prepared['before']
+
+
+def test_failed_saved_restoration_is_not_blindly_repeated(tmp_path):
+    mouse = Mouse(alias=True)
+    prepared = probe.prepare_document(mouse)
+    original = mouse._exchange
+    def exchange(command):
+        if mouse.writes: mouse.ignore_setters = True
+        original(command)
+    mouse._exchange = exchange
+    result = probe.exercise(mouse, prepared, tmp_path / 'journal.json', hold_seconds=0)
+    assert result['status'] == 'recovery-required' and len(mouse.writes) == 2
+    assert 'restoration did not verify' in result['recovery_error']
+
+
+@pytest.mark.parametrize('when', ['before', 'hold', 'budget'])
+def test_cancellation_and_read_budget_never_skip_restoration(tmp_path, monkeypatch, when):
+    mouse = Mouse()
+    prepared = probe.prepare_document(mouse)
+    stop = False
+    original = probe.ReadBudget.checkpoint
+    def checkpoint(self):
+        if when == 'budget' and mouse.writes: self.remaining = 0
+        return original(self)
+    monkeypatch.setattr(probe.ReadBudget, 'checkpoint', checkpoint)
+    def wait(_):
+        nonlocal stop
+        stop = True
+    path = tmp_path / 'journal.json'
+    if when == 'before':
+        with pytest.raises(InterruptedError): probe.exercise(mouse, prepared, path, stopped=lambda: True)
+        assert not mouse.writes and not path.exists()
+    else:
+        result = probe.exercise(mouse, prepared, path, hold_seconds=1, stopped=lambda: stop, wait=wait)
+        assert result['status'] == 'test-failed-restored' and len(mouse.writes) == 2
+        assert probe.capture(mouse) == prepared['before']
+
+
+def test_journal_failure_before_write_prevents_mutation_and_after_write_still_restores(tmp_path, monkeypatch):
+    mouse = Mouse()
+    prepared = probe.prepare_document(mouse)
+    real = probe.durable_json
+    def fail(path, document): raise OSError('Disk full')
+    monkeypatch.setattr(probe, 'durable_json', fail)
+    with pytest.raises(OSError): probe.exercise(mouse, prepared, tmp_path / 'never.json', hold_seconds=0)
+    assert not mouse.writes
+    def fail_update(path, document):
+        if path.exists(): raise OSError('Disk full after write')
+        real(path, document)
+    monkeypatch.setattr(probe, 'durable_json', fail_update)
+    path = tmp_path / 'retained.json'
+    with pytest.raises(OSError): probe.exercise(mouse, prepared, path, hold_seconds=0)
+    assert probe.capture(mouse) == prepared['before'] and len(mouse.writes) == 2
+    assert json.loads(path.read_text())['status'] == 'armed'
+
+
+@pytest.mark.parametrize('damage', ['target', 'settings', 'zero', 'records', 'firmware', 'claims'])
+def test_malformed_experiment_cannot_write_recovery_bytes(tmp_path, damage):
+    mouse = Mouse()
+    prepared = probe.prepare_document(mouse)
+    if damage == 'target': prepared['target'] = '01' + prepared['target'][2:]
+    elif damage == 'settings': prepared['before']['settings']['dpi'] = '02032003200000'
+    elif damage == 'zero': prepared['before']['selector_zero'] = 'ff'
+    elif damage == 'records': prepared['before']['records'].pop()
+    elif damage == 'firmware': prepared['before']['firmware'] = '00'
+    else: prepared['temporary_dpi_supported'] = True
+    with pytest.raises(ProtocolError): probe.restore_original(mouse, prepared)
+    assert not mouse.writes
+
+
+def test_prepare_and_run_use_private_one_shot_directories_and_no_production_changes(tmp_path, monkeypatch):
+    mouse = Mouse()
+    monkeypatch.setattr(probe, 'connected', lambda _: mouse)
+    monkeypatch.setattr(probe, 'transport', lambda _: mouse)
+    directory = tmp_path / 'trial'
+    assert probe.main(['prepare', '--product', '00b4', '--directory', str(directory)]) == 0
+    assert not mouse.writes and directory.stat().st_mode & 0o777 == 0o700
+    assert probe.main(['run', '--directory', str(directory), '--hold-seconds', '0']) == 0
+    count = len(mouse.writes)
+    with pytest.raises(SystemExit): probe.main(['run', '--directory', str(directory), '--hold-seconds', '0'])
+    with pytest.raises(SystemExit): probe.main(['prepare', '--product', '00b4', '--directory', str(directory)])
+    assert len(mouse.writes) == count
+
+
+def test_receiver_selection_refuses_an_additional_wired_transport(monkeypatch):
+    devices = [SimpleNamespace(product_id=0xE8, model=PRODUCTS[0xE8][0])]
+    monkeypatch.setattr(probe, 'discover', lambda: devices)
+    assert probe.connected(0xE8) is devices[0]
+    devices.append(SimpleNamespace(product_id=0xE7, model=PRODUCTS[0xE7][0]))
+    with pytest.raises(ProtocolError): probe.connected(0xE8)
+    with pytest.raises(ProtocolError): probe.connected(0xE7)
+
+
+def test_a_read_only_preparation_is_not_a_restore_request(tmp_path, monkeypatch):
+    mouse = Mouse()
+    prepared = probe.prepare_document(mouse)
+    path = tmp_path / 'prepared.json'
+    probe.durable_json(path, prepared)
+    def forbidden(_): raise AssertionError('No hardware open for an unattempted journal')
+    monkeypatch.setattr(probe, 'connected', forbidden)
+    with pytest.raises(ProtocolError, match='attempted experiment'): probe.recover(path)
+
+
+def test_signal_cancellation_is_observed_and_original_handlers_are_restored():
+    previous = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
+    with probe.cancellation() as stopped:
+        assert not stopped()
+        signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
+        assert stopped()
+    assert all(signal.getsignal(sig) == handler for sig, handler in previous.items())
+
+
+@pytest.mark.parametrize('dpi', [100, 200, 29900, 30000])
+def test_prepared_target_stays_in_range_and_differs_from_both_getters(dpi):
+    mouse = Mouse()
+    mouse.zero = b'\0' + dpi.to_bytes(2, 'big') * 2 + b'\xaa\xbb'
+    prepared = probe.prepare_document(mouse)
+    pair = probe.selector_zero(bytes.fromhex(prepared['target']), mouse.product)
+    assert all(100 <= v <= 30000 and v not in (dpi, 1800) for v in pair)
+    assert prepared['target'].endswith('aabb')
