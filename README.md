@@ -325,6 +325,15 @@ retained journal recoverable through `gillete.dpi_probe recover`. A reported
 power cycle is labeled as user-reported, not observed USB removal. No automatic
 hardware capability is enabled by these experiments.
 
+`gillete.dpi_replug_probe` provides a separate receiver-retention experiment.
+Its read-only `prepare` records the receiver's port and USB enumeration address
+as well as the complete original mouse state. Explicit `run` writes the
+prepared lower DPI, closes the descriptor and waits up to three minutes for
+observed USB removal and a new enumeration address on that same port. It then
+opens a fresh transport, reads protected state and restores the original values.
+If the receiver remains absent at timeout, restoration is unverified and the
+journal is retained for `gillete.dpi_probe recover` after reconnecting it.
+
 ```bash
 python -m gillete.dpi_probe prepare --product 00b4 --directory evidence/v2-dpi-selector1.local
 # Review the exact proposed DPI change and original saved settings first.

@@ -345,7 +345,8 @@ def recover(path):
     validate_document(document)
     if document.get('status') not in {'armed', 'recovery-required', 'test-failed-restored',
                                       'readback-roundtrip-restored', 'original-state-restored',
-                                      'sensor-observation-restored', 'awaiting-user-observation'}:
+                                      'sensor-observation-restored', 'awaiting-user-observation',
+                                      'receiver-replug-restored', 'awaiting-receiver-replug'}:
         raise ProtocolError('Recovery requires a journal from an attempted experiment')
     document['original_state_restored'] = False
     # Cancellation requests are deferred until restoration has completed.

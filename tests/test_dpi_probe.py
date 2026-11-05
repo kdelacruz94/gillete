@@ -6,6 +6,7 @@ import pytest
 
 from gillete import dpi_probe as probe
 from gillete import dpi_sensor_probe as sensor
+from gillete import dpi_replug_probe as replug
 from gillete.compile_onboard import CONTROL_IDS
 from gillete.devices import PRODUCTS
 from gillete.protocol import DeviceStatusError, DeviceUnavailable, ProtocolError
@@ -463,3 +464,92 @@ def test_requested_sensor_dpi_is_bounded_lower_and_cannot_change_readback_experi
     with pytest.raises(ProtocolError):
         probe.prepare_document(mouse, requested_dpi=1200)
     assert not mouse.writes
+
+
+@pytest.mark.parametrize('reset', [True, False])
+def test_receiver_replug_reopens_transport_observes_usb_boundary_and_restores(tmp_path, reset):
+    from contextlib import contextmanager
+    mouse = Mouse(0xE8)
+    prepared = probe.prepare_document(mouse, purpose=sensor.PURPOSE, requested_dpi=1200)
+    before = {'product': mouse.product, 'usb_path': '/sys/devices/usb1/1-2', 'busnum': '1', 'devnum': '4'}
+    prepared.update(experiment='receiver-replug', receiver_route=before)
+    after = {**before, 'devnum': '5'}
+    seen = iter([before, None, None, {'pending': True}, after])
+    opened, closed, active = [], [], []
+    @contextmanager
+    def opening():
+        index = len(opened) + 1
+        opened.append(index)
+        active.append(index)
+        if index == 2 and reset:
+            mouse.zero = bytes.fromhex(prepared['before']['selector_zero'])
+        try: yield mouse
+        finally:
+            active.remove(index)
+            closed.append(index)
+    def observe():
+        assert not active
+        return next(seen)
+    ready = []
+    result = replug.exercise(prepared, tmp_path / 'journal.json', opening, observe,
+                             ready=lambda: ready.append(True), wait=lambda _: None)
+    assert result['status'] == 'receiver-replug-restored' and ready == [True]
+    assert result['receiver_disconnect_observed'] and result['reconnected_route'] == after
+    assert result['receiver_replug_readback'] == ('original' if reset else 'candidate')
+    assert opened == closed == [1, 2, 3]
+    assert result['original_state_restored'] and not result['temporary_dpi_supported']
+    assert probe.capture(mouse) == prepared['before']
+    assert len(mouse.writes) == (1 if reset else 2)
+
+
+@pytest.mark.parametrize('failure', ['timeout', 'cancel', 'wrong-port', 'same-address', 'read-failure', 'alias'])
+def test_receiver_replug_failures_restore_without_replaying_candidate(tmp_path, failure):
+    from contextlib import contextmanager
+    mouse = Mouse(0xE8, alias=failure == 'alias')
+    prepared = probe.prepare_document(mouse, purpose=sensor.PURPOSE, requested_dpi=1200)
+    before = {'product': mouse.product, 'usb_path': '/sys/devices/usb1/1-2', 'busnum': '1', 'devnum': '4'}
+    prepared.update(experiment='receiver-replug', receiver_route=before)
+    after = {**before, 'devnum': '5'}
+    if failure == 'wrong-port': after['usb_path'] += '-other'
+    if failure == 'same-address': after['devnum'] = '4'
+    count, opened, clock = [0], [0], [0]
+    def observe():
+        count[0] += 1
+        if count[0] == 1: return before
+        return None if count[0] == 2 else after
+    @contextmanager
+    def opening():
+        opened[0] += 1
+        if failure == 'read-failure' and opened[0] == 2:
+            raise DeviceUnavailable('Radio unavailable after reconnect')
+        yield mouse
+    def wait(_):
+        if failure in ('timeout', 'same-address'): clock[0] = 181
+    result = replug.exercise(prepared, tmp_path / 'journal.json', opening, observe, now=lambda: clock[0], wait=wait,
+                             stopped=lambda: failure == 'cancel' and bool(mouse.writes))
+    assert result['status'] == 'test-failed-restored'
+    assert result['original_state_restored'] and probe.capture(mouse) == prepared['before']
+    assert sum(c.payload == bytes.fromhex(prepared['target']) for c in mouse.writes) == 1
+
+
+def test_receiver_replug_unavailable_cleanup_retains_recoverable_journal(tmp_path, monkeypatch):
+    from contextlib import contextmanager
+    mouse = Mouse(0xE8)
+    prepared = probe.prepare_document(mouse, purpose=sensor.PURPOSE, requested_dpi=1200)
+    before = {'product': mouse.product, 'usb_path': '/sys/devices/usb1/1-2', 'busnum': '1', 'devnum': '4'}
+    prepared.update(experiment='receiver-replug', receiver_route=before)
+    opened, clock = [0], [0]
+    @contextmanager
+    def opening():
+        opened[0] += 1
+        if opened[0] > 1: raise DeviceUnavailable('Receiver remains unplugged')
+        yield mouse
+    def observe(): return before if not mouse.writes else None
+    def wait(_): clock[0] = 181
+    path = tmp_path / 'journal.json'
+    result = replug.exercise(prepared, path, opening, observe, wait=wait, now=lambda: clock[0])
+    assert result['status'] == 'recovery-required' and not result['original_state_restored']
+    monkeypatch.setattr(probe, 'connected', lambda _: mouse)
+    monkeypatch.setattr(probe, 'transport', lambda _: mouse)
+    assert probe.recover(path)['original_state_restored']
+    assert probe.capture(mouse) == prepared['before']

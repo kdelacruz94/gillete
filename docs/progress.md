@@ -1237,3 +1237,29 @@ volatile from its name or independent getter. Automatic per-program DPI stays
 disabled pending receiver-replug/true power-loss investigation and driver-mode
 validation. User preference remains 1200; test cleanup restored the exact
 pre-test 6400 rather than permanently modifying saved stages.
+
+## Receiver-replug DPI experiment preparation
+
+Added `dpi_replug_probe` for the next user-authorized V3 retention check.
+Read-only preparation captures the exact receiver port/enumeration identity
+and all original mouse settings/bindings. The run journals before its one
+candidate setter, verifies immediate independent readback, closes the old
+transport, and announces READY. Sysfs polling then requires actual receiver
+absence and a changed bus/device address after same-port reconnect. Incomplete
+interfaces do not count as removal. A fresh transport checks the original
+mouse identity and protected state before recording the candidate/original/
+other DPI outcome, then restoration uses another fresh transport. The candidate
+setter is never replayed on reconnect.
+
+Timeout/cancellation/errors attempt restoration; an absent receiver or failed
+cleanup retains a journal without claiming restoration. The existing recovery
+command accepts both the waiting and completed replug statuses. The experiment
+never changes driver mode, grabs input, or enables automatic DPI support.
+
+All 529 tests and package checks pass. Added cases cover candidate retention
+versus reset, descriptor closure/reopening, incomplete enumeration, unchanged
+USB address, wrong port, radio read failure, aliased storage, cancellation,
+timeout, unplugged cleanup and later explicit recovery. A read-only preparation
+for 6400 → 1200 is saved in
+`evidence/v3-dpi-replug-1200-20261105-01.local/prepared.json`. Live replug outcome
+is still pending; only announce READY after the run verifies its candidate.
