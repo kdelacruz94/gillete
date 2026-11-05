@@ -15,6 +15,13 @@ hardware is not this user's hardware. Preserve the actual Synapse assignments,
 including opaque functions and response flags; never replace them with factory
 mappings.
 
+Follow-up: [official Synapse middleware research](synapse-middleware-research.md)
+now preserves first-party model-specific bundles. Both contain a selector-0
+scalar DPI setter/readback path and concrete profile-management builders.
+The V2 model explicitly disables the onboard macro-storage feature while
+still accepting macro mappings. These source findings refine the next tests;
+they do not establish physical setter or persistence acceptance.
+
 ## 1. V2 stored functions
 
 ### Class `05` is a macro family, not a disabled/default marker

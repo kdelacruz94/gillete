@@ -1077,3 +1077,23 @@ and preservation of local drafts. The existing slow-USB cleanup tests now
 provide valid simulated DPI readback and still verify immediate generated-key
 release while the admitted operation finishes. No live mouse query, setter,
 input ownership or user configuration change was performed.
+
+## Official Synapse middleware investigation
+
+Downloaded the official Windows bootstrapper and App Engine package without
+running them, then followed the production application host to model-specific
+V2 and V3 middleware. The first-party manifests identify both target mice.
+Preserved their exact source bytes, acquisition hashes, twelve extracted
+Webpack factory ranges and earlier REA artifact evidence in ignored
+`evidence/synapse-official.local/`. Factory ranges were verified using JavaScript
+UTF-16 slicing; Python character offsets are not interchangeable.
+
+Both middleware builds contain a selector-0 scalar DPI read/write/readback
+task, plus a selector-1 saved-stage path. This strengthens the prepared
+reversible experiment but does not verify sensor behavior or volatility.
+The shared protocol factories also define one-byte profile create, delete and
+active-selection commands. The V2 model explicitly disables onboard macro
+storage while allowing macro mappings. V3's effective macro configuration
+still needs tracing. See `synapse-middleware-research.md` for exact identities,
+command definitions, limitations and next validation steps. No hardware
+capability was enabled, and no device was accessed.
