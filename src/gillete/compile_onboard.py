@@ -137,6 +137,8 @@ def compile_profile(profile: Profile, model: str, bank: int,
                     baseline: dict[Location, bytes]) -> OnboardPlan:
     if model not in MODELS or bank not in ((1,) if model == MODELS[0] else (1, 2, 3, 4, 5)):
         raise ProtocolError("Unknown model or stored bank")
+    alternatives = profile.standalone.get(model)
+    profile = profile.for_onboard(model)
     identifiers = CONTROL_IDS[model]
     required = {Location(bank, identifier, layer) for identifier in identifiers.values() for layer in (0, 1)}
     if not required <= baseline.keys() or any(len(baseline[k]) != 7 for k in required):
@@ -166,6 +168,11 @@ def compile_profile(profile: Profile, model: str, bank: int,
             continue
         action = profile.resolve(model, control, shifted=True)
         if normal[normal_where] == shift_function:
+            choice = alternatives.shifted.get(control) if alternatives else None
+            if choice is not None and not (choice.kind == 'hypershift' and choice.playback == 'held'):
+                if not (choice.kind == 'passthrough' and profile.resolve(model, control).kind == 'passthrough'):
+                    issues.append(f'{control} (HyperShift): this is a normal-layer HyperShift trigger; '
+                                  'change its normal assignment or remove the shifted standalone alternative')
             shifted[shifted_where] = (baseline[shifted_where]
                                      if profile.resolve(model, control).kind == 'passthrough'
                                      else normal[normal_where])

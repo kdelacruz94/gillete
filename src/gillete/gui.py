@@ -28,10 +28,11 @@ from .gui_controls import ControlSelector
 from .gui_applications import ApplicationPicker
 from .gui_startup import StartupPanel
 from .gui_launch import InstalledApplicationPicker
+from .gui_standalone import StandaloneDialog
 from .applications import desktop_application
 from .focus import query_windows
 from .hypershift import availability, resolve_action
-from .model import Action, ConfigurationError, Layers, MODEL_CONTROLS, MODELS, Profile, Step, sequence
+from .model import Action, ConfigurationError, Layers, MODEL_CONTROLS, MODELS, Profile, STANDALONE_KINDS, Step, sequence
 from .profiles import ProfileStore, Rule
 from .recorder import replace_delays
 from .shortcuts import describe, friendly_key, parse_chord, parse_key, parse_sequence
@@ -53,9 +54,10 @@ def spin(value, low=1, high=3600000):
 
 
 class ActionDialog(QDialog):
-    def __init__(self, action: Action, profiles, parent=None):
+    def __init__(self, action: Action, profiles, parent=None, *, standalone_model=None, control=None):
         super().__init__(parent)
         self.action = action
+        self.standalone_model, self.control = standalone_model, control
         self.setWindowTitle("Edit assignment")
         self.resize(650, 620)
         layout = QVBoxLayout(self)
@@ -68,8 +70,10 @@ class ActionDialog(QDialog):
                             ("Turbo", "turbo"), ("HyperShift", "hypershift"),
                             ("Switch profile", "profile"), ("Launch program", "launch"),
                             ("Scroll", "scroll"), ("DPI stage", "dpi"), ("Native V3 control", "device")]:
+            if standalone_model and (kind not in STANDALONE_KINDS or kind == 'device' and standalone_model != MODELS[1]):
+                continue
             self.kind.addItem(label, kind)
-        self.kind.setCurrentIndex(self.kind.findData(action.kind))
+        self.kind.setCurrentIndex(max(0, self.kind.findData(action.kind)))
         form.addRow("Action", self.kind)
         self.keys = QLineEdit("+".join(friendly_key(k) for k in action.keys))
         self.keys.setPlaceholderText("Ctrl+K, Alt+H, 1, LeftClick … (one chord here)")
@@ -327,6 +331,12 @@ class ActionDialog(QDialog):
                                  argv=tuple(shlex.split(self.argv.text())) if kind == "launch" and not desktop else (),
                                  desktop_id=self.desktop_id if desktop else '',
                                  axis=self.scroll_axis.currentData(), value=self.scroll_amount.value())
+            if self.standalone_model and kind != 'passthrough':
+                from .compile_onboard import encode_action
+                from .hypershift import PULSE_CONTROLS
+                encode_action(self.action, self.standalone_model)
+                if kind == 'hypershift' and self.control in PULSE_CONTROLS:
+                    raise ConfigurationError('Held HyperShift needs a button that can stay pressed')
             self.accept()
         except ValueError as error:
             self.error.setText(str(error))
@@ -364,6 +374,7 @@ class MainWindow(QMainWindow):
                                ("Add shortcut examples", self.add_examples)]:
             button(text, callback, toolbar)
         layout.addLayout(toolbar)
+        button('Standalone mappings…', self.edit_standalone, toolbar)
         selection = QHBoxLayout()
         button("Pin selected profile", self.pin, selection)
         button("Automatic", self.automatic, selection)
@@ -523,6 +534,18 @@ class MainWindow(QMainWindow):
 
     def current(self):
         return self.config.profiles[self.profile.currentData()]
+
+    def edit_standalone(self):
+        model = self.model.currentData()
+        dialog = StandaloneDialog(self.current(), model, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        if dialog.layers.normal or dialog.layers.shifted:
+            self.current().standalone[model] = dialog.layers
+        else:
+            self.current().standalone.pop(model, None)
+        self.save_config()
+        self.refresh()
 
     def request_quit(self):
         if self.hardware.busy:

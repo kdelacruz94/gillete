@@ -495,3 +495,34 @@ VARSTORE for V3, while V2 HyperSpeed falls through to NOSTORE. This supplies a
 candidate temporary V2 path, not proof for either physical device. Verify live
 readback and independence from saved DPI/stages before enabling profile DPI
 transitions; do not substitute pointer scaling or permanent writes silently.
+
+## Explicit standalone alternatives in a named profile
+
+Profiles now have optional per-model `standalone` normal/shifted mappings. Older
+profiles load with no alternatives. JSON persistence, duplicate and import/export
+retain the choices. `Profile.resolve` remains the Linux software mapping;
+`for_onboard` overlays alternatives only for compilation to mouse memory, without
+mutating the original layers. An unassigned shifted action follows the standalone
+normal action, while an explicit software shifted assignment still needs its own
+alternative if unsupported. A stored-assignment alternative preserves raw bytes
+from the chosen mouse layer. Different mouse models retain independent choices.
+
+The native **Standalone mappings…** editor saves choices locally, lists the Linux
+and standalone actions, and offers edit, keep-stored and follow-profile actions.
+Its action editor restricts choices to supported families and validates key/chord
+encodings. Save preview now shows all button layers with Linux action, current
+mouse assignment and actual proposed bytes decoded for display. It lists remaining
+blockers, including a standalone shifted alternative that would be hidden by an
+inherited normal HyperShift trigger. Zero-change choices remain locally usable
+without a pointless hardware save. The same identity/stale-preview checks,
+write journal and restoration path cover compiled alternatives.
+
+All 147 tests pass. New coverage includes model-specific compilation, actual Linux
+macro playback with a different standalone key, explicit shifted alternatives,
+trigger conflicts, old-profile parsing, import/export roundtrips, invalid imports,
+GUI cancellation/local-save failure and simulated onboard save/restore. An offline
+check on both original saved captures produces F24 on side12's normal/shifted
+layers only, retaining the other 40 V2 / 48 V3 functions and the Linux macro.
+No physical writes, live remapping, startup changes or input-remapper changes
+were performed. Native firmware macro/turbo support, per-profile sensitivity,
+wired operation and full physical acceptance remain unfinished.

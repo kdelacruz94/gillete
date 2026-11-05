@@ -123,9 +123,21 @@ The [remaining protocol research](docs/remaining-protocol-research.md) records
 the REA capture analysis and the evidence still needed for those actions and
 the V3 wired transport.
 
-The Mouse memory tab reads assigned slots and previews every changed binding.
-Only **Save to Mouse** writes those assignments. Software-only actions block the
-save and are listed for review. Recovery journals live under
+**Standalone mappings…** lets each named profile keep separate alternatives for
+each mouse and layer. For example, keep `Ctrl+K, M` as the Linux macro on side12,
+then choose F24 as that button's standalone alternative. **Save choices locally**
+stores the preference in the profile, including import/export; it does not write
+mouse memory. **Follow profile** removes an alternative. **Keep stored** explicitly
+preserves that layer's existing mouse assignment, including an unknown Synapse
+function. Unassigned HyperShift alternatives inherit the normal alternative unless
+the Linux profile already has an explicit shifted assignment.
+
+The Mouse memory tab reads assigned slots and previews every button layer with
+the Linux action, current mouse assignment and proposed saved assignment side by
+side. Only **Save to Mouse** writes those assignments. Software-only actions still
+block saving until you choose supported alternatives. The Linux service continues
+using the original profile actions; this does not add native firmware macro/turbo
+support, which remains under investigation. Recovery journals live under
 `$XDG_STATE_HOME/gillete/onboard` (normally `~/.local/state/gillete/onboard`).
 Disable software control before direct mouse-memory operations. **Edit DPI and
 polling…** opens the native settings editor after reading the active slot. It

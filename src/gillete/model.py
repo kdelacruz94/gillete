@@ -26,6 +26,7 @@ MODEL_CONTROLS = {
 CONTROLS = frozenset(c for controls in MODEL_CONTROLS.values() for c in controls)
 ACTION_KINDS = frozenset({"passthrough", "disabled", "keys", "macro", "turbo",
                           "hypershift", "profile", "launch", "scroll", "dpi", "device"})
+STANDALONE_KINDS = frozenset({'passthrough', 'disabled', 'keys', 'hypershift', 'scroll', 'dpi', 'device'})
 
 
 def integer(value: Any, name: str, minimum: int, maximum: int) -> int:
@@ -200,17 +201,23 @@ class Profile:
     name: str
     common: Layers = field(default_factory=Layers)
     overrides: dict[str, Layers] = field(default_factory=dict)
+    standalone: dict[str, Layers] = field(default_factory=dict)
 
     def __post_init__(self):
         if not isinstance(self.id, str) or not self.id or len(self.id) > 128:
             raise ConfigurationError("Invalid profile ID")
         if not isinstance(self.name, str) or not self.name.strip() or len(self.name) > 256:
             raise ConfigurationError("Invalid profile name")
-        if set(self.overrides) - set(MODELS):
-            raise ConfigurationError("Unknown model override")
-        for model, layers in self.overrides.items():
-            if (set(layers.normal) | set(layers.shifted)) - set(MODEL_CONTROLS[model]):
-                raise ConfigurationError(f"Control absent on {model}")
+        for choices in (self.overrides, self.standalone):
+            if set(choices) - set(MODELS):
+                raise ConfigurationError("Unknown model override")
+            for model, layers in choices.items():
+                if (set(layers.normal) | set(layers.shifted)) - set(MODEL_CONTROLS[model]):
+                    raise ConfigurationError(f"Control absent on {model}")
+        for layers in self.standalone.values():
+            for action in (*layers.normal.values(), *layers.shifted.values()):
+                if action.kind not in STANDALONE_KINDS or action.kind == 'hypershift' and action.playback != 'held':
+                    raise ConfigurationError('This standalone alternative requires the Linux service')
 
     def resolve(self, model: str, control: str, shifted: bool = False) -> Action:
         if model not in MODELS or control not in MODEL_CONTROLS[model]:
@@ -223,17 +230,31 @@ class Profile:
 
     @classmethod
     def parse(cls, data: Any) -> Profile:
-        fields = object_fields(data, {"id", "name", "common", "overrides"}, "profile")
+        fields = object_fields(data, {"id", "name", "common", "overrides", "standalone"}, "profile")
         overrides = fields.get("overrides", {})
-        if not isinstance(overrides, dict):
+        standalone = fields.get('standalone', {})
+        if not isinstance(overrides, dict) or not isinstance(standalone, dict):
             raise ConfigurationError("Overrides must be an object")
         return cls(fields.get("id", ""), fields.get("name", ""),
                    Layers.parse(fields.get("common", {})),
-                   {model: Layers.parse(value) for model, value in overrides.items()})
+                   {model: Layers.parse(value) for model, value in overrides.items()},
+                   {model: Layers.parse(value) for model, value in standalone.items()})
+
+    def for_onboard(self, model: str) -> Profile:
+        """Overlay alternatives for mouse memory; resolve() keeps Linux actions."""
+        if model not in MODELS:
+            raise ConfigurationError('Unknown mouse model')
+        overrides = {m: Layers(dict(layer.normal), dict(layer.shifted)) for m, layer in self.overrides.items()}
+        target = overrides.setdefault(model, Layers())
+        alternative = self.standalone.get(model, Layers())
+        target.normal.update(alternative.normal)
+        target.shifted.update(alternative.shifted)
+        return Profile(self.id, self.name, Layers(dict(self.common.normal), dict(self.common.shifted)), overrides)
 
     def json(self) -> dict:
         return {"id": self.id, "name": self.name, "common": self.common.json(),
-                "overrides": {k: v.json() for k, v in self.overrides.items()}}
+                "overrides": {k: v.json() for k, v in self.overrides.items()},
+                "standalone": {k: v.json() for k, v in self.standalone.items()}}
 
 
 def sequence(*chords: tuple[str, ...], press_ms: int = 40, gap_ms: int = 100) -> Action:

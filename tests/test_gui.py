@@ -430,3 +430,103 @@ def test_editor_updates_hypershift_feedback_from_active_snapshot_without_reading
     assert 'Ring Finger (hold' not in window.shift_status.text()
     assert profile.common.shifted['ring_finger'].keys == ('KEY_X',)
     shiboken6.delete(window)
+
+
+def test_standalone_editor_keeps_linux_actions_and_shows_normal_inheritance(app):
+    from gillete.gui_standalone import StandaloneDialog
+    from gillete.model import Layers, sequence
+    profile = Profile('p', 'P', Layers(normal={'side_12': sequence(('KEY_LEFTCTRL', 'KEY_K'), ('KEY_M',))}))
+    original = deepcopy(profile.json())
+    dialog = StandaloneDialog(profile, MODELS[0])
+    normal_row = dialog.rows.index(('side_12', False))
+    shifted_row = dialog.rows.index(('side_12', True))
+    assert 'needs an alternative' in dialog.table.item(normal_row, 3).text()
+    dialog.table.selectRow(normal_row)
+    dialog.choose(Action('keys', keys=('KEY_F24',)))
+    assert dialog.table.item(normal_row, 3).text() == dialog.table.item(shifted_row, 3).text() == 'F24'
+    assert 'Macro' in dialog.table.item(normal_row, 2).text()
+    assert profile.json() == original
+    dialog.table.selectRow(shifted_row)
+    dialog.choose(Action())
+    assert dialog.table.item(shifted_row, 3).text() == 'Stored mouse assignment'
+    dialog.choose(None)
+    assert dialog.table.item(shifted_row, 3).text() == 'F24'
+    dialog.accept()
+    assert dialog.layers.normal['side_12'].keys == ('KEY_F24',) and profile.json() == original
+    shiboken6.delete(dialog)
+
+
+def test_standalone_action_editor_blocks_software_only_choices_and_unsupported_chords(app):
+    dialog = ActionDialog(Action(), {}, standalone_model=MODELS[0], control='side_12')
+    assert all(dialog.kind.findData(kind) < 0 for kind in ('macro', 'launch', 'turbo', 'profile', 'device'))
+    dialog.kind.setCurrentIndex(dialog.kind.findData('keys'))
+    dialog.keys.setText('A+B')
+    dialog.save()
+    assert dialog.result() != dialog.DialogCode.Accepted and 'one supported key' in dialog.error.text()
+    dialog.keys.setText('Ctrl+F24')
+    dialog.save()
+    assert dialog.result() == dialog.DialogCode.Accepted and dialog.action.keys == ('KEY_LEFTCTRL', 'KEY_F24')
+    shiboken6.delete(dialog)
+
+
+def test_standalone_choices_save_locally_and_failed_save_rolls_back_without_hardware(app, tmp_path, monkeypatch):
+    from gillete import hardware
+    from gillete.gui_standalone import StandaloneDialog
+    from gillete.model import sequence
+    def forbidden(*_): raise AssertionError('Local choices must not access mouse settings')
+    monkeypatch.setattr(hardware, 'inspect', forbidden)
+    monkeypatch.setattr(hardware, 'apply', forbidden)
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *_: None)
+    store = ProfileStore(tmp_path / 'profiles.json')
+    config = store.read()
+    macro = sequence(('KEY_LEFTCTRL', 'KEY_K'), ('KEY_M',))
+    config.profiles['default'].common.normal['side_12'] = macro
+    store.save(config, expected_revision=0)
+    window = MainWindow(store)
+    chosen = [Action('keys', keys=('KEY_F24',))]
+    def accept_choices(dialog):
+        dialog.table.selectRow(dialog.rows.index(('side_12', False)))
+        dialog.choose(chosen[0])
+        dialog.accept()
+        return dialog.result()
+    monkeypatch.setattr(StandaloneDialog, 'exec', accept_choices)
+    window.edit_standalone()
+    saved = store.read().profiles['default']
+    assert saved.standalone[MODELS[0]].normal['side_12'].keys == ('KEY_F24',)
+    assert saved.resolve(MODELS[0], 'side_12') == macro
+    chosen[0] = Action('disabled')
+    monkeypatch.setattr(store, 'save', lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError('Disk full')))
+    window.edit_standalone()
+    assert window.current().json() == saved.json() == store.read().profiles['default'].json()
+    shiboken6.delete(window)
+
+
+def test_onboard_preview_shows_both_actions_and_keep_stored_without_claiming_a_macro_save(app):
+    from gillete.compile_onboard import CONTROL_IDS
+    from gillete.gui_hardware import SavePreview
+    from gillete.hardware import Snapshot
+    from gillete.model import Layers, sequence
+    from gillete.onboard import Location
+    records = {Location(1, c, layer): bytes((1, c, 0)) + bytes.fromhex('0202001e000000')
+               for c in CONTROL_IDS[MODELS[0]].values() for layer in (0, 1)}
+    snapshot = Snapshot(0xB4, MODELS[0], 'test', 1, (1,), 1, set(CONTROL_IDS[MODELS[0]].values()), records, {})
+    profile = Profile('p', 'P', Layers(normal={'side_12': sequence(('KEY_LEFTCTRL', 'KEY_K'), ('KEY_M',))}))
+    blocked = SavePreview(snapshot, profile, None)
+    assert not blocked.save_button.isEnabled()
+    shiboken6.delete(blocked)
+    profile.standalone[MODELS[0]] = Layers(normal={'side_12': Action('keys', keys=('KEY_F24',))})
+    original = deepcopy(profile.json())
+    preview = SavePreview(snapshot, profile, None)
+    assert preview.save_button.isEnabled() and len(preview.changes) == 2
+    row = MODEL_CONTROLS[MODELS[0]].index('side_12') * 2
+    assert 'Macro' in preview.table.item(row, 2).text()
+    assert preview.table.item(row, 3).text() == '1' and preview.table.item(row, 4).text() == 'F24'
+    assert 'Explicit standalone choice' in preview.table.item(row, 4).toolTip()
+    preview.reject()
+    assert profile.json() == original and snapshot.records == records
+    shiboken6.delete(preview)
+    profile.standalone[MODELS[0]].normal['side_12'] = Action()
+    preview = SavePreview(snapshot, profile, None)
+    assert preview.plan.writable and not preview.changes and not preview.save_button.isEnabled()
+    assert 'Macro' in preview.table.item(row, 2).text() and '(unchanged)' in preview.table.item(row, 4).text()
+    shiboken6.delete(preview)

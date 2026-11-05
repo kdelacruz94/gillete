@@ -15,7 +15,10 @@ from . import hardware
 from .compile_onboard import CONTROL_IDS, describe_function
 from .devices import discover
 from .gui_settings import SettingsDialog
+from .model import MODEL_CONTROLS, Layers
+from .onboard import Location
 from .settings import SPECS, describe
+from .shortcuts import describe as describe_action
 
 
 class HardwareJob(QThread):
@@ -37,37 +40,48 @@ class SavePreview(QDialog):
     def __init__(self, snapshot, profile, parent):
         super().__init__(parent)
         self.setWindowTitle("Save to Mouse — review changes")
-        self.resize(880, 620)
+        self.resize(1100, 650)
         layout = QVBoxLayout(self)
-        plan = snapshot.plan(profile)
-        changes = {w: value for w, value in plan.targets.items() if snapshot.baseline[w] != value}
+        self.plan = plan = snapshot.plan(profile)
+        self.changes = changes = {w: value for w, value in plan.targets.items() if snapshot.baseline[w] != value}
         heading = QLabel(f"{profile.name} → {snapshot.model.replace('_', ' ').title()}, onboard slot {snapshot.bank}\n"
                          f"{len(changes)} changed assignments. This writes persistent mouse memory.\n"
-                         "A recovery journal will preserve the original assignments. Program rules stay on Linux.")
+                         "A recovery journal preserves the original assignments. Linux service actions stay in your profile.\n"
+                         "Choose alternatives first with Standalone mappings in the profile editor. All button layers are shown below.")
         heading.setWordWrap(True)
         layout.addWidget(heading)
-        table = QTableWidget(len(changes), 4)
-        table.setHorizontalHeaderLabels(["Control", "Layer", "Current assignment", "New assignment"])
+        rows = [(control, shifted) for control in MODEL_CONTROLS[snapshot.model] for shifted in (False, True)]
+        self.table = table = QTableWidget(len(rows), 5)
+        table.setHorizontalHeaderLabels(["Control", "Layer", "Linux service action", "Current mouse", "Save to mouse"])
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        names = {v: k.replace('_', ' ').title() for k, v in CONTROL_IDS[snapshot.model].items()}
-        for row, (where, value) in enumerate(sorted(changes.items())):
-            for column, text in enumerate((names[where.control], "HyperShift" if where.layer else "Normal",
-                                          describe_function(snapshot.baseline[where]), describe_function(value))):
+        alternatives = profile.standalone.get(snapshot.model, Layers())
+        for row, (control, shifted) in enumerate(rows):
+            where = Location(snapshot.bank, CONTROL_IDS[snapshot.model][control], int(shifted))
+            value = plan.targets.get(where)
+            saved = describe_function(value) if value is not None else 'Blocked — see issues below'
+            if value == snapshot.baseline[where]:
+                saved += ' (unchanged)'
+            for column, text in enumerate((control.replace('_', ' ').title(), "HyperShift" if shifted else "Normal",
+                                          describe_action(profile.resolve(snapshot.model, control, shifted)),
+                                          describe_function(snapshot.baseline[where]), saved)):
                 table.setItem(row, column, QTableWidgetItem(text))
-            table.item(row, 2).setToolTip(snapshot.baseline[where].hex(" "))
-            table.item(row, 3).setToolTip(value.hex(" "))
+            table.item(row, 3).setToolTip(snapshot.baseline[where].hex(" "))
+            choices = alternatives.shifted if shifted else alternatives.normal
+            explanation = ('Explicit standalone choice: ' + describe_action(choices[control]) if control in choices
+                           else 'Follows the profile; unassigned HyperShift actions inherit normal standalone actions.')
+            table.item(row, 4).setToolTip(explanation + ('\n' + value.hex(' ') if value is not None else ''))
         layout.addWidget(table)
         if plan.issues:
             issues = QTextEdit()
             issues.setReadOnly(True)
-            issues.setPlainText("Save blocked. These assignments need the Linux service or a different standalone profile:\n\n"
+            issues.setPlainText("Save blocked. Choose supported alternatives with Standalone mappings, or correct these assignments:\n\n"
                                 + "\n".join(plan.issues))
             layout.addWidget(issues)
         elif not changes:
             layout.addWidget(QLabel("No stored assignments would change."))
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
-        save = buttons.addButton("Save to Mouse", QDialogButtonBox.ButtonRole.AcceptRole)
+        self.save_button = save = buttons.addButton("Save to Mouse", QDialogButtonBox.ButtonRole.AcceptRole)
         save.setEnabled(plan.writable and bool(changes))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)

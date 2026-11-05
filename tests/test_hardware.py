@@ -105,3 +105,22 @@ def test_slot_backup_retains_unrecognized_functions_and_reply_flags(monkeypatch,
     mouse.values[where] = bytes(7)
     hardware.restore(device, path)
     assert mouse.values[where] == custom and mouse.flags[0x34] == 1
+
+
+def test_standalone_alternative_saves_and_restores_without_replacing_linux_actions(monkeypatch, tmp_path):
+    from copy import deepcopy
+    from gillete.model import sequence
+    mouse, device, profile = setup(monkeypatch)
+    profile.common.normal['side_12'] = sequence(('KEY_LEFTCTRL', 'KEY_K'), ('KEY_M',))
+    profile.standalone[MODELS[0]] = Layers(normal={'side_12': Action('keys', keys=('KEY_F24',))})
+    opaque = Location(1, 0x34, 1)
+    mouse.values[opaque] = bytes.fromhex('05020000000000')
+    original, linux = dict(mouse.values), deepcopy(profile.json())
+    snapshot = hardware.inspect(device)
+    journal = tmp_path / 'standalone.json'
+    hardware.apply(device, snapshot, profile, journal)
+    assert mouse.values[Location(1, 0x4b, 0)] == mouse.values[Location(1, 0x4b, 1)] == bytes.fromhex('02020073000000')
+    assert mouse.values[opaque] == original[opaque]
+    assert profile.json() == linux and profile.resolve(MODELS[0], 'side_12').kind == 'macro'
+    hardware.restore(device, journal)
+    assert mouse.values == original and set(mouse.flags.values()) == {1}
