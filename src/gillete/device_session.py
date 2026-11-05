@@ -42,8 +42,16 @@ class DeviceSession:
         self.launch_waiters = set()
         self.needs_mode_check = False
 
-    async def hardware_call(self, fn, *args):
+    def current_input(self, generation):
+        return (self.engine is not None and generation == self.engine.generation
+                and self.coordinator.available and not self.stop_requested.is_set())
+
+    async def hardware_call(self, fn, *args, generation=None):
         async with self.io_lock:
+            # A button command may have waited behind a mode/readback query.
+            # Recheck after acquiring the hardware lock, before admitting a SET.
+            if generation is not None and not self.current_input(generation):
+                return
             # Cancellation must not leave a worker touching a closed HID fd.
             task = asyncio.create_task(asyncio.to_thread(fn, *args))
             try:
@@ -53,10 +61,13 @@ class DeviceSession:
                 raise
 
     def fail(self, error):
+        self.stop_requested.set()
         if self.failure is not None and not self.failure.done():
             self.failure.set_result(error)
 
     def read_ready(self, fd):
+        if self.stop_requested.is_set():
+            return False
         try:
             for _ in range(128):
                 raw = os.read(fd, 4096)
@@ -64,16 +75,38 @@ class DeviceSession:
                     raise OSError('Mouse input disconnected')
                 frame = decode(self.device.model, self.fds[fd], raw)
                 if frame is not None:
-                    self.frames.put_nowait((time.monotonic(), frame))
+                    self.frames.put_nowait((time.monotonic(), self.engine.generation, frame))
                 else:
                     self.needs_mode_check = True
         except BlockingIOError:
-            pass
+            return True
+        except asyncio.QueueFull:
+            self.fail(ProtocolError('Mouse input queue overflowed; remapping stopped'))
         except Exception as error:
             self.fail(error)
+        return False
+
+    def capture_pending(self):
+        """Fence reports already queued in hidraw at a cancellation boundary.
+
+        Bounded reads avoid starving the desktop. If a buffer cannot be drained,
+        stop this session rather than accepting uncertain presses after a stop.
+        Ordinary reader callbacks may continue draining on the next loop tick.
+        """
+        if self.stop_requested.is_set():
+            return
+        for fd in self.fds:
+            if not self.read_ready(fd):
+                self.fail(ProtocolError('Could not drain mouse input at the cancellation boundary'))
+                break
 
     async def enqueue(self, kind, target):
-        self.control_queue.put_nowait((kind, target))
+        try:
+            self.control_queue.put_nowait((self.engine.generation, kind, target))
+        except asyncio.QueueFull:
+            error = ProtocolError('Mouse command queue overflowed; remapping stopped')
+            self.fail(error)
+            raise error
 
     async def launch(self, action):
         label = action.desktop_id or action.argv[0]
@@ -152,27 +185,33 @@ class DeviceSession:
 
     async def process_frames(self, router):
         previous = time.monotonic()
-        while True:
-            timestamp, frame = await self.frames.get()
+        while not self.stop_requested.is_set():
+            timestamp, generation, frame = await self.frames.get()
+            if self.stop_requested.is_set():
+                return
             if timestamp - previous > 2 or self.needs_mode_check:
                 await self.verify_mode()
                 self.needs_mode_check = False
             previous = timestamp
             async with self.coordinator.lock:
+                if self.stop_requested.is_set():
+                    return
                 if not self.coordinator.available:
                     raise ProtocolError('Hyprland focus monitoring is unavailable; reconnecting')
-                await router.feed(frame)
+                await router.feed(frame, activate=generation == self.engine.generation)
 
     async def process_controls(self, controls):
         while True:
             item = await self.control_queue.get()
             if item is None:
                 return
-            kind, target = item
+            generation, kind, target = item
+            if not self.current_input(generation):
+                continue
             if kind == 'profile':
                 await self.pin_profile(self.device.model, target)
             else:
-                await self.hardware_call(controls.dpi if kind == 'dpi' else controls.native, target)
+                await self.hardware_call(controls.dpi if kind == 'dpi' else controls.native, target, generation=generation)
 
     async def watch_held_input(self):
         # Receiver USB nodes can remain present while a wireless mouse is off.
@@ -198,7 +237,8 @@ class DeviceSession:
                                  launch=self.launch,
                                  dpi=lambda target: self.enqueue('dpi', target),
                                  device_action=lambda target: self.enqueue('native', target),
-                                 select_profile=lambda target: self.enqueue('profile', target))
+                                 select_profile=lambda target: self.enqueue('profile', target),
+                                 input_boundary=self.capture_pending)
             self.validate_profiles(self.coordinator.config)
             if not self.coordinator.available:
                 raise ProtocolError('Hyprland focus monitoring is unavailable')
@@ -207,17 +247,27 @@ class DeviceSession:
             self.output = UInputOutput(f'{self.device.product_id:04x}')
             self.engine.ledger.output = self.output
             await self.output.prepare_keyboard()
+            if self.stop_requested.is_set():
+                return
             self.io = transport(self.device)
             self.io.__enter__()
             if await self.hardware_call(self.io.device_serial) != self.snapshot.serial:
                 raise ProtocolError('Mouse identity changed after inspection')
+            if self.stop_requested.is_set():
+                return
             self.open_inputs()
             self.lease = ModeLease(self.io, self.state / f'mode-{uuid4().hex}.json')
             await self.hardware_call(self.lease.enter)
+            if self.stop_requested.is_set():
+                return
             controls = Controls(self.io, self.snapshot, self.state)
             router = Router(self.engine)
             await self.coordinator.attach(self.device.identity, self.engine)
             attached = True
+            if self.failure.done():
+                raise self.failure.result()
+            if self.stop_requested.is_set():
+                return
             for fd in self.fds:
                 loop.add_reader(fd, self.read_ready, fd)
             self.ready = True
@@ -235,11 +285,15 @@ class DeviceSession:
             self.error = str(error)
         finally:
             self.ready = False
+            self.stop_requested.set()
             for fd in self.fds:
                 loop.remove_reader(fd)
             for task in tasks:
                 task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
+            # Release generated input before waiting for an admitted USB
+            # operation to settle. A slow ioctl must not keep turbo running
+            # after disconnect or Disable. Workers retain their resources
+            # until they have exited; mode restoration comes afterward.
             try:
                 if attached:
                     await self.coordinator.detach(self.device.identity)
@@ -247,6 +301,7 @@ class DeviceSession:
                     await self.engine.disconnect()
             except Exception as error:
                 self.error += f' Input release failed: {error}'
+            await asyncio.gather(*tasks, return_exceptions=True)
             if self.output is not None:
                 try:
                     self.engine.ledger.release_all()

@@ -24,13 +24,15 @@ class Engine:
                  select_profile: Callable[[str], Awaitable[None]] | None = None,
                  dpi: Callable[[str], Awaitable[None]] | None = None,
                  stored: dict[tuple[str, bool], Action] | None = None,
-                 device_action: Callable[[str], Awaitable[None]] | None = None):
+                 device_action: Callable[[str], Awaitable[None]] | None = None,
+                 input_boundary: Callable[[], None] | None = None):
         self.model, self.profile, self.ledger = model, profile, ledger
         self.macros = MacroRunner(ledger)
         self.launch, self.select_profile = launch, select_profile
         self.dpi = dpi
         self.stored = stored
         self.device_action = device_action
+        self.input_boundary = input_boundary
         self.pressed: dict[str, Press] = {}
         self.disarmed: set[str] = set()
         self.shift_holders: set[str] = set()
@@ -111,6 +113,10 @@ class Engine:
             await self.macros.cancel(press.owner)
         return press.action.kind != "passthrough"
 
+    def block_until_release(self, control: str):
+        """Observe an old held input without treating it as a fresh press."""
+        self.disarmed.add(control)
+
     async def cancel(self, *, preserve_pointer=True):
         """Cancel generated actions; a held trigger must be released before reuse."""
         await self.macros.cancel_all()
@@ -121,6 +127,10 @@ class Engine:
                 self.pressed.pop(control)
         self.shift_holders.clear()
         self.shift_latched = False
+        # Capture already-buffered physical reports using the old generation.
+        # There is no await between this boundary and publishing the new one.
+        if self.input_boundary is not None:
+            self.input_boundary()
         self.generation += 1
 
     async def change_profile(self, profile: Profile):

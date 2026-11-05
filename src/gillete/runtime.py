@@ -55,7 +55,7 @@ class Router:
     def held(self):
         return frozenset().union(*self.groups.values())
 
-    async def feed(self, frame: Frame):
+    async def feed(self, frame: Frame, *, activate=True):
         before = self.held
         self.groups[frame.source] = frame.controls
         after = self.held
@@ -64,11 +64,20 @@ class Router:
         for control in sorted(released, key=lambda c: c in self.engine.shift_holders):
             await self.engine.release(control)
         pressed = after - before
-        for control in sorted(pressed, key=lambda c: self.engine.resolve(c).kind != 'hypershift'):
-            if not await self.engine.press(control):
-                raise RuntimeError(f'Unresolved stored assignment: {control}')
+        if activate:
+            for control in sorted(pressed, key=lambda c: self.engine.resolve(c).kind != 'hypershift'):
+                if not await self.engine.press(control):
+                    raise RuntimeError(f'Unresolved stored assignment: {control}')
+        else:
+            # Old reports still carry releases and held-state information.
+            # Suppress a held control until its release, rather than dropping
+            # the frame and mistaking a later duplicate for a new press.
+            for control in pressed:
+                self.engine.block_until_release(control)
         for axis, value in frame.motion:
             self.engine.ledger.output.relative(ecodes.ecodes[axis], value)
+        if not activate:
+            return
         for control, count in frame.pulses:
             # Wheel movement has no held state and must produce a complete pair
             # for each detent, including when the mapped action emits a key.

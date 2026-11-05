@@ -114,6 +114,40 @@ def test_daemon_starts_disabled_and_manual_pin_is_durable(tmp_path):
     asyncio.run(check())
 
 
+def test_stop_during_keyboard_setup_never_takes_mouse_ownership(tmp_path, monkeypatch):
+    import gillete.device_session as sessions
+    device = Device(MODELS[1], 'Test', '2.4 GHz', 0xE8, '/test', 'test')
+    snapshot = Snapshot(0xE8, device.model, 'test', 1, (1,), 1, set(CONTROL_IDS[device.model].values()),
+                        {Location(1, c, l): bytes((1, c, 0)) + bytes.fromhex('0202001e000000')
+                         for c in CONTROL_IDS[device.model].values() for l in (0, 1)}, {})
+    monkeypatch.setattr(sessions, 'inspect', lambda _: snapshot)
+    def forbidden(*_): raise AssertionError('Cancelled startup must not open/grab/change mouse mode')
+    monkeypatch.setattr(sessions, 'transport', forbidden)
+    async def check():
+        started, finish = asyncio.Event(), asyncio.Event()
+        released = []
+        class Output:
+            def __init__(self, suffix): pass
+            async def prepare_keyboard(self):
+                started.set()
+                await finish.wait()
+            async def restore_keyboard(self): released.append('keyboard restored')
+            def close(self): released.append('closed')
+        monkeypatch.setattr(sessions, 'UInputOutput', Output)
+        coordinator = ProfileCoordinator(Configuration())
+        coordinator.available = True
+        session = DeviceSession(device, coordinator, tmp_path, None)
+        monkeypatch.setattr(session, 'open_inputs', forbidden)
+        task = asyncio.create_task(session.run())
+        await asyncio.wait_for(started.wait(), 1)
+        session.stop_requested.set()
+        finish.set()
+        await asyncio.wait_for(task, 1)
+        assert released == ['keyboard restored', 'closed']
+        assert not session.ready and not session.error and not list(tmp_path.iterdir())
+    asyncio.run(check())
+
+
 def test_existing_emergency_binding_is_never_overwritten(tmp_path):
     async def check():
         shortcut = EmergencyShortcut(SimpleNamespace(signature='test'), receipt=tmp_path / 'emergency.json')
@@ -266,10 +300,62 @@ def test_focus_loss_rejects_new_input_before_it_can_start_an_action(tmp_path):
         session = DeviceSession(SimpleNamespace(), ProfileCoordinator(Configuration()), tmp_path, None)
         seen = []
         async def feed(frame): seen.append(frame)
-        session.frames.put_nowait((time.monotonic(), Frame('pointer', frozenset({'left_click'}))))
+        session.frames.put_nowait((time.monotonic(), 0, Frame('pointer', frozenset({'left_click'}))))
         with pytest.raises(ProtocolError, match='focus monitoring'):
             await session.process_frames(SimpleNamespace(feed=feed))
         assert not seen
+    asyncio.run(check())
+
+
+def test_suspend_monitor_cancels_held_output_and_resume_does_not_restart_macro(tmp_path, monkeypatch):
+    import gillete.service as services
+    from gillete.engine import Engine
+    from gillete.macros import KeyLedger, RecordingOutput
+    from gillete.model import Action, Layers, Profile
+    async def check():
+        daemon = Daemon(ProfileStore(tmp_path / 'profiles.json'))
+        profile = Profile('default', 'Default', Layers(normal={
+            'side_1': Action('turbo', keys=('KEY_1',), playback='toggle', press_ms=500, interval_ms=1000)}))
+        daemon.coordinator.config.profiles['default'] = profile
+        output = RecordingOutput()
+        engine = Engine(MODELS[0], profile, KeyLedger(output))
+        await daemon.coordinator.attach('test', engine)
+        daemon.requested.add(MODELS[0])
+        stop = asyncio.Event()
+        daemon.sessions[MODELS[0]] = SimpleNamespace(stop_requested=stop)
+        await engine.press('side_1')
+        await engine.release('side_1')
+        await asyncio.sleep(0)
+        assert engine.macros.jobs and engine.ledger.holders
+        reader = asyncio.StreamReader()
+        class Monitor:
+            stdout, returncode = reader, None
+            def terminate(self): self.returncode = 0
+            async def wait(self): return self.returncode
+        monitor = Monitor()
+        async def spawn(*args, **kwargs):
+            assert args[:2] == ('dbus-monitor', '--system')
+            return monitor
+        monkeypatch.setattr(services.asyncio, 'create_subprocess_exec', spawn)
+        task = asyncio.create_task(daemon.watch_sleep())
+        try:
+            reader.feed_data(b'signal member=NameAcquired\nboolean true\n')
+            await asyncio.wait_for(stop.wait(), 1)
+            assert daemon.suspended and daemon.sleep_monitor_ready
+            assert not engine.macros.jobs and not engine.ledger.holders
+            count = len(output.events)
+            reader.feed_data(b'boolean false\n')
+            async with asyncio.timeout(1):
+                while daemon.suspended:
+                    await asyncio.sleep(.001)
+            assert stop.is_set() and len(output.events) == count and not engine.macros.jobs
+            assert daemon.requested == {MODELS[0]}  # Supervisor may create a new, empty session.
+        finally:
+            reader.feed_eof()
+            with pytest.raises(RuntimeError, match='Suspend monitor disconnected'):
+                await task
+        assert not daemon.sleep_monitor_ready and not daemon.requested
+        assert monitor.returncode == 0
     asyncio.run(check())
 
 

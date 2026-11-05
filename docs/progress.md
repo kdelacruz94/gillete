@@ -665,3 +665,48 @@ cross-mouse writes. The native layout was rendered offscreen using an isolated
 temporary configuration, with no service activation or HID access. Hardware,
 firmware, per-profile sensitivity and migration acceptance remain deferred or
 unfinished as described above.
+
+## Buffered-input cancellation and prompt release during USB cleanup
+
+A hardware-free reproduction demonstrated an actual cancellation bug: a side1
+press queued under one window was processed after focus moved, emitting the new
+window's KEY_B mapping. Cancelling the engine's existing jobs alone did not cover
+unprocessed reports. Reports and queued button commands now carry the engine's
+generation. Immediately before advancing it, the session captures pending hidraw
+reports under the old generation, using bounded nonblocking reads. A buffer that
+cannot be drained or a full software queue stops the session with a visible error.
+This covers both reports in Python's queue and reports already waiting in hidraw.
+
+The router consumes old held states and releases without starting new actions.
+An old held control remains disarmed until release, so duplicate reports cannot
+restart macros or HyperShift. Old wheel pulses cannot execute mapped actions;
+ordinary pointer movement and releases of existing native drags are preserved.
+The generation is checked after mode verification and inside the coordinator
+lock. DPI/native commands are checked again after waiting for the hardware lock;
+stale profile-switch commands are also discarded. Already-admitted USB operations
+still finish under their lock, including on cancellation, before resources close.
+
+Session cleanup previously awaited USB workers before cancelling engine jobs.
+It now blocks further input and cancels generated keys/macros first, so a slow
+USB operation cannot keep a turbo running after disconnect/Disable. The remaining
+workers finish before output/transport teardown and journaled mode restoration.
+Startup also checks a requested stop after asynchronous setup steps and never
+claims READY after an input-boundary failure.
+
+All 220 tests pass. New tests use real local packet sockets as bounded report
+buffers and simulated output/HID adapters; no real device input or key injection
+occurs. Coverage includes focus changes with and without a pin, profile changes,
+emergency cancellation, monitor loss, mode-query waits, held HyperShift across
+interfaces, pointer releases/movement, stale wheel actions, queued DPI/native/pin
+commands, queue overflow and disconnect. A full session test keeps a simulated
+USB operation in flight while triggering disconnect, verifies immediate macro
+cancellation/release, then checks resource closure and normal-mode restoration.
+A simulated logind stream verifies suspend cancellation and no macro restart on
+resume; cancelled keyboard setup is checked before any mouse ownership.
+
+These results do not verify physical receiver reconnects, radio delivery timing,
+or real system suspend/resume. Hotplug retry classification still uses error-message
+fragments and merits a separate check for OS-level input errors. Hardware tests
+remain deferred by the user; neither mouse, input-remapper nor startup preferences
+were changed. Full firmware/wired/settings/persistence/sensitivity/migration
+acceptance remains unfinished.

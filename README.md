@@ -94,6 +94,11 @@ The service uses temporary driver mode and evdev ownership plus uinput output.
 It restores normal mode on disable/shutdown. Program focus changes select local
 profiles without writing onboard bindings. Suspend/disconnect/focus loss cancel
 macros and turbo; ordinary unchanged mouse dragging survives a focus transition.
+Buffered presses from before a cancellation are suppressed until release and a
+fresh press, including reports still waiting in Linux's raw-input buffer.
+Delayed button commands are discarded if their profile/focus context changed.
+Generated keys are released before shutdown waits for an in-flight USB operation;
+that operation completes before the transport closes and normal mode is restored.
 Do not enable two remappers for the same mouse. The service reports ownership
 conflicts instead of stopping another application.
 If focus monitoring disconnects, new mapped input is blocked and normal mouse
