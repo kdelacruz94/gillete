@@ -632,3 +632,36 @@ installation or input-remapper change occurred. The user chose to defer hardware
 testing; that remains in effect. Firmware actions, wired operation, settings and
 reconnect persistence, per-profile sensitivity, broader service acceptance and
 final migration remain unfinished.
+
+## Shared-profile editing and V3-only visibility
+
+The profile editor now keeps assigned V3-only controls visible when viewing the
+V2, as required by the specification. Shared assignments, V3 overrides and
+standalone-only choices all qualify. These rows identify the physical V3 control;
+double-click or the navigation button switches the selected model without
+changing any mapping. The V2 selector shows no substitute button, and the edit
+path rejects attempts to assign a physically absent control to a V2 override.
+
+Mapping cells and selector details now identify shared values, mouse-specific
+overrides, inherited Normal actions and stored actions from the last active-slot
+read. Unread and undecoded mouse memory remain distinct. Passthrough HyperShift
+uses the saved shifted assignment, while an inherited normal HyperShift trigger
+stays active on both layers; the display uses the engine's resolver for both.
+
+Shared editing previously initialized the dialog from the effective mouse
+override. It now starts from the shared value, names the editing scope, and
+explains when a mouse override takes precedence. Device edits start from the
+effective inherited value when an override is absent. Removing an assignment
+affects only the selected scope/layer, removes empty override containers, and
+does not save when there is nothing explicit to remove. Local save failures
+restore the complete last-saved profile and displayed values. A shared shifted
+mapping can be edited for the other mouse even when the selected mouse has an
+explicit normal HyperShift override; the actual trigger remains unchanged.
+
+All 196 tests pass. New coverage includes scope-specific dialog initialization,
+persistence/reload, per-mouse and per-layer removal, failure rollback, stored
+trigger precedence, unknown-versus-unread state and V3-only navigation without
+cross-mouse writes. The native layout was rendered offscreen using an isolated
+temporary configuration, with no service activation or HID access. Hardware,
+firmware, per-profile sensitivity and migration acceptance remain deferred or
+unfinished as described above.

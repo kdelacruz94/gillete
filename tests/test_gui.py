@@ -7,11 +7,12 @@ import shiboken6
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from gillete.gui import ActionDialog, MainWindow
-from gillete.model import Action, MODEL_CONTROLS, MODELS, Profile, Step
+from gillete.model import Action, Layers, MODEL_CONTROLS, MODELS, Profile, Step
 from gillete.gui_controls import ControlSelector
 from gillete.gui_applications import ApplicationPicker
 from gillete.profiles import Window
 from gillete.profiles import ProfileStore
+from gillete.profiles import Configuration
 from gillete.gui_settings import SettingsDialog, SettingsPreview
 from gillete.gui_startup import StartupPanel
 from gillete.startup import AutostartEntry
@@ -211,6 +212,149 @@ def test_visual_selector_exposes_every_control_for_each_mouse_and_both_layers(ap
                 selector.buttons[control].click()
                 assert emitted[-1] == (control, shifted)
     shiboken6.delete(selector)
+
+
+def profile_editor(tmp_path, profile):
+    store = ProfileStore(tmp_path / 'profiles.json')
+    config = Configuration(profiles={'default': profile})
+    store.save(config, expected_revision=0)
+    return MainWindow(store), store
+
+
+def test_shared_editor_uses_shared_value_and_keeps_mouse_overrides(app, tmp_path, monkeypatch):
+    a, b, c = (Action('keys', keys=('KEY_' + key,)) for key in ('A', 'B', 'C'))
+    profile = Profile('default', 'Default', Layers(normal={'side_1': a}),
+                      {MODELS[0]: Layers(normal={'side_1': b})})
+    window, store = profile_editor(tmp_path, profile)
+    seen = []
+    def edit(dialog):
+        seen.append((dialog.action, dialog.windowTitle(), [label.text() for label in dialog.findChildren(QLabel)]))
+        dialog.action = c
+        return dialog.DialogCode.Accepted
+    from PySide6.QtWidgets import QLabel
+    monkeypatch.setattr(ActionDialog, 'exec', edit)
+    try:
+        row = MODEL_CONTROLS[MODELS[0]].index('side_1')
+        window.edit_mapping(row, 1)
+        assert seen[0][0] == a and seen[0][1].startswith('Shared mapping')
+        assert any('override takes priority' in text for text in seen[0][2])
+        saved = store.read().profiles['default']
+        assert saved.common.normal['side_1'] == c
+        assert saved.resolve(MODELS[0], 'side_1') == b
+        assert saved.resolve(MODELS[1], 'side_1') == c
+        assert window.mapping.item(row, 1).text() == 'B\nThis mouse’s override'
+        window.model.setCurrentIndex(1)
+        assert window.mapping.item(row, 1).text() == 'C\nShared mapping'
+    finally:
+        shiboken6.delete(window)
+
+
+def test_override_editor_creates_and_removes_only_selected_layer_with_roundtrip(app, tmp_path, monkeypatch):
+    a, b, c = (Action('keys', keys=('KEY_' + key,)) for key in ('A', 'B', 'C'))
+    profile = Profile('default', 'Default', Layers(normal={'side_1': a}, shifted={'side_1': b}),
+                      {MODELS[1]: Layers(normal={'side_1': c})})
+    window, store = profile_editor(tmp_path, profile)
+    seen = []
+    def edit(dialog):
+        seen.append(dialog.action)
+        dialog.action = c
+        return dialog.DialogCode.Accepted
+    monkeypatch.setattr(ActionDialog, 'exec', edit)
+    try:
+        window.scope.setCurrentIndex(1)
+        row = MODEL_CONTROLS[MODELS[0]].index('side_1')
+        window.edit_mapping(row, 2)
+        assert seen == [b]
+        saved = store.read().profiles['default']
+        assert saved.resolve(MODELS[0], 'side_1') == a and saved.resolve(MODELS[0], 'side_1', True) == c
+        assert saved.resolve(MODELS[1], 'side_1') == c and saved.resolve(MODELS[1], 'side_1', True) == b
+        window.change_mapping('side_1', True, None)
+        saved = store.read().profiles['default']
+        assert MODELS[0] not in saved.overrides and saved.common.shifted['side_1'] == b
+        assert saved.overrides[MODELS[1]].normal['side_1'] == c
+        assert window.mapping.item(row, 2).text() == 'B\nShared mapping'
+        assert store.read().revision == 3
+        # Removing a non-existent override neither removes shared state nor saves.
+        window.change_mapping('side_1', True, None)
+        assert store.read().revision == 3
+    finally:
+        shiboken6.delete(window)
+
+
+def test_v3_only_assignments_stay_visible_on_v2_and_navigation_never_remaps_them(app, tmp_path, monkeypatch):
+    from gillete import hardware
+    monkeypatch.setattr(hardware, 'inspect', lambda *_: (_ for _ in ()).throw(AssertionError('Implicit mouse read')))
+    trigger = Action('hypershift', playback='held')
+    profile = Profile('default', 'Default', Layers(normal={'ring_finger': trigger}),
+                      {MODELS[1]: Layers(shifted={'top_rear': Action('keys', keys=('KEY_A',))})},
+                      {MODELS[1]: Layers(normal={'profile_button': Action('keys', keys=('KEY_F24',))})})
+    window, store = profile_editor(tmp_path, profile)
+    original = store.path.read_bytes()
+    try:
+        assert window.mapping.rowCount() == 24 and not window.other_mouse.isHidden()
+        row = window.mapping_rows.index((MODELS[1], 'ring_finger'))
+        assert 'V3 only' in window.mapping.item(row, 0).text()
+        assert 'HyperShift · held' in window.mapping.item(row, 1).text()
+        button_row = window.mapping_rows.index((MODELS[1], 'profile_button'))
+        assert 'Standalone: F24' in window.mapping.item(button_row, 1).text()
+        window.mapping.setCurrentCell(row, 1)
+        assert window.control_selector.selected is None
+        assert 'V3 Pro only' in window.control_selector.assignment.text()
+        with pytest.raises(ValueError, match='physical control'):
+            window.change_mapping('ring_finger', False, Action('disabled'))
+        window.edit_mapping(row, 1)
+        assert window.model.currentData() == MODELS[1]
+        assert window.control_selector.selected == 'ring_finger'
+        assert window.other_mouse.isHidden() and window.mapping.rowCount() == 25
+        window.model.setCurrentIndex(0)
+        window.other_mouse.click()
+        assert window.model.currentData() == MODELS[1]
+        assert store.path.read_bytes() == original
+        assert 'ring_finger' not in window.current().overrides.get(MODELS[0], Layers()).normal
+    finally:
+        shiboken6.delete(window)
+
+
+def test_mapping_save_failure_restores_shared_overrides_and_visible_values(app, tmp_path, monkeypatch):
+    a, b = Action('keys', keys=('KEY_A',)), Action('keys', keys=('KEY_B',))
+    profile = Profile('default', 'Default', Layers(normal={'side_1': a}),
+                      {MODELS[0]: Layers(shifted={'side_1': b})})
+    window, store = profile_editor(tmp_path, profile)
+    original = store.read().json()
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *_: None)
+    def fail(*args, **kwargs): raise OSError('Disk full')
+    monkeypatch.setattr(store, 'save', fail)
+    try:
+        window.scope.setCurrentIndex(1)
+        window.change_mapping('side_1', True, None)
+        assert window.config.json() == original
+        row = MODEL_CONTROLS[MODELS[0]].index('side_1')
+        assert window.mapping.item(row, 2).text() == 'B\nThis mouse’s override'
+        window.scope.setCurrentIndex(0)
+        window.change_mapping('side_1', False, Action('disabled'))
+        assert window.config.json() == original and store.read().json() == original
+        assert window.mapping.item(row, 1).text() == 'A\nShared mapping'
+    finally:
+        shiboken6.delete(window)
+
+
+def test_shared_shift_edit_is_available_behind_a_mouse_specific_trigger(app, tmp_path, monkeypatch):
+    a, b = Action('keys', keys=('KEY_A',)), Action('keys', keys=('KEY_B',))
+    profile = Profile('default', 'Default', Layers(normal={'side_1': a}, shifted={'side_1': a}),
+                      {MODELS[0]: Layers(normal={'side_1': Action('hypershift', playback='held')})})
+    window, store = profile_editor(tmp_path, profile)
+    def edit(dialog):
+        assert dialog.action == a
+        dialog.action = b
+        return dialog.DialogCode.Accepted
+    monkeypatch.setattr(ActionDialog, 'exec', edit)
+    try:
+        window.edit_mapping(MODEL_CONTROLS[MODELS[0]].index('side_1'), 2)
+        saved = store.read().profiles['default']
+        assert saved.resolve(MODELS[0], 'side_1', True).kind == 'hypershift'
+        assert saved.resolve(MODELS[1], 'side_1', True) == b
+    finally:
+        shiboken6.delete(window)
 
 
 def test_application_picker_matches_literal_app_ids_and_optional_titles(app):
@@ -448,7 +592,7 @@ def test_editor_updates_hypershift_feedback_from_active_snapshot_without_reading
     window.hardware.loaded(snapshot)
     assert 'Ring Finger (hold, stored at last read)' in window.shift_status.text()
     row = MODEL_CONTROLS[MODELS[1]].index('ring_finger')
-    assert window.mapping.item(row, 2).text() == 'Stored HyperShift trigger (hold)'
+    assert window.mapping.item(row, 2).text().startswith('Stored HyperShift trigger (hold)\nMouse memory · Normal')
     window.control_selector.select('ring_finger')
     window.control_selector.layer.setCurrentIndex(1)
     assert 'Stored HyperShift trigger' in window.control_selector.assignment.text()

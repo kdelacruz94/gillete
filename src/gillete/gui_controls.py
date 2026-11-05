@@ -5,8 +5,7 @@ from PySide6.QtWidgets import (QButtonGroup, QComboBox, QGridLayout, QGroupBox,
                               QLabel, QPushButton, QVBoxLayout, QWidget)
 
 from .model import MODEL_CONTROLS, MODELS
-from .hypershift import resolve_action
-from .shortcuts import describe
+from .mapping_view import view
 
 
 class ControlSelector(QWidget):
@@ -80,6 +79,14 @@ class ControlSelector(QWidget):
             self.buttons[control].setChecked(True)
             self.update_assignment()
 
+    def show_unavailable(self, text):
+        self.selected = None
+        self.group.setExclusive(False)
+        for button in self.buttons.values():
+            button.setChecked(False)
+        self.group.setExclusive(True)
+        self.assignment.setText(text)
+
     def refresh(self, model, profile, stored=None):
         self.current_model, self.profile = model, profile
         self.stored = stored
@@ -95,11 +102,7 @@ class ControlSelector(QWidget):
         self.select(self.selected)
 
     def describe_assignment(self, control, shifted):
-        action = self.profile.resolve(self.current_model, control, shifted)
-        resolved = resolve_action(self.profile, self.current_model, control, shifted, self.stored)
-        if resolved is not None and resolved != action and resolved.kind == 'hypershift':
-            return 'Stored HyperShift trigger (hold)'
-        return describe(action)
+        return view(self.profile, self.current_model, control, shifted, self.stored).text
 
     def update_assignment(self):
         if self.profile is not None and self.selected in MODEL_CONTROLS[self.current_model]:

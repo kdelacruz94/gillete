@@ -33,6 +33,13 @@ the subcommand to isolate experiments.
 
 Double-click a normal or HyperShift cell to edit an assignment. Shared mappings
 and per-mouse overrides keep the V3 ring-finger control distinct from the V2.
+Each cell identifies its source: shared, a mouse-specific override, inherited
+Normal, or mouse memory. Editing **Shared mappings** opens the shared value even
+when an override is active; the dialog explains which value currently applies.
+Right-click to remove an assignment in the selected scope and reveal the inherited
+value. Configured V3-only controls remain listed in the V2 view, including separate
+standalone choices. Double-click those rows, or use **Show V3-only assignments**,
+to switch to the V3 without moving the mapping onto a V2 button.
 The control selector also exposes every button on the selected model; choose
 Normal or HyperShift and click the physical control. In Program profiles,
 **Choose running application…** fills a rule from an open game or program;

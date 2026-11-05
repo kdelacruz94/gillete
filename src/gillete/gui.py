@@ -33,6 +33,8 @@ from .applications import desktop_application
 from .focus import query_windows
 from .hypershift import availability, resolve_action
 from .model import Action, ConfigurationError, Layers, MODEL_CONTROLS, MODELS, Profile, STANDALONE_KINDS, Step, sequence
+from .mapping_view import (MODEL_NAMES, editing_action, explicit_action, rows as mapping_rows,
+                           scoped_profile, view as mapping_view)
 from .profiles import ProfileStore, Rule
 from .recorder import replace_delays
 from .shortcuts import describe, friendly_key, parse_chord, parse_key, parse_sequence
@@ -385,6 +387,7 @@ class MainWindow(QMainWindow):
         tabs = QTabWidget()
         layout.addWidget(tabs, 1)
         self.mapping = QTableWidget(0, 3)
+        self.mapping_rows = []
         self.mapping.setHorizontalHeaderLabels(["Physical control", "Normal", "HyperShift"])
         self.mapping.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.mapping.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -393,6 +396,13 @@ class MainWindow(QMainWindow):
         self.mapping.customContextMenuRequested.connect(self.mapping_menu)
         mapping_page = QWidget()
         mapping_page_layout = QVBoxLayout(mapping_page)
+        self.mapping_scope = QLabel()
+        self.mapping_scope.setWordWrap(True)
+        self.mapping_scope.setTextFormat(Qt.TextFormat.PlainText)
+        mapping_page_layout.addWidget(self.mapping_scope)
+        self.other_mouse = QPushButton('Show V3-only assignments on the Naga V3 Pro')
+        self.other_mouse.clicked.connect(lambda: self.model.setCurrentIndex(self.model.findData(MODELS[1])))
+        mapping_page_layout.addWidget(self.other_mouse)
         self.shift_status = QLabel()
         self.shift_status.setWordWrap(True)
         self.shift_status.setTextFormat(Qt.TextFormat.PlainText)
@@ -605,22 +615,48 @@ class MainWindow(QMainWindow):
         model = self.model.currentData()
         profile = self.current()
         snapshot = self.hardware.snapshot
-        stored = from_snapshot(snapshot)[0] if snapshot and snapshot.model == model and snapshot.bank == snapshot.active else None
+        stored_models = {snapshot.model: from_snapshot(snapshot)[0]} if snapshot and snapshot.bank == snapshot.active else {}
+        stored = stored_models.get(model)
         self.shift_status.setText(availability(profile, model, stored).message)
         self.control_selector.refresh(model, profile, stored)
-        self.mapping.setRowCount(len(MODEL_CONTROLS[model]))
-        for row, control in enumerate(MODEL_CONTROLS[model]):
-            self.mapping.setItem(row, 0, QTableWidgetItem(control.replace("_", " ").title()))
+        row = self.mapping.currentRow()
+        selected_column = max(1, self.mapping.currentColumn())
+        selected = self.mapping_rows[row][1] if 0 <= row < len(self.mapping_rows) else 'side_1'
+        self.mapping.blockSignals(True)
+        self.mapping_rows = mapping_rows(profile, model)
+        self.mapping.setRowCount(len(self.mapping_rows))
+        for row, (row_model, control) in enumerate(self.mapping_rows):
+            foreign = row_model != model
+            name = control.replace('_', ' ').title() + (' · V3 only' if foreign else '')
+            self.mapping.setItem(row, 0, QTableWidgetItem(name))
+            row_stored = stored_models.get(row_model)
             for column, shifted in ((1, False), (2, True)):
-                configured = profile.resolve(model, control, shifted)
-                resolved = resolve_action(profile, model, control, shifted, stored)
-                item = QTableWidgetItem(describe(configured))
-                item.setToolTip("Double-click to edit; shifted mappings inherit normal when unassigned.")
-                if resolved is not None and resolved != configured and resolved.kind == 'hypershift':
-                    item.setText('Stored HyperShift trigger (hold)')
-                    item.setToolTip('The normal-layer trigger from the last active-slot read stays usable on both layers. '
-                                    'Change its normal assignment to replace it.')
+                assignment = mapping_view(profile, row_model, control, shifted, row_stored)
+                text = assignment.text
+                if foreign:
+                    alternatives = profile.standalone.get(row_model, Layers())
+                    alternative = (alternatives.shifted if shifted else alternatives.normal).get(control)
+                    if alternative is not None:
+                        text += '\nStandalone: ' + describe(alternative)
+                item = QTableWidgetItem(text)
+                item.setToolTip(assignment.text + ('\nAvailable on the Naga V3 Pro only. Double-click to view that mouse.'
+                                if foreign else '\nDouble-click to edit the selected scope. Right-click to remove an explicit assignment.'))
                 self.mapping.setItem(row, column, item)
+            if foreign:
+                for column in range(3):
+                    font = self.mapping.item(row, column).font()
+                    font.setItalic(True)
+                    self.mapping.item(row, column).setFont(font)
+        selected_row = next((i for i, (_, control) in enumerate(self.mapping_rows) if control == selected), 0)
+        self.mapping.setCurrentCell(selected_row, selected_column)
+        self.mapping.blockSignals(False)
+        self.mapping.resizeRowsToContents()
+        self.mapping_selected(selected_row, selected_column, -1, -1)
+        shared = self.scope.currentData() == 'common'
+        self.mapping_scope.setText('Editing shared mappings. Each cell shows the effective action and its source. '
+                                  'A mouse-specific override takes priority over a shared edit.' if shared else
+                                  f'Editing {MODEL_NAMES[model]} overrides. Shared mappings apply where no override is assigned.')
+        self.other_mouse.setVisible(any(m != model for m, _ in self.mapping_rows))
         pinned = self.config.pinned.get(model)
         self.mode_label.setText("Pinned: " + self.config.profiles[pinned].name if pinned else "Automatic (saved preference)")
 
@@ -632,45 +668,78 @@ class MainWindow(QMainWindow):
         self.edit_mapping(row, column)
 
     def mapping_selected(self, row, column, _old_row, _old_column):
-        controls = MODEL_CONTROLS[self.model.currentData()]
-        if 0 <= row < len(controls):
-            self.control_selector.select(controls[row])
+        if 0 <= row < len(self.mapping_rows):
+            model, control = self.mapping_rows[row]
+            if model != self.model.currentData():
+                self.control_selector.show_unavailable(control.replace('_', ' ').title() + ' is available on the Naga V3 Pro only.')
+                return
+            self.control_selector.select(control)
             if column in (1, 2):
                 self.control_selector.layer.setCurrentIndex(column - 1)
 
     def edit_mapping(self, row, column):
-        if column == 0:
+        if column not in (1, 2) or not 0 <= row < len(self.mapping_rows):
             return
         model = self.model.currentData()
-        control = MODEL_CONTROLS[model][row]
+        row_model, control = self.mapping_rows[row]
+        if row_model != model:
+            self.model.setCurrentIndex(self.model.findData(row_model))
+            return
         profile = self.current()
+        scope = self.scope.currentData()
         snapshot = self.hardware.snapshot
         stored = from_snapshot(snapshot)[0] if snapshot and snapshot.model == model and snapshot.bank == snapshot.active else None
-        normal = resolve_action(profile, model, control, stored=stored)
+        normal = resolve_action(scoped_profile(profile, scope), model, control, stored=stored)
         if column == 2 and normal is not None and normal.kind == 'hypershift':
             QMessageBox.information(self, 'HyperShift activation button',
                                     'This button activates HyperShift and stays available on both layers. '
                                     'Edit its Normal assignment to change the trigger.')
             return
-        dialog = ActionDialog(profile.resolve(model, control, column == 2), self.config.profiles, self)
+        action = editing_action(profile, model, control, column == 2, scope)
+        dialog = ActionDialog(action, self.config.profiles, self)
+        name = 'Shared mapping' if scope == 'common' else MODEL_NAMES[model] + ' override'
+        dialog.setWindowTitle(name + ' — ' + control.replace('_', ' ').title() + (' · HyperShift' if column == 2 else ' · Normal'))
+        current = mapping_view(profile, model, control, column == 2, stored)
+        explanation = f'{name}. Currently on {MODEL_NAMES[model]}: {current.description} ({current.source}).'
+        if scope == 'common' and 'This mouse’s override' in current.source:
+            explanation += '\nThis mouse’s override takes priority over this shared value.'
+        note = QLabel(explanation, dialog)
+        note.setTextFormat(Qt.TextFormat.PlainText)
+        note.setWordWrap(True)
+        dialog.layout().insertWidget(0, note)
         if dialog.exec():
-            layer = profile.common if self.scope.currentData() == "common" else profile.overrides.setdefault(model, Layers())
-            target = layer.shifted if column == 2 else layer.normal
-            old = target.get(control)
-            target[control] = dialog.action
-            if not self.save_config():
-                if old is None:
-                    target.pop(control)
-                else:
-                    target[control] = old
-            self.refresh()
+            self.change_mapping(control, column == 2, dialog.action)
+
+    def change_mapping(self, control, shifted, action):
+        model, profile = self.model.currentData(), self.current()
+        if control not in MODEL_CONTROLS[model]:
+            raise ValueError('Select the mouse that has this physical control before editing it')
+        scope = self.scope.currentData()
+        if action is None and explicit_action(profile, model, control, shifted, scope) is None:
+            return
+        layers = profile.common if scope == 'common' else profile.overrides.setdefault(model, Layers())
+        target = layers.shifted if shifted else layers.normal
+        if action is None:
+            target.pop(control)
+        else:
+            target[control] = action
+        if scope == 'device' and not layers.normal and not layers.shifted:
+            profile.overrides.pop(model, None)
+        self.save_config()  # On failure this restores the complete saved configuration.
+        self.refresh()
 
     def mapping_menu(self, position):
         index = self.mapping.indexAt(position)
         if not index.isValid() or index.column() == 0:
             return
         model = self.model.currentData()
-        control = MODEL_CONTROLS[model][index.row()]
+        row_model, control = self.mapping_rows[index.row()]
+        if row_model != model:
+            menu = QMenu(self)
+            show = menu.addAction('Show this assignment on the Naga V3 Pro')
+            if menu.exec(self.mapping.viewport().mapToGlobal(position)) == show:
+                self.model.setCurrentIndex(self.model.findData(row_model))
+            return
         profile = self.current()
         layer = profile.common if self.scope.currentData() == "common" else profile.overrides.get(model)
         if layer is None:
@@ -679,12 +748,9 @@ class MainWindow(QMainWindow):
         if control not in target:
             return
         menu = QMenu(self)
-        reset = menu.addAction("Remove assignment and inherit")
+        reset = menu.addAction('Remove shared assignment' if self.scope.currentData() == 'common' else 'Remove this mouse’s override')
         if menu.exec(self.mapping.viewport().mapToGlobal(position)) == reset:
-            previous = target.pop(control)
-            if not self.save_config():
-                target[control] = previous
-            self.refresh()
+            self.change_mapping(control, index.column() == 2, None)
 
     def new_profile(self):
         name, ok = QInputDialog.getText(self, "New profile", "Name")
