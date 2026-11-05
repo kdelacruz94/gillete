@@ -30,7 +30,7 @@ def main():
             assert f'gillete/{module}.py' in archive.namelist()
         for module in ('applications', 'gui_launch', 'gui_standalone', 'macro_reads', 'firmware_probe',
                        'validation_plan', 'guided_service', 'validation_pad', 'mapping_view', 'dpi_probe',
-                       'descriptors', 'wired_probe'):
+                       'descriptors', 'wired_probe', 'diagnostics', 'gui_diagnostics'):
             assert f'gillete/{module}.py' in archive.namelist()
     with TemporaryDirectory(prefix='gillete-package-check-') as temporary:
         stage = Path(temporary)

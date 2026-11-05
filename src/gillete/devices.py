@@ -66,9 +66,12 @@ def discover(sysfs: Path = Path("/sys"), dev_root: Path = Path("/dev")) -> list[
                 continue
             interface = next((p for p in (real, *real.parents) if (p / "bInterfaceNumber").exists()), None)
             path = dev_root / device_dir / node.name
+            driver_link = next((p / 'driver' for p in (real, *real.parents)
+                                if str(p).startswith(parent + '/') and (p / 'driver').is_symlink()), None)
             devices[parent].interfaces.append({
                 "kind": category, "path": str(path),
                 "number": read(interface / "bInterfaceNumber") if interface else "",
                 "readable": os.access(path, os.R_OK), "writable": os.access(path, os.W_OK),
+                "driver": driver_link.resolve().name if driver_link is not None else None,
             })
     return list(devices.values())

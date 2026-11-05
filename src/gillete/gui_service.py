@@ -20,6 +20,7 @@ class ServicePanel(QWidget):
         self.store = store
         self.job = None
         self.last = None
+        self.last_error = ''
         self.pending = []
         layout = QVBoxLayout(self)
         label = QLabel('Software control applies program profiles, macros, turbo and launches.\n'
@@ -105,6 +106,7 @@ class ServicePanel(QWidget):
         self.command_finished.emit(command, data)
 
     def failed(self, error, quiet):
+        self.last_error = error
         if quiet:
             self.last = None
             self.start_button.setEnabled(True)
@@ -118,6 +120,7 @@ class ServicePanel(QWidget):
 
     def status(self, data):
         self.last = data
+        self.last_error = ''
         self.start_button.setEnabled(False)
         lines = ['Focus monitoring: ' + ('ready' if data['focus_available'] else data['focus_error'] or 'unavailable'),
                  'Suspend monitoring: ' + ('ready' if data['suspend_monitor'] else 'unavailable')]

@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
 )
 
-from .devices import discover
+from .gui_diagnostics import DiagnosticsPanel
 from .examples import example_profiles
 from .gui_recording import RecordingDialog
 from .gui_hardware import HardwareJob, HardwarePanel
@@ -429,13 +429,8 @@ class MainWindow(QMainWindow):
         button("Save rules", self.save_rules, rule_tools)
         rules_layout.addLayout(rule_tools)
         tabs.addTab(rules_page, "Program profiles")
-        devices_page = QWidget()
-        devices_layout = QVBoxLayout(devices_page)
-        self.device_info = QTextEdit()
-        self.device_info.setReadOnly(True)
-        devices_layout.addWidget(self.device_info)
-        button("Refresh connected devices", self.refresh_devices, devices_layout)
-        tabs.addTab(devices_page, "Devices & diagnostics")
+        self.diagnostics = DiagnosticsPanel(self)
+        tabs.addTab(self.diagnostics, "Devices & diagnostics")
         self.hardware = HardwarePanel(self.current, self)
         self.hardware.snapshot_changed.connect(lambda _snapshot: self.refresh())
         tabs.addTab(self.hardware, "Mouse memory & settings")
@@ -535,6 +530,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, 'Cannot reload profiles', str(error))
 
     def service_status(self, state):
+        self.diagnostics.set_service_state(state, self.service.last_error)
         active = [model.replace('_', ' ') for model in MODELS if state and state['devices'][model]['active']]
         text = ('Software control: ' + ', '.join(active)) if active else 'Software control is inactive' if state else 'Background service is not reachable'
         self.status.setText(text + ' • Local profiles and mouse memory are saved separately')
@@ -893,15 +889,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Invalid rule", str(error))
 
     def refresh_devices(self):
-        devices = discover()
-        lines = []
-        for d in devices:
-            lines.append(f"{d.name} — {d.transport} — 1532:{d.product_id:04x}")
-            for interface in d.interfaces:
-                access = "accessible" if interface["readable"] else "permission required"
-                lines.append(f"  Interface {interface['number']}: {interface['path']} ({access})")
-            lines.append("")
-        self.device_info.setPlainText("\n".join(lines) if devices else "No supported Naga mice connected.")
+        self.diagnostics.refresh_devices()
 
 
 def start(store=None, *, background=False, start_service=False):

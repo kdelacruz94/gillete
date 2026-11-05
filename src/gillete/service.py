@@ -17,6 +17,7 @@ import time
 
 from .device_session import DeviceSession
 from .devices import discover
+from .diagnostics import transport_identity
 from .emergency import EmergencyShortcut
 from .focus import HyprlandWatcher, ProfileCoordinator
 from .hardware import journal_directory
@@ -63,6 +64,8 @@ class Daemon:
 
     def status(self):
         now = time.monotonic()
+        routes = {model: transport_identity(session.device) for model, session in self.sessions.items()
+                  if getattr(session, 'device', None) is not None}
         return {'running': True, 'config_path': str(self.store.path.resolve()),
                 'startup_pending': sorted(self.startup_pending),
                 'focus_available': self.coordinator.available,
@@ -74,6 +77,7 @@ class Daemon:
                                     'active': bool(self.sessions.get(model) and self.sessions[model].ready),
                                     'profile': self.sessions[model].engine.profile.id if self.sessions.get(model) and self.sessions[model].engine else None,
                                     'error': self.errors.get(model, ''),
+                                    'transport': routes.get(model),
                                     'retry_in_ms': (int(max(0, self.retry_at.get(model, 0) - now) * 1000)
                                                     if model in self.requested and model not in self.sessions else 0),
                                     'action_error': getattr(self.sessions.get(model), 'action_error', ''),

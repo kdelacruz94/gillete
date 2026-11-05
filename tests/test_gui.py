@@ -382,6 +382,70 @@ def test_service_panel_distinguishes_backoff_waiting_and_actionable_failure(app,
         shiboken6.delete(panel)
 
 
+def test_diagnostics_refresh_service_updates_and_disconnection_never_open_hardware(app, tmp_path, monkeypatch):
+    from gillete import gui_diagnostics, hid
+    from gillete.devices import Device
+    from gillete.diagnostics import transport_identity
+    from gillete.service import Daemon
+    device = Device(MODELS[1], 'Naga V3 Pro', '2.4 GHz', 0xE8, '/usb/1-2', 'private-serial',
+                    [{'kind': 'hidraw', 'number': '03', 'path': '/dev/hidraw9', 'readable': True, 'writable': False}])
+    devices, scans = [device], []
+    def discover():
+        scans.append(True)
+        return list(devices)
+    def forbidden(*_): raise AssertionError('Diagnostics must not open a device')
+    monkeypatch.setattr(gui_diagnostics, 'discover', discover)
+    monkeypatch.setattr(gui_diagnostics.os, 'access', lambda *_: True)
+    monkeypatch.setattr(hid.ReadOnlyHID, '__enter__', forbidden)
+    panel = gui_diagnostics.DiagnosticsPanel()
+    def status(name):
+        return next(panel.checks.item(r, 1).text() for r in range(panel.checks.rowCount())
+                    if panel.checks.item(r, 0).text() == name)
+    try:
+        panel.refresh_devices()
+        assert status('Mouse configuration') == 'Access missing'
+        assert 'private-serial' not in panel.summary.text() + panel.selector.currentText()
+        data = Daemon(ProfileStore(tmp_path / 'profiles.json')).status()
+        data['devices'][MODELS[1]].update(active=True, requested=True, transport=transport_identity(device))
+        panel.set_service_state(data)
+        assert status('Input ownership') == 'Held by Gillete' and len(scans) == 1
+        panel.set_service_state(None, 'Status request timed out')
+        assert status('Input ownership') == 'Not tested' and len(scans) == 1
+        devices.clear()
+        panel.refresh_devices()
+        assert panel.selector.currentIndex() == -1
+        assert panel.checks.rowCount() == panel.capabilities.rowCount() == panel.nodes.rowCount() == 0
+        assert 'No supported' in panel.summary.text()
+    finally:
+        shiboken6.delete(panel)
+
+
+def test_diagnostics_keeps_selected_transport_across_discovery_order_changes(app, monkeypatch):
+    from gillete import gui_diagnostics
+    from gillete.devices import Device
+    first = Device(MODELS[0], 'V2', '2.4 GHz', 0xB4, '/usb/1-2', '')
+    second = Device(MODELS[1], 'V3', 'USB wired', 0xE7, '/usb/1-3', '')
+    devices = [first, second]
+    monkeypatch.setattr(gui_diagnostics, 'discover', lambda: devices)
+    panel = gui_diagnostics.DiagnosticsPanel()
+    try:
+        panel.refresh_devices()
+        panel.selector.setCurrentIndex(1)
+        devices.reverse()
+        panel.refresh_devices()
+        assert panel.selector.currentData().product_id == 0xE7
+        assert panel.capabilities.item(0, 1).text() == 'Diagnostic prepared'
+        def fail(): raise OSError('Discovery failed')
+        monkeypatch.setattr(gui_diagnostics, 'discover', fail)
+        panel.refresh_devices()
+        assert not panel.checks.rowCount() and not panel.capabilities.rowCount()
+        assert 'Discovery failed' in panel.summary.text()
+        panel.set_service_state(None, 'Service unavailable')
+        assert 'Discovery failed' in panel.summary.text()
+    finally:
+        shiboken6.delete(panel)
+
+
 def test_application_picker_matches_literal_app_ids_and_optional_titles(app):
     selected = Window('a', '[Wine]*game?', 'Game [1]*?', '/usr/bin/wine')
     picker = ApplicationPicker([selected])

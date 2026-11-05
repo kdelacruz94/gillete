@@ -31,6 +31,22 @@ profiles save to `$XDG_CONFIG_HOME/gillete/profiles.json` or
 `~/.config/gillete/profiles.json`. Use `--config /path/to/profiles.json` before
 the subcommand to isolate experiments.
 
+**Devices & diagnostics** separates connection/service checks, per-node
+permissions and feature-validation evidence. Select the receiver or cable by
+model, transport and USB port. Configuration queries require both read and write
+access to their hidraw node; software input requires readable input nodes and a
+writable `/dev/uinput`. Readable input does not prove that another remapper has
+released its grab. The panel reports Gillete's existing ownership/error state
+without testing ownership by taking control of the mouse.
+
+Use **Refresh connection checks** after reconnecting or changing permissions.
+Service status updates while the editor is open and identifies its USB route,
+so an active receiver is not presented as control of an attached cable. Feature
+validation distinguishes implemented behavior, partial live tests and unfinished
+work. Those results describe development hardware; they do not certify the
+connected unit or its current mappings. Diagnostics opens no mouse/input nodes,
+writes no settings, starts no service and never changes input-remapper.
+
 Double-click a normal or HyperShift cell to edit an assignment. Shared mappings
 and per-mouse overrides keep the V3 ring-finger control distinct from the V2.
 Each cell identifies its source: shared, a mouse-specific override, inherited

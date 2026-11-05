@@ -868,3 +868,42 @@ Arch, wheel and source artifacts were rebuilt. Staged package checks cover the
 native GUI/CLI plus the new diagnostic entrypoint. The source archive now ships
 the public JSON fixture; all 47 wired tests also pass from the extracted source
 using its own imports. No host package installation or service activation occurred.
+
+## Native device diagnostics and service transport identity
+
+The former device-list text view only checked whether each node was readable.
+It could call a configuration interface accessible even though Gillete opens it
+read/write for feature queries. The native Devices & diagnostics panel now
+separates configuration-route access, raw/evdev enumeration and read access,
+uinput write access, duplicate transports, desktop monitoring and service state.
+Per-node read/write checks and the nearest bound HID driver are also displayed.
+No HID/input node is opened to collect this information, and no ownership probe,
+service startup, mode switch or settings request is performed.
+
+Service status now includes its session's product/USB path/transport, excluding
+hardware serial and window contents. Diagnostics matches that route instead of
+assuming a model-level active flag owns every connected transport. An older
+daemon without this field is labeled as active for the model with unknown exact
+transport. Current ownership, retry state and reported errors are kept distinct
+from permissions: readable nodes can still be grabbed by another remapper.
+Connection and permission data changes only on refresh; service updates reuse
+the existing poll. Disconnect or failed refresh clears stale device results,
+and selection persists through discovery-order changes.
+
+The Feature validation page records the actual limits of development evidence:
+receiver control captures, partial side12/HyperShift power-cycle tests, V3 live
+examples versus the pending V2 software test, implemented recorder/launch and
+settings work, and unverified native firmware actions, extra V3 slots, temporary
+DPI and wired operation. It explicitly describes historical development tests,
+not validation of the currently connected unit. The data does not enable any
+backend capability or change configuration/write guards.
+
+All 368 tests pass. New checks cover read-only configuration permissions,
+missing/duplicate raw or evdev nodes, unknown access, active receiver versus
+attached cable, older daemon compatibility, retry/errors, nearest sysfs driver,
+refresh/disconnect behavior and selection retention. Native Qt rendering was
+inspected offscreen with simulated discovery and service state. Hidden-tab row
+heights now recompute at the actual viewport width so the validation text is
+readable without excessive blank space. Hardware acceptance, settings and
+receiver reconnect/persistence tests remain deferred; no real input ownership,
+remapping, hardware query or startup preference was changed.
