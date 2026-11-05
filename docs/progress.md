@@ -1215,3 +1215,25 @@ candidate/reset outcomes, timeouts, cancellation, malformed reports, saved
 settings drift, aliased storage, lost ACK, interrupted waiting recovery,
 exact requested values and invalid/unchanged/increasing targets. Source and
 wheel package validation also cover the new module and DPI tests.
+
+## V3 1200-DPI sensor/power-cycle observation — 2026-11-05
+
+The revised user-paced run reached 1200 × 1200 with saved scalar DPI still
+6400, unchanged stage bytes and polling. The user reported that 1200 felt like
+their usual speed and felt the same after switching the mouse off and on.
+Post-report readback confirmed selector zero still at 1200 × 1200, with the
+protected state unchanged. The receiver was not unplugged; power cycling is
+user-reported, not an independently observed USB removal.
+
+The run finished `sensor-observation-restored`: restoration of selector zero
+to 6400 × 6400 and all original settings/bindings verified, without experiment
+or recovery errors. Private complete journal:
+`evidence/v3-dpi-sensor-1200-20261105-01.local/run/journal.json`.
+
+This supplies human sensor-effect evidence and shows the candidate surviving
+the reported mouse power cycle. It does not prove flash/NVM behavior or
+receiver-side versus mouse-side retention. Do not classify selector zero as
+volatile from its name or independent getter. Automatic per-program DPI stays
+disabled pending receiver-replug/true power-loss investigation and driver-mode
+validation. User preference remains 1200; test cleanup restored the exact
+pre-test 6400 rather than permanently modifying saved stages.

@@ -38,6 +38,15 @@ setter/readback round trip. Sensor behavior, volatility, power-cycle/replug
 and driver-mode acceptance remain unverified, so automatic temporary-DPI
 support is still disabled. See the dated result in `progress.md`.
 
+**Larger sensor follow-up:** a subsequent 6400 → 1200 test felt like the
+user's normal speed. After the user's reported mouse off/on cycle, that speed
+remained and selector-zero readback was still 1200, while saved scalar DPI,
+stages, polling and bindings were unchanged. Cleanup verified restoration to
+6400 and the full original protected state. Sensor effect now has user
+observation evidence, but volatility is not established: the candidate survived
+that reported cycle with the receiver continuously connected. Investigate
+receiver replug and actual power loss separately before automatic switching.
+
 ## 1. V2 stored functions
 
 ### Class `05` is a macro family, not a disabled/default marker
