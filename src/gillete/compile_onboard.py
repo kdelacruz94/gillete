@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from .model import Action, MODEL_CONTROLS, MODELS, Profile
+from .hypershift import PULSE_CONTROLS, shifted_controls
 from .onboard import Location
 from .protocol import ProtocolError, V2_CONTROLS
 
@@ -149,18 +150,25 @@ def compile_profile(profile: Profile, model: str, bank: int,
         else:
             try:
                 normal[where] = encode_action(action, model)
+                if control in PULSE_CONTROLS and action.kind == 'hypershift':
+                    issues.append(f'{control}: held HyperShift needs a button that can be held; '
+                                  'scroll-toggle HyperShift requires the Linux service')
             except SoftwareOnly as error:
                 issues.append(f"{control} (normal): {error}")
     shifted = {}
-    has_shift = any(value[0] == 0x0C for value in normal.values())
+    shift_function = encode_action(Action('hypershift', playback='held'), model)
+    has_shift = any(normal.get(Location(bank, identifiers[c], 0)) == shift_function
+                    for c in MODEL_CONTROLS[model] if c not in PULSE_CONTROLS)
     for control in MODEL_CONTROLS[model]:
         normal_where = Location(bank, identifiers[control], 0)
         shifted_where = Location(bank, identifiers[control], 1)
         if normal_where not in normal:
             continue
         action = profile.resolve(model, control, shifted=True)
-        if normal[normal_where][0] == 0x0C:
-            shifted[shifted_where] = normal[normal_where]
+        if normal[normal_where] == shift_function:
+            shifted[shifted_where] = (baseline[shifted_where]
+                                     if profile.resolve(model, control).kind == 'passthrough'
+                                     else normal[normal_where])
         elif action.kind == "passthrough":
             # "Keep stored" preserves the user's existing Synapse assignment
             # on this layer. Explicit normal actions already inherit through
@@ -171,8 +179,7 @@ def compile_profile(profile: Profile, model: str, bank: int,
                 shifted[shifted_where] = encode_action(action, model)
             except SoftwareOnly as error:
                 issues.append(f"{control} (HyperShift): {error}")
-    override = profile.overrides.get(model)
-    if not has_shift and (profile.common.shifted or (override and override.shifted)):
+    if not has_shift and shifted_controls(profile, model):
         issues.append("Shifted mappings have no HyperShift trigger on this mouse")
     if normal.get(Location(bank, identifiers["left_click"], 0), b"\0")[0] == 0x0C and model == MODELS[0]:
         issues.append("V2 left-click as a firmware HyperShift trigger has not been validated")

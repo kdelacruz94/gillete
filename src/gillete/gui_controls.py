@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (QButtonGroup, QComboBox, QGridLayout, QGroupBox,
                               QLabel, QPushButton, QVBoxLayout, QWidget)
 
 from .model import MODEL_CONTROLS, MODELS
+from .hypershift import resolve_action
 from .shortcuts import describe
 
 
@@ -55,6 +56,7 @@ class ControlSelector(QWidget):
         layout.addStretch()
         self.current_model = MODELS[0]
         self.profile = None
+        self.stored = None
         self.selected = None
         self.layer.currentIndexChanged.connect(self.update_assignment)
 
@@ -78,21 +80,29 @@ class ControlSelector(QWidget):
             self.buttons[control].setChecked(True)
             self.update_assignment()
 
-    def refresh(self, model, profile):
+    def refresh(self, model, profile, stored=None):
         self.current_model, self.profile = model, profile
+        self.stored = stored
         for control, button in self.buttons.items():
             supported = control in MODEL_CONTROLS[model]
             button.setVisible(supported)
             if supported:
                 button.setToolTip(f'{control.replace("_", " ").title()}\n'
-                                  f'Normal: {describe(profile.resolve(model, control))}\n'
-                                  f'HyperShift: {describe(profile.resolve(model, control, True))}')
+                                  f'Normal: {self.describe_assignment(control, False)}\n'
+                                  f'HyperShift: {self.describe_assignment(control, True)}')
         if self.selected not in MODEL_CONTROLS[model]:
             self.selected = 'side_1'
         self.select(self.selected)
 
+    def describe_assignment(self, control, shifted):
+        action = self.profile.resolve(self.current_model, control, shifted)
+        resolved = resolve_action(self.profile, self.current_model, control, shifted, self.stored)
+        if resolved is not None and resolved != action and resolved.kind == 'hypershift':
+            return 'Stored HyperShift trigger (hold)'
+        return describe(action)
+
     def update_assignment(self):
         if self.profile is not None and self.selected in MODEL_CONTROLS[self.current_model]:
             name = self.selected.replace('_', ' ').title()
-            action = self.profile.resolve(self.current_model, self.selected, self.layer.currentData())
-            self.assignment.setText(f'{name}: {describe(action)}')
+            description = self.describe_assignment(self.selected, self.layer.currentData())
+            self.assignment.setText(f'{name}: {description}')

@@ -457,3 +457,41 @@ The V2 wake-up and existing-macro-intent questions remain unanswered. Continue
 with their responses before the corresponding physical tests. Wired transport,
 physical DPI/polling acceptance, per-profile sensitivity and final migration
 remain unfinished; the goal is not complete.
+
+## HyperShift reachability and inherited triggers
+
+The editor now distinguishes a configured normal-layer trigger, an inherited
+trigger from the last active-slot read, an unverified inherited possibility and
+an unreachable custom shifted layer. Snapshot invalidation clears the inherited
+claim; another model's or an inactive slot's snapshot cannot prove the active
+trigger. The same analysis protects software activation and configuration reloads
+after stored actions have been decoded. V3-only shifted controls are excluded
+from V2 reachability checks. A held scroll-direction trigger is unusable in the
+software event stream because each wheel event has an immediate release; the
+editor explains using a held button or software toggle instead. New onboard
+held-scroll trigger assignments are rejected, without rewriting existing ones.
+
+Software resolution now keeps a normal-layer inherited HyperShift trigger usable
+while another trigger is held, matching explicitly assigned trigger behavior.
+Its opaque shifted descriptor is not executed or rewritten. The editor shows
+this effective trigger on both layers and directs edits to Normal. Onboard
+compilation preserves both original descriptors for an inherited trigger and
+does not treat arbitrary class0c bytes as a known trigger. An explicit new normal
+trigger still compiles to both layers.
+
+All 133 tests pass, including engine/router behavior, toggle cancellation,
+per-model overrides, service preflight before input/output ownership, editor
+snapshot lifecycle and opaque-descriptor preservation. Offline checks against
+the original saved hardware captures preserve all 42 V2 and 50 V3 bank1 functions
+exactly, identify the actual front-index/ring triggers, and leave the V2's eight
+opaque functions unresolved. Both profiles from the successful physical V3
+software test also pass the new preflight offline. No new hardware test or
+physical write was performed; these checks do not replace live acceptance.
+
+Per-profile sensitivity remains a separate required gap. Focus switching must
+not call the existing permanent-settings transaction. The pinned Linux fork's
+scalar DPI setter (`openrazer-26b0eeb.c`, switch around lines2620–2633) uses
+VARSTORE for V3, while V2 HyperSpeed falls through to NOSTORE. This supplies a
+candidate temporary V2 path, not proof for either physical device. Verify live
+readback and independence from saved DPI/stages before enabling profile DPI
+transitions; do not substitute pointer scaling or permanent writes silently.

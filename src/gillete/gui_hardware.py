@@ -75,6 +75,8 @@ class SavePreview(QDialog):
 
 
 class HardwarePanel(QWidget):
+    snapshot_changed = Signal(object)
+
     def __init__(self, current_profile, parent=None):
         super().__init__(parent)
         self.current_profile = current_profile
@@ -132,6 +134,7 @@ class HardwarePanel(QWidget):
         self.preview.setEnabled(False)
         self.backup_button.setEnabled(False)
         self.settings_button.setEnabled(False)
+        self.snapshot_changed.emit(None)
 
     def refresh_devices(self):
         self.invalidate()
@@ -213,6 +216,7 @@ class HardwarePanel(QWidget):
             lines.append(f"{control.replace('_', ' ').title()}: {describe_function(normal)} | HyperShift: {describe_function(shifted)}")
         self.info.setPlainText("\n".join(lines))
         self.status.setText("Read complete. Preparing a preview does not write to the mouse.")
+        self.snapshot_changed.emit(snapshot)
 
     def backup_slot(self):
         if self.snapshot is None:

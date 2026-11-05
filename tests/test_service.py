@@ -20,6 +20,36 @@ from gillete.protocol import ProtocolError
 from gillete.service import Daemon, request
 
 
+def test_session_rejects_unreachable_shift_before_output_or_input_ownership(tmp_path, monkeypatch):
+    import gillete.device_session as sessions
+    from gillete.model import Action, Layers, Profile
+    device = Device(MODELS[1], 'Test', '2.4 GHz', 0xE8, '/test', 'test')
+    snapshot = Snapshot(0xE8, device.model, 'test', 1, (1,), 1, set(CONTROL_IDS[device.model].values()),
+                        {Location(1, c, l): bytes((1, c, 0)) + bytes.fromhex('0202001e000000')
+                         for c in CONTROL_IDS[device.model].values() for l in (0, 1)}, {})
+    monkeypatch.setattr(sessions, 'inspect', lambda _: snapshot)
+    def forbidden(*_): raise AssertionError('Preflight must precede input/output ownership')
+    monkeypatch.setattr(sessions, 'UInputOutput', forbidden)
+    monkeypatch.setattr(sessions, 'transport', forbidden)
+    async def check():
+        config = Configuration(profiles={'default': Profile('default', 'Default', Layers(
+            shifted={'side_1': Action('keys', keys=('KEY_F23',))}))})
+        coordinator = ProfileCoordinator(config)
+        coordinator.available = True
+        session = DeviceSession(device, coordinator, tmp_path, None)
+        monkeypatch.setattr(session, 'open_inputs', forbidden)
+        await session.run()
+        assert 'HyperShift configuration needs attention' in session.error and not session.ready
+        assert not list(tmp_path.glob('*.json'))
+        # The same validation also protects live config reloads and pins.
+        config.profiles['default'].common.normal['ring_finger'] = Action('hypershift', playback='held')
+        session.validate_profiles(config)
+        config.profiles['default'].common.normal.clear()
+        with pytest.raises(ProtocolError, match='HyperShift configuration'):
+            session.validate_profiles(config)
+    asyncio.run(check())
+
+
 @pytest.mark.parametrize('fail_keyboard_setup', [False, True])
 def test_session_restores_mode_and_releases_inputs_even_if_output_close_fails(tmp_path, monkeypatch, fail_keyboard_setup):
     import gillete.device_session as sessions

@@ -5,6 +5,7 @@ snapshot. They are never guessed or replaced with factory defaults.
 """
 
 from .compile_onboard import CONTROL_IDS, MEDIA, MODIFIERS, MOUSE, USAGES, encode_action
+from .hypershift import resolve_action
 from .model import Action, MODEL_CONTROLS, MODELS
 from .onboard import Location
 
@@ -49,4 +50,4 @@ def from_snapshot(snapshot):
 
 def unresolved(profile, model, stored):
     return [(control, shifted) for control in MODEL_CONTROLS[model] for shifted in (False, True)
-            if profile.resolve(model, control, shifted).kind == 'passthrough' and (control, shifted) not in stored]
+            if resolve_action(profile, model, control, shifted, stored) is None]

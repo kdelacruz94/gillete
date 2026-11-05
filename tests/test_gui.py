@@ -388,3 +388,45 @@ def test_recording_stop_preserves_a_held_key_until_f12_and_accepts_media_interfa
                                    Step('up', key='KEY_VOLUMEUP'))
     assert media.closed
     shiboken6.delete(dialog)
+
+
+def test_editor_updates_hypershift_feedback_from_active_snapshot_without_reading_implicitly(app, tmp_path, monkeypatch):
+    from gillete import hardware
+    from gillete.compile_onboard import CONTROL_IDS
+    from gillete.model import Layers
+    from gillete.onboard import Location
+    monkeypatch.setattr(hardware, 'inspect', lambda *_: (_ for _ in ()).throw(AssertionError('Implicit mouse read')))
+    window = MainWindow(ProfileStore(tmp_path / 'profiles.json'))
+    window.model.setCurrentIndex(1)
+    profile = window.current()
+    profile.common.shifted['side_1'] = Action('keys', keys=('KEY_F23',))
+    profile.common.shifted['ring_finger'] = Action('keys', keys=('KEY_X',))
+    window.refresh()
+    assert 'unverified' in window.shift_status.text()
+    records = {Location(1, c, layer): bytes((1, c, 0)) + bytes.fromhex('0202001e000000')
+               for c in CONTROL_IDS[MODELS[1]].values() for layer in (0, 1)}
+    records[Location(1, 0x39, 0)] = bytes((1, 0x39, 0)) + bytes.fromhex('0c013900000000')
+    snapshot = hardware.Snapshot(0xE8, MODELS[1], 'test', 1, (1,), 1,
+                                 set(CONTROL_IDS[MODELS[1]].values()), records, {})
+    window.hardware.loaded(snapshot)
+    assert 'Ring Finger (hold, stored at last read)' in window.shift_status.text()
+    row = MODEL_CONTROLS[MODELS[1]].index('ring_finger')
+    assert window.mapping.item(row, 2).text() == 'Stored HyperShift trigger (hold)'
+    window.control_selector.select('ring_finger')
+    window.control_selector.layer.setCurrentIndex(1)
+    assert 'Stored HyperShift trigger' in window.control_selector.assignment.text()
+    assert 'Stored HyperShift trigger' in window.control_selector.buttons['ring_finger'].toolTip()
+    messages = []
+    monkeypatch.setattr(QMessageBox, 'information', lambda *args: messages.append(args[2]))
+    window.edit_mapping(row, 2)
+    assert 'Normal assignment' in messages[-1]
+    assert profile.common.shifted['ring_finger'].keys == ('KEY_X',)
+    profile.overrides[MODELS[1]] = Layers(normal={'ring_finger': Action('disabled')})
+    window.refresh()
+    assert 'unreachable' in window.shift_status.text()
+    window.hardware.invalidate()
+    assert 'unverified' in window.shift_status.text()
+    window.model.setCurrentIndex(0)
+    assert 'Ring Finger (hold' not in window.shift_status.text()
+    assert profile.common.shifted['ring_finger'].keys == ('KEY_X',)
+    shiboken6.delete(window)

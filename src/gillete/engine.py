@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from evdev import ecodes
 
 from .macros import KeyLedger, MacroRunner
+from .hypershift import resolve_action
 from .model import Action, Profile, key_code
 
 
@@ -46,11 +47,9 @@ class Engine:
 
     def resolve(self, control: str, shifted: bool | None = None) -> Action:
         shifted = self.shifted if shifted is None else shifted
-        action = self.profile.resolve(self.model, control, shifted)
-        if action.kind == 'passthrough' and self.stored is not None:
-            if (control, shifted) not in self.stored:
-                raise RuntimeError(f'Stored assignment needs an explicit software mapping: {control}')
-            return self.stored[control, shifted]
+        action = resolve_action(self.profile, self.model, control, shifted, self.stored)
+        if action is None:
+            raise RuntimeError(f'Stored assignment needs an explicit software mapping: {control}')
         return action
 
     async def press(self, control: str) -> bool:

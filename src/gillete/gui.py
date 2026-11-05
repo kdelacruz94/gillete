@@ -30,10 +30,12 @@ from .gui_startup import StartupPanel
 from .gui_launch import InstalledApplicationPicker
 from .applications import desktop_application
 from .focus import query_windows
+from .hypershift import availability, resolve_action
 from .model import Action, ConfigurationError, Layers, MODEL_CONTROLS, MODELS, Profile, Step, sequence
 from .profiles import ProfileStore, Rule
 from .recorder import replace_delays
 from .shortcuts import describe, friendly_key, parse_chord, parse_key, parse_sequence
+from .stored_actions import from_snapshot
 
 
 def button(text, callback, layout):
@@ -379,7 +381,13 @@ class MainWindow(QMainWindow):
         self.mapping.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.mapping.customContextMenuRequested.connect(self.mapping_menu)
         mapping_page = QWidget()
-        mapping_layout = QHBoxLayout(mapping_page)
+        mapping_page_layout = QVBoxLayout(mapping_page)
+        self.shift_status = QLabel()
+        self.shift_status.setWordWrap(True)
+        self.shift_status.setTextFormat(Qt.TextFormat.PlainText)
+        mapping_page_layout.addWidget(self.shift_status)
+        mapping_layout = QHBoxLayout()
+        mapping_page_layout.addLayout(mapping_layout, 1)
         self.control_selector = ControlSelector(self)
         self.control_selector.edit_requested.connect(self.edit_selected_control)
         self.mapping.currentCellChanged.connect(self.mapping_selected)
@@ -408,6 +416,7 @@ class MainWindow(QMainWindow):
         button("Refresh connected devices", self.refresh_devices, devices_layout)
         tabs.addTab(devices_page, "Devices & diagnostics")
         self.hardware = HardwarePanel(self.current, self)
+        self.hardware.snapshot_changed.connect(lambda _snapshot: self.refresh())
         tabs.addTab(self.hardware, "Mouse memory & settings")
         self.service = ServicePanel(self.store, self)
         self.service.updated.connect(self.service_status)
@@ -572,13 +581,22 @@ class MainWindow(QMainWindow):
             return
         model = self.model.currentData()
         profile = self.current()
-        self.control_selector.refresh(model, profile)
+        snapshot = self.hardware.snapshot
+        stored = from_snapshot(snapshot)[0] if snapshot and snapshot.model == model and snapshot.bank == snapshot.active else None
+        self.shift_status.setText(availability(profile, model, stored).message)
+        self.control_selector.refresh(model, profile, stored)
         self.mapping.setRowCount(len(MODEL_CONTROLS[model]))
         for row, control in enumerate(MODEL_CONTROLS[model]):
             self.mapping.setItem(row, 0, QTableWidgetItem(control.replace("_", " ").title()))
             for column, shifted in ((1, False), (2, True)):
-                item = QTableWidgetItem(describe(profile.resolve(model, control, shifted)))
+                configured = profile.resolve(model, control, shifted)
+                resolved = resolve_action(profile, model, control, shifted, stored)
+                item = QTableWidgetItem(describe(configured))
                 item.setToolTip("Double-click to edit; shifted mappings inherit normal when unassigned.")
+                if resolved is not None and resolved != configured and resolved.kind == 'hypershift':
+                    item.setText('Stored HyperShift trigger (hold)')
+                    item.setToolTip('The normal-layer trigger from the last active-slot read stays usable on both layers. '
+                                    'Change its normal assignment to replace it.')
                 self.mapping.setItem(row, column, item)
         pinned = self.config.pinned.get(model)
         self.mode_label.setText("Pinned: " + self.config.profiles[pinned].name if pinned else "Automatic (saved preference)")
@@ -603,6 +621,14 @@ class MainWindow(QMainWindow):
         model = self.model.currentData()
         control = MODEL_CONTROLS[model][row]
         profile = self.current()
+        snapshot = self.hardware.snapshot
+        stored = from_snapshot(snapshot)[0] if snapshot and snapshot.model == model and snapshot.bank == snapshot.active else None
+        normal = resolve_action(profile, model, control, stored=stored)
+        if column == 2 and normal is not None and normal.kind == 'hypershift':
+            QMessageBox.information(self, 'HyperShift activation button',
+                                    'This button activates HyperShift and stays available on both layers. '
+                                    'Edit its Normal assignment to change the trigger.')
+            return
         dialog = ActionDialog(profile.resolve(model, control, column == 2), self.config.profiles, self)
         if dialog.exec():
             layer = profile.common if self.scope.currentData() == "common" else profile.overrides.setdefault(model, Layers())

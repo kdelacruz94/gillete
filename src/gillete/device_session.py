@@ -15,6 +15,7 @@ from .device_controls import Controls
 from .driver_mode import ModeLease
 from .engine import Engine
 from .hardware import inspect, read_journal, transport
+from .hypershift import availability
 from .macros import KeyLedger
 from .protocol import Command, ProtocolError
 from .reports import decode
@@ -102,6 +103,11 @@ class DeviceSession:
             issues.extend(f"{profile.name}: {c} ({'HyperShift' if s else 'normal'})" for c, s in missing)
         if issues:
             raise ProtocolError('Stored firmware actions need explicit software mappings: ' + '; '.join(issues))
+        for profile in config.profiles.values():
+            issues.extend(f'{profile.name}: {issue}'
+                          for issue in availability(profile, self.device.model, self.engine.stored).issues)
+        if issues:
+            raise ProtocolError('HyperShift configuration needs attention: ' + '; '.join(issues))
 
     def recover_previous_mode(self):
         # Only this app's mode leases are considered; no binding journal is

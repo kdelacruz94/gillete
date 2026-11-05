@@ -37,6 +37,16 @@ The control selector also exposes every button on the selected model; choose
 Normal or HyperShift and click the physical control. In Program profiles,
 **Choose running application…** fills a rule from an open game or program;
 select **Save rules** to apply it. Title matching is optional.
+
+The mapping page shows the HyperShift trigger for the selected mouse. An inherited
+trigger stays **unverified** until you read its active slot in Mouse memory &
+settings; the label then identifies the trigger from that read. A profile with
+custom shifted mappings and no usable trigger is rejected before software control
+takes ownership. To change a trigger, edit its **Normal** assignment. It stays
+available on both layers. Scroll up/down can toggle software HyperShift; use a
+button that can stay pressed for held HyperShift. V3-only shifted controls do not
+require a trigger on the V2 unless that profile also assigns shifted V2 controls.
+
 The macro editor supports recorded input, editable event rows, and comma-separated
 chords such as `Alt+H, O, A` or `Ctrl+B, Alt+S`. Set **Key hold** and **Between
 chords** before choosing **Build steps**. **Replace delays…** changes all existing

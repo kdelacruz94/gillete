@@ -57,3 +57,21 @@ def test_keep_stored_preserves_existing_synapse_hypershift_actions():
     plan = compile_profile(edited, MODELS[0], 1, values)
     assert plan.targets[Location(1, 0x40, 1)] == bytes.fromhex('02020073000000')
     assert plan.targets[Location(1, 0x34, 1)] == values[Location(1, 0x34, 1)]
+
+
+def test_shift_reachability_uses_only_controls_on_the_target_model_and_real_hold_triggers():
+    profile = Profile('p', 'P', Layers(shifted={'ring_finger': Action('keys', keys=('KEY_A',))}))
+    assert compile_profile(profile, MODELS[0], 1, baseline(MODELS[0])).writable
+    assert not compile_profile(profile, MODELS[1], 1, baseline(MODELS[1])).writable
+    profile.common.normal['wheel_up'] = Action('hypershift', playback='held')
+    plan = compile_profile(profile, MODELS[1], 1, baseline(MODELS[1]))
+    assert not plan.writable and any('button that can be held' in issue for issue in plan.issues)
+
+
+def test_keep_stored_does_not_rewrite_opaque_shift_functions_or_inherited_triggers():
+    values = baseline(MODELS[1])
+    values[Location(1, 0x39, 0)] = encode_action(Action('hypershift', playback='held'), MODELS[1])
+    values[Location(1, 0x39, 1)] = bytes.fromhex('05020000000000')
+    values[Location(1, 0x40, 0)] = bytes.fromhex('0c01ff00000000')
+    plan = compile_profile(Profile('p', 'P'), MODELS[1], 1, values)
+    assert plan.writable and plan.targets == values
