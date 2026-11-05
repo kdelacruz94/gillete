@@ -80,6 +80,17 @@ Older single-profile exports still import. A legacy link to another local profil
 is shown in the review; missing linked profiles require a new bundle export.
 Profile bundles contain local configuration, not a backup of mouse memory.
 
+Unused profiles may remain unfinished while software control runs. In Automatic
+mode, Gillete checks the selected mouse's default, all enabled program rules for
+that mouse, and every profile their effective buttons can select on either
+layer. A manual pin uses the pinned profile and its button-linked profiles;
+choosing Automatic checks the automatic profiles again before switching.
+Disabled rules do not activate a profile, but a button link still can.
+Unknown stored actions and unusable HyperShift triggers block activation of any
+of these selectable profiles. Editing an unrelated draft does not stop the
+current mapping. Disabling the active program rule selects the applicable
+fallback and cancels its macros if the selected profile changes.
+
 The mapping page shows the HyperShift trigger for the selected mouse. An inherited
 trigger stays **unverified** until you read its active slot in Mouse memory &
 settings; the label then identifies the trigger from that read. A profile with
@@ -168,8 +179,8 @@ depend on the receiving computer's keyboard configuration.
 
 "Stored mouse assignment" refers to the actual saved binding, including existing
 Synapse customizations. Unknown firmware actions stay intact in onboard previews
-and recovery data. Software activation is blocked if a profile inherits an action
-whose software behavior is not implemented; it is never replaced with a guessed
+and recovery data. Software activation is blocked if a selectable profile inherits
+an action whose software behavior is not implemented; it is never replaced with a guessed
 factory mapping. Several existing V2 firmware actions still need this work.
 The mouse-memory view now identifies stored turbo parameters and macro
 references, while marking unverified timing and unavailable macro content.

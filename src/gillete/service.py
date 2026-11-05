@@ -218,20 +218,23 @@ class Daemon:
             self.sessions[model] = session
             self.tasks[model] = asyncio.create_task(session.run())
 
+    async def reload_config(self):
+        try:
+            config = self.store.read()
+            if config.json() != self.coordinator.config.json():
+                self.validate_config(config)
+                await self.coordinator.reload(config)
+            self.config_error = ''
+        except (OSError, ValueError) as error:
+            self.config_error = str(error)
+            self.startup_pending.clear()
+            self.requested.clear()
+            for session in self.sessions.values():
+                session.stop_requested.set()
+
     async def watch_config(self):
         while not self.shutdown.is_set():
-            try:
-                config = self.store.read()
-                if config.json() != self.coordinator.config.json():
-                    self.validate_config(config)
-                    await self.coordinator.reload(config)
-                self.config_error = ''
-            except (OSError, ValueError) as error:
-                self.config_error = str(error)
-                self.startup_pending.clear()
-                self.requested.clear()
-                for session in self.sessions.values():
-                    session.stop_requested.set()
+            await self.reload_config()
             await asyncio.sleep(.5)
 
     async def watch_sleep(self):

@@ -20,6 +20,7 @@ from .hid import device_io
 from .hypershift import availability
 from .macros import KeyLedger
 from .protocol import Command, DeviceStatusError, DeviceUnavailable, ProtocolError
+from .profile_activation import reachable_profiles
 from .reports import decode
 from .runtime import Router, UInputOutput
 from .stored_actions import from_snapshot, unresolved
@@ -149,13 +150,14 @@ class DeviceSession:
     def validate_profiles(self, config):
         if self.engine is None:
             return
+        profiles = reachable_profiles(config, self.device.model, self.engine.stored)
         issues = []
-        for profile in config.profiles.values():
+        for profile in profiles:
             missing = unresolved(profile, self.device.model, self.engine.stored)
             issues.extend(f"{profile.name}: {c} ({'HyperShift' if s else 'normal'})" for c, s in missing)
         if issues:
             raise ProtocolError('Stored firmware actions need explicit software mappings: ' + '; '.join(issues))
-        for profile in config.profiles.values():
+        for profile in profiles:
             issues.extend(f'{profile.name}: {issue}'
                           for issue in availability(profile, self.device.model, self.engine.stored).issues)
         if issues:

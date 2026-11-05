@@ -951,3 +951,40 @@ atomic exports, disabled-rule persistence, native review/cancellation, unsaved
 editor rows and failed or conflicting saves. The import-review layout was also
 rendered and inspected offscreen with synthetic profiles. No live hardware,
 input, service or startup state was changed; physical tests remain deferred.
+
+## Validate profiles reachable by each mouse, allowing inactive drafts
+
+An offline reproduction showed that saving an unused profile with unfinished
+HyperShift assignments rejected the running service configuration, even when
+that profile's only program rule was disabled. Preflight previously checked the
+entire library against each connected mouse. This also forced V3-only program
+profiles to be fully usable on an unrelated V2 session.
+
+Software preflight now computes the selectable profiles independently for each
+mouse. In Automatic mode its roots are the model's default and every enabled
+rule that can match that model, including future windows. In pinned mode the
+root is the manual selection. Both modes follow all effective profile-switch
+buttons transitively, through shared and per-model Normal/HyperShift layers.
+The traversal uses the same resolution as playback, so model-absent controls,
+overridden actions and shifted assignments masked by explicit or inherited
+HyperShift triggers cannot introduce false destinations. Cycles are bounded by
+the profile set rather than recursion.
+
+All reachable profiles still require resolved stored actions and usable
+HyperShift configuration before taking input ownership, accepting a reload or
+changing a live pin. Choosing Automatic revalidates its roots before changing
+the saved pin. Invalid reachable reloads retain the prior engine configuration
+and request session shutdown through the existing error path. An unrelated,
+structurally valid draft can remain incomplete without interrupting software
+control. Disabled rules do not exclude a profile that is reached by a button.
+Whole-library schema and reference validation remain in force.
+
+All 421 tests pass. The 18 added cases cover per-model rules and overrides,
+both layers, inherited-trigger masking, a 1000-profile cycle, unknown stored
+actions in linked profiles, inactive import during a running turbo, disabling
+and re-enabling an active rule, invalid manual pins, Automatic revalidation,
+actual queued profile-button selection and release-before-reuse, and both
+receivers' preflight before simulated output setup. Real engines, profile
+storage and daemon reload/command paths are exercised with synthetic device
+state and recorded outputs. No mouse node, uinput device, compositor setting
+or user configuration was touched. Physical acceptance remains deferred.
