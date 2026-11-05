@@ -1107,3 +1107,37 @@ and the engine subclass's assignment of the incoming macro capability flag.
 Preserved the additional subclass chunks and focused REA evidence. See
 `synapse-macro-turbo-research.md`. Native event serialization, full upload
 dependencies and physical V3 macro-storage acceptance remain outstanding.
+
+## Macro event format and upload dependency follow-up
+
+Recovered unfinished `macro_inspection.py` and its catalog integration after
+the T3 restarts. First-party module `41022` supplies opcode numbers; factory
+`51294` supplies the record shapes and upload sequence. The read-only decoder
+now reports key usages, complete five-button masks, wheel notches, all four
+delay widths and raw cursor coordinates. It retains every parsed record's raw
+bytes and stops at unknown/incomplete/unsupported data with the entire
+remainder preserved. It reports held inputs without Synapse's invented final
+releases, and flags the four-byte delay's signed-JavaScript ambiguity. It
+never emits executable actions, changes a binding or claims playback support.
+
+The candidate catalog accepts only enumerated nonzero IDs, now through 32767
+as established by Synapse's first-party random-ID generator. Count/request/
+byte bounds remain in place. Its optional raw-data capture adds the inert
+interpretation without additional device queries. Ordinary transport's
+class-06 restrictions remain unchanged.
+
+The source upload trace identifies allocation, 250-byte metadata and event
+data as separate dependencies. Its storage-reclamation fallback can format
+and reconstruct profiles/macros. Gillete does not implement or invoke that
+fallback. Native uploads remain unimplemented; a verified read-only catalog
+and recovery design must precede a fresh-ID experiment. Details are in
+`synapse-macro-turbo-research.md`.
+
+All 502 tests pass, including source-derived combo/delay/mouse/wheel/cursor
+examples, partial-stream preservation, no synthetic releases, high macro IDs,
+limits and unchanged diagnostic request counts. Package checks pass with the
+new decoder included and its read-only tests exercised from the extracted
+source archive. No host install, HID query/write, service activation, input
+capture or user-config change occurred. Next physical step: V3 receiver awake,
+read-only macro catalog and DPI-selector check; preview any temporary write
+only after those reads succeed. V2's old MapleStory macros remain retired.

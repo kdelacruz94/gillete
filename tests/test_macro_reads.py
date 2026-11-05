@@ -56,7 +56,29 @@ def test_catalog_uses_dynamic_page_and_chunk_sizes_and_only_enumerated_ids():
     assert [(int.from_bytes(c.payload[:2], 'big'), len(c.payload)) for c in pages] == [(0, 68), (32, 6)]
 
 
-@pytest.mark.parametrize('ids', [(0,), (2, 2), (256,), tuple(range(1, 130))])
+def test_catalog_adds_inert_interpretation_after_all_chunks_without_extra_requests():
+    io = CatalogDevice((7,))
+    raw = bytes.fromhex('01040204') * 17 + bytes.fromhex('14ffffffff080301e0')
+    io.data[7] = raw
+    result = catalog(io, include_data=True)
+    macro = result['macros'][0]
+    assert macro['raw'] == raw.hex() and macro['status'] == 'raw-bytes-read'
+    parsed = macro['interpretation']
+    assert parsed['status'] == 'decoded' and parsed['consumed_bytes'] == len(raw)
+    assert parsed['held_at_boundary'] == {'keys': [224], 'mouse_buttons': [1, 2]}
+    assert not parsed['firmware_playback_verified']
+    assert [c.operation for c in io.commands] == [0x8E, 0x80, 0x8B, 0x88, 0x89, 0x89]
+
+
+def test_catalog_reads_enumerated_first_party_15_bit_ids_without_truncating_them():
+    io = CatalogDevice((256, 0x1234, 32767))
+    result = catalog(io, include_data=True)
+    assert result['ids'] == [256, 0x1234, 32767]
+    assert [int.from_bytes(c.payload[:2], 'big') for c in io.commands if c.operation == 0x88] == result['ids']
+    assert all(bytes.fromhex(macro['raw']) == io.data[macro['id']] for macro in result['macros'])
+
+
+@pytest.mark.parametrize('ids', [(0,), (2, 2), (32768,), (65535,), tuple(range(1, 130))])
 def test_invalid_catalog_never_dereferences_zero_duplicates_or_unbounded_counts(ids):
     io = CatalogDevice(ids)
     with pytest.raises(ProtocolError):

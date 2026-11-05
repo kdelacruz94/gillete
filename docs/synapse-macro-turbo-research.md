@@ -97,7 +97,75 @@ factory `7755` includes the class-`06` builders underlying those operations.
 The existing read-only `firmware_probe` is still the next physical step for
 V3; do not jump directly to allocation, deletion or upload. Macro event
 serialization and the complete upload/rollback dependency graph still need
-a separate focused pass before a native-write experiment is ready.
+a separate focused pass before a native-write experiment is ready. The
+follow-up below establishes their source format and dependencies. A native
+write experiment still needs a verified catalog and recovery design.
+
+## Event records and read-only inspection
+
+Both retained protocol bundles define these event opcodes in module `41022`.
+Factory `51294` implements their serializer and reader:
+
+| Opcode | Following bytes | Interpretation supported by the source |
+| --- | --- | --- |
+| `01` / `02` | HID usage:u8 | Key make / break; retain the raw usage rather than converting it through Windows scancodes. |
+| `08` | Mask:u8 | Full held state of five mouse buttons in bits 0..4. |
+| `0a` | `01` / `ff` | One positive / negative wheel notch. |
+| `11`..`14` | 1..4 bytes, big-endian | Delay integer, with increasing width. |
+| `15` | X:u16be, Y:u16be | Raw cursor coordinates; coordinate mode and physical behavior are unverified. |
+
+The four-byte delay reader uses JavaScript bitwise operations and can produce
+a signed value when the top bit is set. The diagnostic reports the unsigned
+stored bits and flags that ambiguity. It never schedules such a delay.
+
+Synapse's reader includes repair logic for a missing final key release and
+can append mouse releases. Those are client-generated events, not evidence of
+stored bytes. Gillete's `macro_inspection` preserves actual records and held
+state without repairs. It stops at unknown opcodes, incomplete records,
+unsupported mouse-mask bits or wheel values, retains the entire remainder,
+and never resynchronizes by guessing the next boundary. Power/media record
+sizes remain unsupported; their source cases do not establish a safe size.
+The parser does not produce executable Gillete Actions or enable playback.
+
+The optional read-only catalog now includes this interpretation beside the
+unchanged raw hex. It keeps the existing 4096-byte per-macro / 8192-byte total
+capture bounds and issues no additional requests. First-party `createMacroId`
+uses the entry helper's random u16 masked with `32767`. Accordingly the
+candidate reader now accepts enumerated IDs 1..32767 instead of the previous
+upstream-client-derived 1..255 restriction. It still refuses reference zero,
+unlisted IDs and larger values; the macro-count bound remains 128. This does
+not claim that every possible firmware ID has been supported.
+
+## Upload dependencies and the reclamation boundary
+
+Factory `51294`'s `addMacro` chooses a catalog ID, serializes the requested
+items, and estimates allocation in 256-byte blocks including 256 bytes for
+metadata. It reads free/reclaimable storage, then calls `addMacroLocal`, which
+allocates the event-data size, writes the name/metadata structure, and writes
+event data in chunks of at most 72 bytes with a seven-byte header. Name data
+is handled in chunks of at most 64 bytes with a six-byte header.
+
+The macro metadata structure is 250 bytes: GUID (16), little-endian item
+count (4), name bytes (100), extra/reserved data (16), timestamp bytes (16),
+hash bytes (32), and trailing reserved bytes (66). Preserve raw metadata and
+unknown fields if restoration is ever required. Names, macro events and
+profile bindings are separate dependencies, not one atomic write.
+
+The insufficient-contiguous-space path can call `defragStorage`: it reads
+missing macro details, invokes `formatDevice`, then reconstructs profile
+information/settings/bindings and macros from its client cache. This is a
+broad storage rewrite. Gillete must not copy that fallback into an initial
+native-macro experiment. A first experiment should require adequate
+already-free space, use a fresh verified nonzero ID, journal all touched
+dependencies and bind the button only after readback verification. Cleanup
+must restore the original binding first and avoid deleting shared/referenced
+data.
+
+The source also logs and catches some metadata/data-write errors rather than
+propagating them through every layer. A successful client return alone would
+not prove an uploaded macro. Independent readback plus physical execution
+and persistence checks are necessary. No allocation, deletion, format,
+defragmentation or upload was attempted during this research.
 
 ## Evidence and validation
 

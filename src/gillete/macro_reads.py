@@ -1,15 +1,17 @@
 """Candidate read-only macro protocol, not yet established for these Nagas.
 
 Wire shapes follow the pinned OpenSynapse protocol-25 source documented in
-docs/remaining-protocol-research.md. This module has no allocation/write/delete
+docs/remaining-protocol-research.md; first-party Synapse source establishes
+the 15-bit ID range and inert event inspection. This module has no allocation/write/delete
 commands and never converts captured bytes to executable mappings.
 """
 
 from .protocol import Command, ProtocolError
+from .macro_inspection import MAX_BYTES as MAX_MACRO_BYTES, inspect
 
 
 MAX_IDS = 128
-MAX_MACRO_BYTES = 4096
+MAX_ID = 0x7FFF  # First-party createMacroId uses random u16 & 32767; zero stays unresolved.
 MAX_TOTAL_BYTES = 8192
 CHUNK_SIZE = 72
 
@@ -38,9 +40,9 @@ def validate_request(command):
             valid = (6 <= len(data) <= 68 and len(data) % 2 == 0
                      and int.from_bytes(data[:2], 'big') < MAX_IDS and not any(data[2:]))
         elif op == 0x88:
-            valid = len(data) == 6 and data[0] == 0 and 1 <= data[1] <= 255 and not any(data[2:])
+            valid = len(data) == 6 and 1 <= int.from_bytes(data[:2], 'big') <= MAX_ID and not any(data[2:])
         elif op == 0x89:
-            valid = (8 <= len(data) <= 79 and data[0] == 0 and 1 <= data[1] <= 255
+            valid = (8 <= len(data) <= 79 and 1 <= int.from_bytes(data[:2], 'big') <= MAX_ID
                      and 1 <= data[6] <= CHUNK_SIZE and len(data) == 7 + data[6]
                      and int.from_bytes(data[2:6], 'big') + data[6] <= MAX_MACRO_BYTES
                      and not any(data[7:]))
@@ -73,7 +75,7 @@ def catalog(io, *, include_data=False):
         if int.from_bytes(raw[:2], 'big') != offset:
             raise ProtocolError('Macro ID page offset mismatch')
         page = [int.from_bytes(raw[i:i + 2], 'big') for i in range(4, len(raw), 2)]
-        if any(not 1 <= identifier <= 255 for identifier in page) or len(set(ids + page)) != len(ids) + len(page):
+        if any(not 1 <= identifier <= MAX_ID for identifier in page) or len(set(ids + page)) != len(ids) + len(page):
             raise ProtocolError('Zero, unsupported or duplicate macro ID; no memory read attempted for that page')
         pages.append({'offset': offset, 'size_field': raw[2:4].hex(), 'ids': page})
         ids.extend(page)
@@ -104,5 +106,6 @@ def catalog(io, *, include_data=False):
                 raise ProtocolError('Macro memory ID, offset or length mismatch')
             memory.extend(raw[7:])
         total += size
-        result['macros'].append({'id': identifier, 'size': size, 'status': 'raw-bytes-read', 'raw': memory.hex()})
+        result['macros'].append({'id': identifier, 'size': size, 'status': 'raw-bytes-read',
+                                'raw': memory.hex(), 'interpretation': inspect(bytes(memory))})
     return result

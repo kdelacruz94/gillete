@@ -61,7 +61,10 @@ The upstream implementation bounds chunks to 72 bytes and has a separate event
 codec. **Implementation follow-up:** its service overrides the command maxima
 with the dynamic declared sizes above; the definitions alone are insufficient
 to construct an ID-page/memory query. The candidate Gillete reader follows
-these sizes and restricts IDs to the upstream service's nonzero byte range.
+these sizes. Its original upstream-client-derived byte-ID restriction has
+since been widened to enumerated IDs 1..32767 using first-party Synapse's
+15-bit ID generator; zero remains excluded. See the
+[event-format/upload follow-up](synapse-macro-turbo-research.md#event-records-and-read-only-inspection).
 It preserves the ID page's extra size field without assigning it a guessed
 meaning. [M7] However, its macro-capable mouse allowlist includes `0067/008d/0093/0075/0a22`,
 **not V2 HyperSpeed `00b4` or V3 `00e7/00e8`**; its protocol documentation is

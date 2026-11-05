@@ -300,8 +300,13 @@ python -m gillete.firmware_probe --product 00b4 --output evidence/v2-firmware-re
 
 Use a new report path and an awake mouse in normal mode. Product `00e8` selects
 the V3 receiver; wired probing remains separate and unverified. `--sections macros`
-or `--sections dpi` narrows the queries. `--include-macro-data` additionally
-captures bounded raw bytes for enumerated nonzero IDs. Reports contain device
+or `--sections dpi` narrows the queries. `--include-macro-data` captures bounded
+raw bytes plus an inert interpretation of recognized key, mouse, wheel, delay and
+cursor records beside the raw bytes. Unknown or incomplete records retain
+their unparsed remainder; held inputs are reported without invented releases.
+Only nonzero IDs enumerated from the catalog are read, within the source-backed
+15-bit ID and existing byte/count limits. This does not create playable actions.
+Reports contain device
 identity and, if requested, macro contents; files are private and summaries omit
 both. A rejected query stops that section. Readback alone establishes neither
 native macro playback nor temporary DPI writes; this diagnostic enables no new
