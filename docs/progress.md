@@ -1263,3 +1263,18 @@ timeout, unplugged cleanup and later explicit recovery. A read-only preparation
 for 6400 → 1200 is saved in
 `evidence/v3-dpi-replug-1200-20261105-01.local/prepared.json`. Live replug outcome
 is still pending; only announce READY after the run verifies its candidate.
+
+## V3 receiver test timeout — recovery pending
+
+The 1200-DPI receiver-replug run timed out without observing receiver USB
+removal. Cleanup could not verify restoration because the mouse returned
+`Device timeout`; journal status is `recovery-required`. Sysfs still shows the
+V3 receiver and configuration interfaces. A subsequent explicit recovery
+attempt also returned `Device timeout`. No receiver-retention outcome is
+established, and the candidate 1200 setting may remain active.
+
+Retained journal:
+`evidence/v3-dpi-replug-1200-20261105-01.local/run/journal.json`.
+Next action is to wake the V3 with its receiver connected, then retry the
+already-authorized journal recovery and verify originals. Do not start another
+hardware experiment or claim restoration until recovery succeeds.
