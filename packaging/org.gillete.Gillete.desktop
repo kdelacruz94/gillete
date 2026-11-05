@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Gillete
+Comment=Profiles, macros and onboard mappings for Razer Naga mice
+Exec=gillete gui
+Icon=input-mouse
+Terminal=false
+Categories=Settings;HardwareSettings;
+StartupNotify=true

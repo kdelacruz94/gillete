@@ -1,0 +1,5 @@
+# Active local desktop users may configure only these supported Naga mice.
+# No general keyboard, other Razer product, or world-writable access is granted.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1532", ATTRS{idProduct}=="00b4", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1532", ATTRS{idProduct}=="00e7", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1532", ATTRS{idProduct}=="00e8", TAG+="uaccess"
