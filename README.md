@@ -172,6 +172,22 @@ It submits read-query feature reports, never setting commands. Snapshot output
 contains device identity and should be kept private. Running the entire GUI as
 root is not required or recommended.
 
+An opt-in firmware diagnostic prepares private evidence for unresolved macro
+storage and DPI selectors, without changing mappings or settings:
+
+```bash
+python -m gillete.firmware_probe --product 00b4 --output evidence/v2-firmware-read1.local.json
+```
+
+Use a new report path and an awake mouse in normal mode. Product `00e8` selects
+the V3 receiver; wired probing remains separate and unverified. `--sections macros`
+or `--sections dpi` narrows the queries. `--include-macro-data` additionally
+captures bounded raw bytes for enumerated nonzero IDs. Reports contain device
+identity and, if requested, macro contents; files are private and summaries omit
+both. A rejected query stops that section. Readback alone establishes neither
+native macro playback nor temporary DPI writes; this diagnostic enables no new
+application capability automatically.
+
 Service CLI commands:
 
 ```bash

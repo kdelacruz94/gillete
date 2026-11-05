@@ -27,13 +27,24 @@ other side plates are deferred. Pointer-motion macros are optional.
 
 ## Latest user interaction
 
+The user has now answered both outstanding questions: **Later — continue building**
+for the V2 hardware session, and the old HyperShift+side1/2/4/10 bindings were
+MapleStory gameplay macros that **do not need to be kept**. They will recreate
+those macros once the tool is confirmed working. Do not ask again what those
+four macros did or require recovering reference 0000 before V2 software validation.
+The next isolated V2 validation profile should explicitly disable those four
+shifted assignments; original device bytes still belong in the test-restoration
+backup. This does not retire the four other opaque V2 turbo functions or authorize
+inventing their timing. Physical tests remain deferred; neither mouse was changed.
+Earlier notes below about unanswered questions describe older checkpoints.
+
 The user approved and completed the live V3 software test, initially reporting
 all steps worked, then noting F23 appeared as Qt key 16777490 instead of F23.
 That value is TouchpadOff. It was an actual desktop translation issue, not just
 a missing label. The fix is implemented and the user confirmed both F24 and F23
 on the physical V3 recheck. Test3 exited 0; normal mode and all 50 saved
 descriptors were verified unchanged. No guided test is running. A later async
-question to wake the V2 for settings preparation is currently pending (see below).
+question to wake the V2 for settings preparation was answered Later, as noted above.
 
 The completed retest command was:
 
@@ -489,10 +500,11 @@ software test also pass the new preflight offline. No new hardware test or
 physical write was performed; these checks do not replace live acceptance.
 
 Per-profile sensitivity remains a separate required gap. Focus switching must
-not call the existing permanent-settings transaction. The pinned Linux fork's
-scalar DPI setter (`openrazer-26b0eeb.c`, switch around lines2620–2633) uses
-VARSTORE for V3, while V2 HyperSpeed falls through to NOSTORE. This supplies a
-candidate temporary V2 path, not proof for either physical device. Verify live
+not call the existing permanent-settings transaction. **Correction after tracing
+the packet builder:** the driver caller selects VARSTORE for V3 and NOSTORE for
+V2 HyperSpeed, but `razer_chroma_misc_set_dpi_xy` in the same pinned fork ignores
+that parameter and always sets byte0 to VARSTORE. The caller is therefore not
+evidence of a temporary V2 write. The getter does honor the selector. Verify live
 readback and independence from saved DPI/stages before enabling profile DPI
 transitions; do not substitute pointer scaling or permanent writes silently.
 
@@ -526,3 +538,38 @@ layers only, retaining the other 40 V2 / 48 V3 functions and the Linux macro.
 No physical writes, live remapping, startup changes or input-remapper changes
 were performed. Native firmware macro/turbo support, per-profile sensitivity,
 wired operation and full physical acceptance remain unfinished.
+
+## Bounded firmware read diagnostics
+
+`python -m gillete.firmware_probe` is an explicit development diagnostic for
+the verified B4/E8 receiver routes. It captures normal mode, identity, assigned
+slots, active/stored button descriptors and saved settings before and after
+candidate reads. Its separate `FirmwareQueryHID` accepts only bounded class06
+getter shapes; the ordinary application's allowlist remains unchanged. There
+are no macro allocation/write/delete methods. It never starts a service, grabs
+input, switches mode or writes settings. Keep hardware use deferred until the
+user is ready; this continuation performed sysfs discovery only, with both
+receivers present and no E7 cable transport.
+
+The macro reader queries storage/count, then enumerates at most 128 nonzero IDs.
+Actual ID-page declared lengths are 4+2n (n<=32), and memory lengths 7+n (n<=72),
+matching the pinned upstream service rather than blindly using the command
+definitions' 80-byte maxima. It validates ID/offset/length echoes, stops a query
+family on rejection or malformed data, and never dereferences reference 0. Raw
+data capture is optional and limited to 4096 bytes per macro/8192 total. A probe
+has a 512-query limit, a 40-second deadline checked between requests, and reserved
+query budget for the final state comparison. A kernel ioctl can still exceed
+the between-request deadline. Reports are new-only, with permissions 0600 and new
+parent directories 0700; terminal summaries omit device identity and macro contents.
+
+DPI diagnostics only query storage selectors 1 and 0. Matching or different read
+values cannot establish nonpersistent setters. Empty/rejected macro catalogs do
+not establish the meaning of old reference 0 or prove firmware macro support
+absent. The new tool remains useful for investigating new native macros even
+though the user's four old MapleStory macros no longer need recovery.
+
+All 165 tests pass. New checks cover request rejection, dynamic pages/chunks,
+zero/duplicate IDs, data bounds, malformed echoes, stale HID frames without a
+resent request, preflight sleep/driver-mode failures, external state differences,
+query/time limits and private report handling. No candidate getter was sent to
+a physical mouse, and no hardware readiness or new capability is claimed.

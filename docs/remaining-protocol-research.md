@@ -4,7 +4,9 @@ Research date: 2026-11-05. Scope: offline source/capture analysis only. Read
 `progress.md`, `feasibility.md`, and the transport, framing, inventory,
 stored-action and input decoders. No device access, physical test, mode/settings
 change, service/configuration change, commit or publication was performed. Both
-mice remain restored; the unanswered V2 wake question is still pending.
+mice remain restored. Current user decisions supersede the original pending
+questions: hardware testing is deferred, and the old V2 MapleStory macros on
+HyperShift+sides1/2/4/10 do not need recovery. See `progress.md`.
 
 Evidence labels: **observed** = bytes in a recording; **source** = upstream
 implementation/transcription; **inferred** = interpretation not measured on
@@ -44,17 +46,24 @@ read-only macro-memory protocol now supplies concrete candidate queries:
 | --- | ---: | --- |
 | `06:8e` | 14 | Storage capacity/free-space counters; zero arguments |
 | `06:80` | 2 | Macro count; zero arguments |
-| `06:8b` | 80 | ID list, starting with a two-byte big-endian list offset |
+| `06:8b` | 4+2n, n<=32 | ID list; two-byte big-endian list offset; command maximum80 |
 | `06:88` | 6 | Data size for an enumerated two-byte macro ID |
-| `06:89` | 80 | Memory chunk: ID:u16be, offset:u32be, requested length:u8 |
+| `06:89` | 7+n, n<=72 | Memory chunk: ID:u16be, offset:u32be, length:u8; command maximum80 |
 
 The upstream implementation bounds chunks to 72 bytes and has a separate event
-codec. However, its macro-capable mouse allowlist includes `0067/008d/0093/0075/0a22`,
+codec. **Implementation follow-up:** its service overrides the command maxima
+with the dynamic declared sizes above; the definitions alone are insufficient
+to construct an ID-page/memory query. The candidate Gillete reader follows
+these sizes and restricts IDs to the upstream service's nonzero byte range.
+It preserves the ID page's extra size field without assigning it a guessed
+meaning. [M7] However, its macro-capable mouse allowlist includes `0067/008d/0093/0075/0a22`,
 **not V2 HyperSpeed `00b4` or V3 `00e7/00e8`**; its protocol documentation is
 for protocol-25 devices. This is a research route, not an established Naga V2
-API. Gillete currently allowlists no class-`06` queries. A future read-only
-probe should start with storage/count, enumerate before
-reading memory, validate echoes/lengths/status and stop on rejection. Do not
+API. Gillete's ordinary transport still allowlists no class-`06` queries. The
+new opt-in `firmware_probe` uses a separate bounded read-only transport; its
+implementation/tests have not established physical Naga support. It starts
+with storage/count, enumerates before reading memory, validates
+echoes/lengths/status and stops that family on rejection. Do not
 blindly dereference zero or copy upstream allocation/delete/write flows. Even a
 successful empty catalog would not explain the zero reference or recover a
 host-only Synapse macro. [M3][M4][M5]
@@ -230,6 +239,18 @@ proof. DPI's leading storage selector is independently `VARSTORE=1`; the
 OpenSnek profile-addressed DPI experiments are not sufficient to establish
 independent per-profile DPI semantics on Gillete's firmware. [L2][P2][R5]
 
+### DPI selector follow-up
+
+Tracing the fork's actual packet builder changes the interpretation of its
+caller. Although the caller selects NOSTORE for V2 HyperSpeed and VARSTORE for
+V3, `razer_chroma_misc_set_dpi_xy` ignores its `variable_storage` argument and
+always emits VARSTORE. The getter does emit the passed selector. Thus this fork
+does **not** demonstrate nonpersistent scalar DPI writes on either target.
+The opt-in diagnostic only compares selectors1/0 with `04:85` and verifies the
+returned selector; no setter is admitted. Even successful differing reads
+would require a separate reversible write/persistence test before using this
+path for focus-driven sensitivity. [R5]
+
 ## Evidence and reproducibility
 
 Pinned upstream source/capture links below identify the exact revisions.
@@ -276,3 +297,4 @@ hardware acceptance test.
 [P1]: https://github.com/gh123man/OpenSnek/blob/b4e0f666d21b52efc0a64a0e128a1278aa1b3ad2/captures/usb/2026-10-17-naga-v3-pro/probe-log.txt#L54-L64
 [P2]: https://github.com/gh123man/OpenSnek/blob/b4e0f666d21b52efc0a64a0e128a1278aa1b3ad2/captures/usb/2026-10-17-naga-v3-pro/README.md#L33-L36
 [M6]: https://github.com/A1mAssist/OpenSynapse/blob/eaaf3eaa63d38434ee7b8d47d4091f8f12c5400e/src/OpenSynapse.Windows/Macros/RazerOnboardMacroProtocol.cs#L213-L255
+[M7]: https://github.com/A1mAssist/OpenSynapse/blob/eaaf3eaa63d38434ee7b8d47d4091f8f12c5400e/src/OpenSynapse.Windows/Macros/RazerOnboardMacroService.cs#L232-L295
