@@ -1162,3 +1162,23 @@ scalar DPI 6400, stages 400/800/1600/3200/6400 (fifth selected) and polling
 The temporary write still awaits explicit approval. Its recovery can restore
 saved DPI/stages/polling if the candidate unexpectedly affects those values.
 Matching readback alone will not establish sensor behavior or volatility.
+
+## V3 selector-zero reversible write — 2026-11-05
+
+The user approved the prepared three-second 6400 → 6500 DPI experiment.
+It completed with `readback-roundtrip-restored`,
+`selector_readback_independent=true`, and `original_state_restored=true`.
+Immediate selector-zero readback was 6500 × 6500; saved scalar DPI remained
+6400, stage data and polling matched the originals, and the later full
+protected-state comparison passed. Restoration read selector zero as
+6400 × 6400 and verified the original settings and bindings. No experiment
+or recovery error was recorded. Private complete journal:
+`evidence/v3-dpi-selector-20261105-01.local/run/journal.json`.
+
+This establishes the bounded selector-zero setter/readback round trip on
+the user's V3 receiver in normal mode. It does not establish actual sensor
+sensitivity, flash-write behavior, sleep/power-cycle/replug persistence or
+driver-mode compatibility. `temporary_dpi_supported` remains false; automatic
+per-program DPI is still disabled. A subsequent experiment needs a measurable
+sensor change and explicit persistence/driver-mode acceptance, with its own
+reviewed changes and restoration plan.

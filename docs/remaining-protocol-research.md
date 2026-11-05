@@ -30,6 +30,14 @@ establishes those getters on this receiver, while upload, playback and
 selector-zero writes remain unverified. The exact 6400 → 6500 DPI experiment
 has been prepared read-only and awaits approval; see `progress.md`.
 
+**Subsequent approved write:** the V3 selector-zero 6400 → 6500 → 6400
+experiment completed and restored successfully. Immediate and held readback
+were independent of unchanged saved scalar/stage/polling values; full
+protected-state restoration verified. This establishes the bounded normal-mode
+setter/readback round trip. Sensor behavior, volatility, power-cycle/replug
+and driver-mode acceptance remain unverified, so automatic temporary-DPI
+support is still disabled. See the dated result in `progress.md`.
+
 ## 1. V2 stored functions
 
 ### Class `05` is a macro family, not a disabled/default marker
