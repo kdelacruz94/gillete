@@ -22,7 +22,8 @@ other side plates are deferred. Pointer-motion macros are optional.
   problem; the correction now passes both an isolated real Wayland test and
   the user's physical V3 recheck.
 - The user is willing to set up a Windows VM if protocol work requires it; none
-  has been provisioned. REA is available but no binary target has been opened.
+  has been provisioned. REA has now inspected upstream recorded captures; no
+  native binary target has been opened. See `remaining-protocol-research.md`.
 
 ## Latest user interaction
 
@@ -83,6 +84,11 @@ service without checking/restoring its mode journal afterward.
   rule editor, overrides, tray, scroll/DPI/native V3 action editors. Recorder
   uses kernel monotonic timestamps and sorts interfaces. Real recording still
   needs acceptance. Failed local saves roll back the displayed configuration.
+- applications/gui_launch: installed desktop-app picker via GIO/GioUnix, saved
+  desktop IDs resolved at launch, and an executable browser retaining explicit
+  argv. Missing apps and failed commands report an action error without tearing
+  down mouse control. Action editing shows only fields relevant to its kind.
+  Dependencies now include python-gobject and GLib2.84+ (present on this host).
 - gui_controls/gui_applications: all 21/25 controls selectable in both layers,
   and a running-window picker for program rules. Picked application IDs/titles
   are escaped as literal glob patterns. Title matching is optional.
@@ -153,7 +159,7 @@ service without checking/restoring its mode journal afterward.
 
 ## Verification completed
 
-Latest completed suite: **107 tests passed**, including settings failure/recovery,
+Latest completed suite: **113 tests passed**, including settings failure/recovery,
 startup/service recovery, real editor processes, native settings/control/application
 dialogs and tray profile changes. The native editor and validation pad
 both passed offscreen open/close smoke checks. Explicit Qt top-level deletion
@@ -257,8 +263,9 @@ Files produced by sudo were chowned back to the checkout owner, staying 0600.
   payload 01,mode (0..2), unlike the unsupported 02:94 old protocol.
 - OpenSnek ButtonBindingSupport identifies 0d04 keyboard turbo and 0e03 mouse
   turbo, but its rate conversion is not locally measured. Keep existing raw
-  V2 turbo functions intact; do not guess their software timing. Class05 actions
-  remain undecoded. OpenNaga and Naga Control/source-license notes are in
+  V2 turbo functions intact; do not guess their software timing. Class05 now has
+  an upstream macro-toggle interpretation, but reference0000 content/behavior
+  remain unresolved. OpenNaga and Naga Control/source-license notes are in
   `feasibility.md` and `reuse-investigation.md`.
 - Exact V2 undecoded controls from the preserved bank1 snapshot: normal tilt
   left/right are keyboard-turbo PgUp/PgDn (`0d04004b008e00` /
@@ -389,3 +396,34 @@ installation. The complete automated suite passed 107 tests. Final read-only
 inspection confirmed the user's `startup_models` is empty, desktop startup is
 off, and no Gillete service or hardware test remains running. The V2 wake-up
 question is still pending; do not infer readiness from the software checks.
+
+## Program launching and remaining protocol evidence
+
+The research skill explicitly called for a background research agent. One
+delegated investigation completed and wrote `remaining-protocol-research.md`;
+there is no ongoing delegated task. It inspected upstream BLE captures with
+REA and derived their ATT payloads offline. The captures establish stored turbo
+parameters but have no HID playback stream to measure timing. OpenSynapse source
+identifies function05 as a toggle-macro reference; the V2's reference0000 remains
+unresolved. The GUI now describes these families without treating them as known
+software actions. Raw originals and unresolved-activation guards are retained.
+
+The wired research found that both USB descriptor sets advertise a 90-byte
+feature report on interface03, while the Linux fork sends wired control queries
+with wIndex0. This discrepancy still requires a bounded read-only check on the
+actual cable connection. It does not justify adding E7 to the verified transport
+map. The document gives exact query candidates and driver/descriptor boundaries.
+
+An additional async question asks what the user's existing V2 HyperShift+side
+1/2/4/10 macros should do. This can identify intended sequences that are absent
+from the binding records. It does not replace the unanswered wake-up question.
+No hardware query, setting change, remapping activation or user-app launch was
+performed in this continuation.
+
+Program-launch checks used temporary applications and scripts only. Actual GIO
+registry resolution verified user-entry precedence, Hidden/NoDisplay/desktop
+filtering, literal arguments and the configured working directory. A private
+`dbus-run-session` test verified D-Bus activation instead of Exec fallback.
+Engine-to-launch checks covered both layers, one launch per physical press,
+missing programs and nonzero exit status. The real user's app registry was read
+once (94 visible entries), with no launch. Full suite:113 passing tests.

@@ -7,7 +7,7 @@ name = "gillete"
 version = "0.1.0"
 description = "Native Linux profiles, macros and onboard programming for Razer Naga mice"
 requires-python = ">=3.11"
-dependencies = ["evdev>=1.7", "PySide6>=6.6"]
+dependencies = ["evdev>=1.7", "PySide6>=6.6", "PyGObject>=3.48"]
 
 [project.scripts]
 gillete = "gillete.cli:main"

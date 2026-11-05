@@ -6,7 +6,7 @@ pkgrel=1
 pkgdesc='Native Naga profiles, macros and onboard programming for Linux'
 arch=('any')
 license=('custom')
-depends=('python' 'python-evdev' 'pyside6' 'dbus' 'hyprland' 'xkeyboard-config>=2.43')
+depends=('python' 'python-evdev' 'pyside6' 'python-gobject' 'glib2>=2.84' 'dbus' 'hyprland' 'xkeyboard-config>=2.43')
 makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 source=("$pkgname-$pkgver.tar.gz")
 sha256sums=('SKIP') # Replaced with the generated archive's SHA256 by the builder.

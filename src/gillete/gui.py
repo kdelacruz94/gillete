@@ -27,6 +27,8 @@ from .gui_service import ServicePanel
 from .gui_controls import ControlSelector
 from .gui_applications import ApplicationPicker
 from .gui_startup import StartupPanel
+from .gui_launch import InstalledApplicationPicker
+from .applications import desktop_application
 from .focus import query_windows
 from .model import Action, ConfigurationError, Layers, MODEL_CONTROLS, MODELS, Profile, Step, sequence
 from .profiles import ProfileStore, Rule
@@ -55,6 +57,7 @@ class ActionDialog(QDialog):
         self.resize(650, 620)
         layout = QVBoxLayout(self)
         form = QFormLayout()
+        self.form = form
         layout.addLayout(form)
         self.kind = QComboBox()
         for label, kind in [("Keep stored mouse assignment", "passthrough"), ("Disabled", "disabled"),
@@ -104,13 +107,41 @@ class ActionDialog(QDialog):
         if index >= 0:
             self.target.setCurrentIndex(index)
         form.addRow("Destination profile", self.target)
+        self.launch_type = QComboBox()
+        self.launch_type.addItem('Executable or script', 'command')
+        self.launch_type.addItem('Installed application', 'desktop')
+        self.launch_type.setCurrentIndex(1 if action.desktop_id else 0)
+        form.addRow('Launch using', self.launch_type)
         self.argv = QLineEdit(shlex.join(action.argv))
         self.argv.setPlaceholderText('/usr/bin/code "path with spaces" — arguments, not a shell command')
-        form.addRow("Program and arguments", self.argv)
+        self.command_row = QWidget()
+        command_layout = QHBoxLayout(self.command_row)
+        command_layout.setContentsMargins(0, 0, 0, 0)
+        command_layout.addWidget(self.argv, 1)
+        button('Browse…', self.choose_program, command_layout)
+        form.addRow("Program and arguments", self.command_row)
+        self.desktop_id = action.desktop_id
+        self.desktop_name = QLineEdit()
+        self.desktop_name.setReadOnly(True)
+        self.desktop_name.setPlaceholderText('Choose an installed application')
+        if action.desktop_id:
+            try:
+                self.desktop_name.setText(desktop_application(action.desktop_id).get_display_name())
+            except (OSError, ValueError, RuntimeError):
+                self.desktop_name.setText('Unavailable: ' + action.desktop_id)
+            self.desktop_name.setToolTip(action.desktop_id)
+        self.desktop_row = QWidget()
+        desktop_layout = QHBoxLayout(self.desktop_row)
+        desktop_layout.setContentsMargins(0, 0, 0, 0)
+        desktop_layout.addWidget(self.desktop_name, 1)
+        button('Choose application…', self.choose_desktop, desktop_layout)
+        form.addRow('Application', self.desktop_row)
         self.sequence_text = QLineEdit()
         self.sequence_text.setPlaceholderText("Alt+H, O, A   or   Ctrl+B, Alt+S")
-        layout.addWidget(QLabel("Build a timed sequence (each comma releases the preceding chord):"))
+        self.macro_caption = QLabel("Build a timed sequence (each comma releases the preceding chord):")
+        layout.addWidget(self.macro_caption)
         row = QHBoxLayout()
+        self.macro_build = row
         row.addWidget(self.sequence_text)
         button("Build steps", self.build, row)
         button("Record…", self.record, row)
@@ -121,6 +152,7 @@ class ActionDialog(QDialog):
         layout.addWidget(self.steps)
         self.load_steps(action.steps)
         tools = QHBoxLayout()
+        self.macro_tools = tools
         button("Add step", lambda: self.add_step(Step("wait", milliseconds=100)), tools)
         button("Remove step", self.remove_step, tools)
         button("Move up", lambda: self.move_step(-1), tools)
@@ -134,6 +166,8 @@ class ActionDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         self.kind.currentIndexChanged.connect(self.refresh)
+        self.launch_type.currentIndexChanged.connect(self.refresh)
+        self.playback.currentIndexChanged.connect(self.refresh)
         self.refresh()
 
     def refresh(self):
@@ -141,17 +175,54 @@ class ActionDialog(QDialog):
         self.keys.setEnabled(kind in {"keys", "turbo"})
         self.target.setEnabled(kind == "profile")
         self.argv.setEnabled(kind == "launch")
+        self.form.setRowVisible(self.launch_type, kind == 'launch')
+        self.form.setRowVisible(self.command_row, kind == 'launch' and self.launch_type.currentData() == 'command')
+        self.form.setRowVisible(self.desktop_row, kind == 'launch' and self.launch_type.currentData() == 'desktop')
         self.scroll_axis.setEnabled(kind == "scroll")
         self.scroll_amount.setEnabled(kind == "scroll")
         self.dpi_direction.setEnabled(kind == "dpi")
         self.device_action.setEnabled(kind == 'device')
         self.steps.setEnabled(kind == "macro")
+        self.steps.setVisible(kind == 'macro')
+        self.macro_caption.setVisible(kind == 'macro')
+        for row in (self.macro_build, self.macro_tools):
+            for index in range(row.count()):
+                row.itemAt(index).widget().setVisible(kind == 'macro')
         self.playback.setEnabled(kind in {"macro", "turbo", "hypershift"})
         self.count.setEnabled(kind == "macro")
         self.interval.setEnabled(kind in {"macro", "turbo"})
         self.press.setEnabled(kind == "turbo")
         if kind in {"turbo", "hypershift"} and self.playback.currentData() not in {"held", "toggle"}:
             self.playback.setCurrentIndex(self.playback.findData("held"))
+        for widget, visible in (
+                (self.keys, kind in {'keys', 'turbo'}), (self.target, kind == 'profile'),
+                (self.scroll_axis, kind == 'scroll'), (self.scroll_amount, kind == 'scroll'),
+                (self.dpi_direction, kind == 'dpi'), (self.device_action, kind == 'device'),
+                (self.playback, kind in {'macro', 'turbo', 'hypershift'}),
+                (self.count, kind == 'macro' and self.playback.currentData() == 'count'),
+                (self.interval, kind == 'turbo' or kind == 'macro' and self.playback.currentData() != 'once'),
+                (self.press, kind == 'turbo')):
+            self.form.setRowVisible(widget, visible)
+
+    def choose_program(self):
+        filename, _ = QFileDialog.getOpenFileName(self, 'Choose an executable or script')
+        if filename:
+            try:
+                arguments = shlex.split(self.argv.text())[1:]
+            except ValueError:
+                arguments = []
+            self.argv.setText(shlex.join([filename, *arguments]))
+
+    def choose_desktop(self):
+        try:
+            dialog = InstalledApplicationPicker(self, selected=self.desktop_id)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                app = dialog.selected()
+                self.desktop_id = app.identifier
+                self.desktop_name.setText(app.name)
+                self.desktop_name.setToolTip(app.identifier)
+        except (OSError, ValueError, RuntimeError) as error:
+            self.error.setText(str(error))
 
     def add_step(self, step):
         row = self.steps.rowCount()
@@ -218,12 +289,16 @@ class ActionDialog(QDialog):
     def save(self):
         kind = self.kind.currentData()
         try:
+            desktop = kind == 'launch' and self.launch_type.currentData() == 'desktop'
+            if desktop and not self.desktop_id:
+                raise ConfigurationError('Choose an installed application')
             self.action = Action(kind, keys=parse_chord(self.keys.text()) if kind in {"keys", "turbo"} else (),
                                  steps=self.read_steps() if kind == "macro" else (),
                                  playback=self.playback.currentData() if kind in {"macro", "turbo", "hypershift"} else "once",
                                  count=self.count.value(), interval_ms=self.interval.value(), press_ms=self.press.value(),
                                  target=self.target.currentData() if kind == "profile" else self.dpi_direction.currentData() if kind == "dpi" else self.device_action.currentData() if kind == 'device' else "",
-                                 argv=tuple(shlex.split(self.argv.text())) if kind == "launch" else (),
+                                 argv=tuple(shlex.split(self.argv.text())) if kind == "launch" and not desktop else (),
+                                 desktop_id=self.desktop_id if desktop else '',
                                  axis=self.scroll_axis.currentData(), value=self.scroll_amount.value())
             self.accept()
         except ValueError as error:

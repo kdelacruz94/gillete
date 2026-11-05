@@ -61,6 +61,21 @@ def describe_function(function: bytes) -> str:
         key = next((key for key, usage in MEDIA.items() if usage == b), None)
         if key:
             return friendly_key(key)
+    # These identify stored families only. Timing and referenced macro content
+    # remain unresolved; stored_actions deliberately cannot execute them yet.
+    # See docs/remaining-protocol-research.md for capture/source boundaries.
+    if kind == 0x0D and size == 4 and not e:
+        key = next((key for key, usage in USAGES.items() if usage == b), None)
+        if key:
+            modifiers = [name for name, bit in MODIFIERS.items() if a & (1 << bit)]
+            chord = '+'.join(friendly_key(k) for k in [*modifiers, key])
+            return f'Stored turbo {chord} · raw parameter 0x{c:02x}{d:02x} (timing unverified)'
+    if kind == 0x0E and size == 3 and not (d or e):
+        key = next((key for key, code in MOUSE.items() if code == a), None)
+        if key:
+            return f'Stored turbo {friendly_key(key)} · raw parameter 0x{b:02x}{c:02x} (timing unverified)'
+    if kind == 5 and size == 2 and not (c or d or e):
+        return f'Stored toggle-macro reference 0x{a:02x}{b:02x} (content unresolved)'
     if function == bytes.fromhex("06010100000000"):
         return "DPI up"
     if function == bytes.fromhex("06010200000000"):

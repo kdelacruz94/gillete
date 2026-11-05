@@ -21,6 +21,8 @@ def main():
         for module in ('settings', 'gui_settings', 'gui_controls', 'gui_applications', 'keyboard_map',
                        'startup', 'gui_startup', 'gui_instance'):
             assert f'gillete/{module}.py' in archive.namelist()
+        for module in ('applications', 'gui_launch'):
+            assert f'gillete/{module}.py' in archive.namelist()
     with TemporaryDirectory(prefix='gillete-package-check-') as temporary:
         stage = Path(temporary)
         names = run(['bsdtar', '-tf', str(package)], stdout=subprocess.PIPE).stdout.splitlines()
@@ -52,6 +54,8 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 from gillete.gui import start
 from gillete.profiles import ProfileStore
+from gillete.applications import desktop_api
+desktop_api()
 app = QApplication([])
 QTimer.singleShot(400, app.quit)
 raise SystemExit(start(ProfileStore(Path(sys.argv[2]))))

@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from evdev import InputDevice
 
+from .applications import launch_command
 from .device_controls import Controls
 from .driver_mode import ModeLease
 from .engine import Engine
@@ -28,6 +29,7 @@ class DeviceSession:
         self.stop_requested = asyncio.Event()
         self.ready = False
         self.error = ''
+        self.action_error = ''
         self.engine = None
         self.snapshot = None
         self.frames = asyncio.Queue(maxsize=4096)
@@ -72,11 +74,22 @@ class DeviceSession:
     async def enqueue(self, kind, target):
         self.control_queue.put_nowait((kind, target))
 
-    async def launch(self, argv):
-        process = await asyncio.create_subprocess_exec(*argv, stdin=asyncio.subprocess.DEVNULL,
-                                                       stdout=asyncio.subprocess.DEVNULL,
-                                                       stderr=asyncio.subprocess.DEVNULL, start_new_session=True)
-        waiter = asyncio.create_task(process.wait())
+    async def launch(self, action):
+        label = action.desktop_id or action.argv[0]
+        try:
+            argv = launch_command(action)
+            process = await asyncio.create_subprocess_exec(*argv, stdin=asyncio.subprocess.DEVNULL,
+                                                           stdout=asyncio.subprocess.DEVNULL,
+                                                           stderr=asyncio.subprocess.DEVNULL, start_new_session=True)
+        except (OSError, ValueError, RuntimeError) as error:
+            self.action_error = f'Cannot launch {label}: {error}'
+            return
+        self.action_error = ''
+        async def observe():
+            status = await process.wait()
+            if status:
+                self.action_error = f'{label} exited with status {status}'
+        waiter = asyncio.create_task(observe())
         self.launch_waiters.add(waiter)
         waiter.add_done_callback(self.launch_waiters.discard)
 

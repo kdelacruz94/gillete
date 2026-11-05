@@ -91,10 +91,13 @@ class Action:
     argv: tuple[str, ...] = ()
     axis: str = "REL_WHEEL"
     value: int = 1
+    desktop_id: str = ""
 
     def __post_init__(self):
         if self.kind not in ACTION_KINDS:
             raise ConfigurationError(f"Unknown action: {self.kind}")
+        if not isinstance(self.desktop_id, str) or self.desktop_id and self.kind != 'launch':
+            raise ConfigurationError('Desktop application IDs belong only to launch actions')
         if self.playback not in {"once", "count", "held", "toggle"}:
             raise ConfigurationError("Unknown playback mode")
         integer(self.count, "Repeat count", 1, 1_000_000)
@@ -140,7 +143,11 @@ class Action:
             if not self.value:
                 raise ConfigurationError("Scroll amount must be nonzero")
         if self.kind == "launch":
-            if not self.argv or len(self.argv) > 128 or any(
+            if self.desktop_id:
+                if (self.argv or not self.desktop_id.endswith('.desktop') or len(self.desktop_id) > 1024
+                        or any(c in self.desktop_id for c in '/\\\0\r\n')):
+                    raise ConfigurationError("Choose an installed application or an executable, not both")
+            elif not self.argv or len(self.argv) > 128 or any(
                 not isinstance(a, str) or "\0" in a or len(a) > 16384 for a in self.argv
             ) or not self.argv[0]:
                 raise ConfigurationError("Launch needs an executable and valid arguments")

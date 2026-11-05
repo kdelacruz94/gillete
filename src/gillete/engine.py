@@ -19,7 +19,7 @@ class Press:
 
 class Engine:
     def __init__(self, model: str, profile: Profile, ledger: KeyLedger,
-                 launch: Callable[[tuple[str, ...]], Awaitable[None]] | None = None,
+                 launch: Callable[[Action], Awaitable[None]] | None = None,
                  select_profile: Callable[[str], Awaitable[None]] | None = None,
                  dpi: Callable[[str], Awaitable[None]] | None = None,
                  stored: dict[tuple[str, bool], Action] | None = None,
@@ -95,7 +95,7 @@ class Engine:
         elif action.kind == "launch":
             if self.launch is None:
                 raise RuntimeError("No program-launch adapter attached")
-            await self.launch(action.argv)
+            await self.launch(action)
         return action.kind != "passthrough"
 
     async def release(self, control: str) -> bool:

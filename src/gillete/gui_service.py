@@ -131,6 +131,8 @@ class ServicePanel(QWidget):
             self.disable[model].setEnabled(state['requested'] or state['active'])
             if state['error']:
                 lines.append(f"{name}: {state['error']}")
+            if state.get('action_error'):
+                lines.append(f"{name}: {state['action_error']}")
         if data['configuration_error']:
             lines.append('Configuration: ' + data['configuration_error'])
         self.info.setPlainText('\n'.join(lines))

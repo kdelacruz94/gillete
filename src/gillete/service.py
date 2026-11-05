@@ -73,6 +73,7 @@ class Daemon:
                                     'active': bool(self.sessions.get(model) and self.sessions[model].ready),
                                     'profile': self.sessions[model].engine.profile.id if self.sessions.get(model) and self.sessions[model].engine else None,
                                     'error': self.errors.get(model, ''),
+                                    'action_error': getattr(self.sessions.get(model), 'action_error', ''),
                                     'active_macros': sum(not job.done() for job in self.sessions[model].engine.macros.jobs.values()) if self.sessions.get(model) and self.sessions[model].engine else 0,
                                     'mode': 'pinned' if model in self.coordinator.config.pinned else 'automatic'} for model in MODELS}}
 

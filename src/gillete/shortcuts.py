@@ -60,7 +60,7 @@ def describe(action) -> str:
     if action.kind == "hypershift":
         return f"HyperShift · {action.playback}"
     if action.kind == "launch":
-        return "Launch " + action.argv[0]
+        return "Launch " + (action.desktop_id.removesuffix('.desktop') or action.argv[0])
     if action.kind == "profile":
         return "Profile: " + action.target
     return {"passthrough": "Stored mouse assignment", "disabled": "Disabled"}.get(action.kind, action.kind)

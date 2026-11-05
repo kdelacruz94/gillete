@@ -67,6 +67,19 @@ def test_exact_saved_assignments_decode_and_unknown_synapse_actions_stay_unknown
     assert decode_stored(bytes.fromhex('05020000000000'), MODELS[0]) is None
 
 
+def test_describing_synapse_families_does_not_claim_known_timing_or_executable_macros():
+    from gillete.compile_onboard import describe_function
+    for raw, name in (('0d04004b008e00', 'Pageup'), ('0d04004e008e00', 'Pagedown'),
+                      ('0d04001c008e00', 'Y'), ('0e0301008e0000', 'LeftClick')):
+        function = bytes.fromhex(raw)
+        description = describe_function(function)
+        assert name in description and '0x008e' in description and 'unverified' in description
+        assert decode_stored(function, MODELS[0]) is None
+    function = bytes.fromhex('05020000000000')
+    assert 'reference 0x0000' in describe_function(function) and 'unresolved' in describe_function(function)
+    assert decode_stored(function, MODELS[0]) is None
+
+
 def test_default_mouse_drag_survives_focus_change_but_not_emergency_stop():
     async def check():
         output = RecordingOutput()

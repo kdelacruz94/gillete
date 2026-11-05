@@ -226,8 +226,8 @@ def test_recorder_timing_and_ignore_preexisting_keys_and_pointer_motion():
 def test_launch_uses_argument_vector_not_shell_or_window_strings():
     async def check():
         seen = []
-        async def launch(argv):
-            seen.append(argv)
+        async def launch(action):
+            seen.append(action.argv)
         action = Action("launch", argv=("/usr/bin/echo", "$(touch /tmp/never-execute)"))
         engine = Engine(MODELS[0], Profile("p", "P", Layers({"side_1": action})),
                         KeyLedger(RecordingOutput()), launch=launch)

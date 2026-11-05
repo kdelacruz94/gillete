@@ -14,8 +14,8 @@ input-remapper configuration for rollback.
 
 ## Run the editor
 
-Requires Python 3.11+, PySide6, and python-evdev (already present on the target
-CachyOS machine). From this checkout:
+Requires Python 3.11+, PySide6, python-evdev, python-gobject and GLib 2.84+
+(already present on the target CachyOS machine). From this checkout:
 
 ```bash
 PYTHONPATH=src python -m gillete.cli gui
@@ -41,6 +41,15 @@ The macro editor supports recorded input, editable event rows, and comma-separat
 chords such as `Alt+H, O, A` or `Ctrl+B, Alt+S`. Delays/press timing are editable.
 Recording opens physical input devices only after Start and never grabs them;
 another remapper's exclusive ownership may make its mouse events unavailable.
+
+**Launch program** supports **Choose application…** for installed desktop apps,
+or **Browse…** for an executable/script with explicit arguments. The app picker
+uses the [system desktop registry](https://docs.gtk.org/gio/type_func.AppInfo.get_all.html)
+and saves the application ID, so it can resolve the installed entry when used.
+GIO handles desktop launch settings, including working directory and D-Bus
+activation. Command arguments remain literal; Gillete does not interpret them
+as a shell script. Failed launches appear in Software control without disabling
+mouse remapping. Launch actions require the Linux service.
 
 The shortcut examples are optional imports. Pin/Automatic selections persist
 locally. The Software control tab starts the background service and explicitly
@@ -90,6 +99,11 @@ Synapse customizations. Unknown firmware actions stay intact in onboard previews
 and recovery data. Software activation is blocked if a profile inherits an action
 whose software behavior is not implemented; it is never replaced with a guessed
 factory mapping. Several existing V2 firmware actions still need this work.
+The mouse-memory view now identifies stored turbo parameters and macro
+references, while marking unverified timing and unavailable macro content.
+The [remaining protocol research](docs/remaining-protocol-research.md) records
+the REA capture analysis and the evidence still needed for those actions and
+the V3 wired transport.
 
 The Mouse memory tab reads assigned slots and previews every changed binding.
 Only **Save to Mouse** writes those assignments. Software-only actions block the

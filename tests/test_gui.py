@@ -15,6 +15,8 @@ from gillete.profiles import ProfileStore
 from gillete.gui_settings import SettingsDialog, SettingsPreview
 from gillete.gui_startup import StartupPanel
 from gillete.startup import AutostartEntry
+from gillete.applications import DesktopApplication
+from gillete.gui_launch import InstalledApplicationPicker
 from gillete.settings import plan
 from types import SimpleNamespace
 
@@ -213,3 +215,26 @@ def test_startup_preferences_preserve_external_profile_edits_and_do_not_activate
     panel.save_mice()
     assert 'Not saved' in panel.result.text() and store.path.read_bytes() == before
     shiboken6.delete(panel)
+
+
+def test_installed_app_picker_filters_and_saves_only_the_selected_target(app, monkeypatch):
+    from PySide6.QtWidgets import QDialogButtonBox
+    apps = [DesktopApplication('editor.desktop', 'Editor', 'Edit source files'),
+            DesktopApplication('game.desktop', 'Game', 'Play a game')]
+    picker = InstalledApplicationPicker(applications=apps, selected='editor.desktop')
+    assert picker.selected() == apps[0]
+    picker.search.setText('game')
+    assert picker.selected() is None
+    assert not picker.buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
+    picker.apps.setCurrentRow(1)
+    assert picker.selected() == apps[1]
+    shiboken6.delete(picker)
+    dialog = ActionDialog(Action('launch', argv=('/usr/bin/old', 'argument')), {})
+    dialog.launch_type.setCurrentIndex(1)
+    dialog.save()
+    assert 'Choose an installed' in dialog.error.text()
+    dialog.desktop_id = 'editor.desktop'
+    dialog.desktop_name.setText('Editor')
+    dialog.save()
+    assert dialog.action.desktop_id == 'editor.desktop' and dialog.action.argv == ()
+    shiboken6.delete(dialog)
