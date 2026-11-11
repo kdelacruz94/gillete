@@ -559,9 +559,37 @@ Queries are bounded to 256 requests/120 seconds per route between kernel calls.
 
 No input is captured, and no mode, setting, profile or binding setter is admitted.
 A successful report identifies a read-only route; it does not enable wired
-remapping or saving. Wired physical-control capture and write/persistence
-acceptance remain separate requirements. The bundled descriptor fixtures and
-firmware reply are public contributor evidence, not measurements of your mouse.
+remapping or saving. On2026-11-11 the development V3 passed225 getter requests on
+interface00 with matching before/after state, including its1600×1600 DPI.
+Interface03 was not tried after that success. The bundled descriptor fixtures
+remain public contributor evidence; the private local report records the live
+measurement. Wired physical controls and write/persistence acceptance remain
+separate requirements.
+
+The next experiment requires separate approval because it changes live mode:
+
+```bash
+python -m gillete.wired_capture prepare --inspection evidence/v3-wired-reads1.local.json --directory evidence/v3-wired-capture1.local
+# Only after approval for temporary driver mode and physical button capture:
+python -m gillete.wired_capture run --directory evidence/v3-wired-capture1.local
+```
+
+Preparation checks the completed read-only inspection and current USB metadata;
+it sends no HID requests. Run checks fresh state before journaling temporary
+driver mode, then records only this wired mouse for up to180 seconds/4096 retained
+reports. Pointer-only duplicates are suppressed; retained raw reports can contain
+motion fields. It takes no input grabs and creates no virtual keyboard. Live
+button behavior can differ while driver mode is active. No binding, macro, DPI,
+polling or profile setter is permitted. The V2 and its remapper remain available.
+Normal mode is restored and the captured active/stored bindings and settings
+are compared afterward; this does not compare all flash or unknown inventory IDs.
+
+Ctrl+C/SIGTERM runs cleanup. After interruption, retain the directory and use
+`python -m gillete.wired_capture recover --directory evidence/v3-wired-capture1.local`.
+Recovery permits a new wired enumeration only with matching descriptors, firmware
+and serial. It restores normal mode alone and reports other state differences
+without replacing current settings. The main app's wired activation and saves
+remain disabled until their own acceptance tests pass.
 
 Service CLI commands:
 

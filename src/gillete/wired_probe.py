@@ -36,6 +36,22 @@ class RouteIdentityChanged(ProtocolError):
     """A topology/identity change stops the whole probe, not just one route."""
 
 
+def validate_query(command):
+    pair, data = (command.category, command.operation), command.payload
+    allowed = {**{(c.category, c.operation): c.payload for c in BOOTSTRAP.values()},
+               (0, 0x82): bytes(22), (4, 0x85): b'\1' + bytes(6),
+               (4, 0x86): b'\1' + bytes(37),
+               **{(5, op): b'' for op in (0x80, 0x81, 0x84)}}
+    valid = pair in allowed and data == allowed[pair]
+    if pair == (2, 0x84):
+        valid = 2 <= len(data) <= 80 and not any(data)
+    if pair == (2, 0x8C):
+        valid = (len(data) == 10 and data[0] <= 5 and data[1] in CONTROL_IDS[MODELS[1]].values()
+                 and data[2] in (0, 1) and not any(data[3:]))
+    if not valid or command.transaction != 0x1F:
+        raise ProtocolError('Wired diagnostic permits only the explicit getter shapes')
+
+
 class WiredQueryHID(ReadOnlyHID):
     def __init__(self, path):
         super().__init__(path, PRODUCT)
@@ -47,19 +63,7 @@ class WiredQueryHID(ReadOnlyHID):
             raise RouteIdentityChanged(str(error)) from error
 
     def execute(self, command):
-        pair, data = (command.category, command.operation), command.payload
-        allowed = {**{(c.category, c.operation): c.payload for c in BOOTSTRAP.values()},
-                   (0, 0x82): bytes(22), (4, 0x85): b'\1' + bytes(6),
-                   (4, 0x86): b'\1' + bytes(37),
-                   **{(5, op): b'' for op in (0x80, 0x81, 0x84)}}
-        valid = pair in allowed and data == allowed[pair]
-        if pair == (2, 0x84):
-            valid = 2 <= len(data) <= 80 and not any(data)
-        if pair == (2, 0x8C):
-            valid = (len(data) == 10 and data[0] <= 5 and data[1] in CONTROL_IDS[MODELS[1]].values()
-                     and data[2] in (0, 1) and not any(data[3:]))
-        if not valid or command.transaction != 0x1F:
-            raise ProtocolError('Wired diagnostic permits only the explicit getter shapes')
+        validate_query(command)
         return super().execute(command)
 
 

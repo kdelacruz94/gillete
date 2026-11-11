@@ -2563,3 +2563,54 @@ Validation:78 relevant diagnostics/GUI checks and783 packaged-source checks pass
 Staged Arch/wheel, CLI and isolated GUI checks pass. Original input-remapper
 operation was independently verified restored; no migration/autostart change or
 host package installation occurred.
+
+## V3 wired read-only route verified; mode capture prepared — 2026-11-11
+
+The owner connected the V3 cable and authorized only descriptors and prepared
+getters. `gillete.wired_probe --query-routes` completed with exit0 and private
+report `evidence/v3-wired-read-20261111-01.local.json`. Discovery selected E7 by
+USB ancestor/PID, with B4 still connected and E8 absent. All four interfaces
+used hid-generic/usbhid; their79/159/61/22-byte descriptors matched the public
+wired layouts. Interface00 completed all225 queries, with no setting opcode.
+Interface03 was not tried after that success and remains unverified.
+
+Before/after snapshots match: normal mode0000, firmware01010000, assigned/active
+slot1,33 inventory IDs,100 records for the25 known controls across both layers
+and active/stored views, and unchanged DPI/stages/polling. DPI stayed1600×1600;
+ordinary polling readback was01. The eight extra inventory IDs, unassigned
+banks, macro bodies and a raw flash image were not compared. This verifies the
+getter route only, not a setter, polling cadence, persistence or wired inputs.
+
+`gillete.wired_capture` now prepares an isolated180-second/4096-report driver-mode
+proposal from that successful inspection. Preparation checks current sysfs
+metadata without sending HID requests. A real proposal exists at
+`evidence/v3-wired-capture-20261111-01.local`, with no run directory. No wired
+mode change, capture, input grab, virtual keyboard or saved-state write has run.
+New owner approval is required because the existing cable authorization is
+explicitly read-only.
+
+Run rechecks the complete snapshot before admitting a durable mode lease. The
+separate transport guard permits only the proven getter shapes and journaled
+driver/normal mode changes. Binding, macro, DPI, polling and profile setters
+remain rejected; normal application E7 configuration/activation stays gated.
+Capture reads only the selected mouse, suppresses pointer-only duplicates and
+can stop on user confirmation, timeout, record limit or interruption. Retained
+raw mouse frames can contain motion fields. The V2 and its remapper stay
+available without a handoff.
+
+Cleanup restores normal mode and compares the same known saved state. Recovery
+can reopen fresh nodes after replug only with matching raw descriptors, firmware
+and serial; a completed lease cannot change a later owner's driver mode. Other
+state differences are reported and preserved, including externally changed DPI.
+Tests exercise uncertain mode acknowledgments, stale snapshots, absent/invalid
+journals, unrelated setters/getter shapes, record-limit cleanup, normal completion,
+idempotent recovery, re-enumeration and wrong identity without recovery writes.
+Diagnostics and research docs now show the passed live reads and the prepared,
+unrun wired input experiment separately. No migration or host installation.
+
+Validation: all1099 automated tests pass, including30 new wired capture cases.
+The initial full run caught an obsolete GUI expectation for the previous wired
+status label; it now checks the live getter evidence without enabling activation.
+All813 packaged-source checks, staged Arch/wheel paths, isolated GUI and CLI
+checks pass. Nothing was installed on the host. The retained live proposal was
+revalidated against current USB metadata without opening HID or creating a run.

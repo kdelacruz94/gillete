@@ -20,14 +20,17 @@ from .onboard import durable_json
 from .protocol import ProtocolError
 
 
-def capture(device, journal: Path, output: Path, seconds: int):
+def capture(device, journal: Path, output: Path, seconds: int, *, open_transport=None,
+            stopped=lambda: False, max_records=20000):
     if journal.exists() or output.exists():
         raise ProtocolError('Choose new journal and capture paths')
     if not 1 <= seconds <= 600:
         raise ValueError('Capture duration must be 1..600 seconds')
+    if type(max_records) is not int or not 1 <= max_records <= 20000:
+        raise ValueError('Capture record limit must be 1..20000')
     records, descriptors, opened = [], {}, []
     baseline = None
-    with transport(device) as io:
+    with (open_transport or transport)(device) as io:
         io.require_normal_mode()
         baseline = read_records(io, device.model, 1)
         fd_interfaces = {}
@@ -58,7 +61,7 @@ def capture(device, journal: Path, output: Path, seconds: int):
                 start = time.monotonic()
                 print('READY: temporary driver mode verified. Capture is active; stored bindings are unchanged.', flush=True)
                 previous = {}
-                while time.monotonic() - start < seconds:
+                while time.monotonic() - start < seconds and not stopped():
                     for fd in select.select(list(fd_interfaces), [], [], 0.25)[0]:
                         raw = os.read(fd, 4096)
                         if not raw:
@@ -70,9 +73,9 @@ def capture(device, journal: Path, output: Path, seconds: int):
                             continue
                         previous[interface] = signature
                         record = {'t': round(time.monotonic() - start, 6), 'interface': interface, 'raw': raw.hex()}
-                        records.append(record)
-                        if len(records) > 20000:
+                        if len(records) >= max_records:
                             raise ProtocolError('Capture limit reached')
+                        records.append(record)
                         print(f"HID {interface}: {signature.hex()}", flush=True)
             after = read_records(io, device.model, 1)
             if after != baseline:

@@ -52,7 +52,7 @@ def test_accessible_wired_nodes_do_not_enable_unverified_application_capabilitie
     assert rows['Mouse configuration'].status == 'Unavailable'
     assert rows['Software input'].status == 'Accessible'
     features = feature_validation(0xE7)
-    assert [row.status for row in features] == ['Diagnostic prepared', 'Unverified', 'Unavailable']
+    assert [row.status for row in features] == ['Live reads passed', 'Capture prepared', 'Unavailable']
 
 
 def test_service_status_reports_exact_transport_without_serial_or_window(tmp_path):

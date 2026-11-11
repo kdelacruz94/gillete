@@ -762,7 +762,7 @@ def test_diagnostics_keeps_selected_transport_across_discovery_order_changes(app
         devices.reverse()
         panel.refresh_devices()
         assert panel.selector.currentData().product_id == 0xE7
-        assert panel.capabilities.item(0, 1).text() == 'Diagnostic prepared'
+        assert panel.capabilities.item(0, 1).text() == 'Live reads passed'
         def fail(): raise OSError('Discovery failed')
         monkeypatch.setattr(gui_diagnostics, 'discover', fail)
         panel.refresh_devices()

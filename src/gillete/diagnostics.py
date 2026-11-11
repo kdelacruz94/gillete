@@ -131,10 +131,11 @@ def findings(device, devices, *, uinput_access=None, service=None, service_error
 def feature_validation(product):
     """Evidence for the development hardware, not a current-unit test result."""
     if product not in (0xB4, 0xE8):
-        return [Finding('Wired read-only inspection', 'Diagnostic prepared',
-                        'Descriptor and candidate-route checks are implemented; physical cable validation is pending.'),
-                Finding('Wired controls and HyperShift', 'Unverified',
-                        'Receiver captures and similar descriptor sizes do not prove wired button behavior.'),
+        return [Finding('Wired read-only inspection', 'Live reads passed',
+                        'Development cable interface00 returned unchanged firmware, inventory, bindings and settings. '
+                        'This is getter evidence only.'),
+                Finding('Wired controls and HyperShift', 'Capture prepared',
+                        'A separately approved temporary driver-mode capture is prepared; wired button reports remain unverified.'),
                 Finding('Wired saves and software control', 'Unavailable',
                         'Normal application activation and writes remain gated until wired testing passes.')]
     count = 21 if product == 0xB4 else 25

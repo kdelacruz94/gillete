@@ -234,9 +234,10 @@ HID dumps advertise the same 90-byte unnumbered feature report on interface
 `03` for **both** PIDs; neither interface-`00` descriptor advertises a feature
 report. This does not prove the fork's direct EP0 index-0 route is wrong, or
 that Linux hidraw interface `03` will execute wired commands. It does mean
-“wired config iface00” is a **candidate from driver source, not yet a verified
-Gillete transport mapping**. Do not add `00e7` to `CONFIG_INTERFACE` based only
-on that switch or copy receiver iface03 without validation. [D1][R1]
+“wired config iface00” was a **candidate from driver source**. The local
+2026-11-11 getter test below now verifies that route for reads on this unit.
+Do not add `00e7` to normal application activation or copy receiver iface03
+based only on source/descriptor similarity. [D1][R1]
 
 ### Input layout: exact descriptor differences, bounded conclusions
 
@@ -269,7 +270,7 @@ decoder currently selects by model/interface alone; any differing wired frame
 must get an explicit transport/descriptor-specific path rather than a relaxed
 generic parser. [N1][L1]
 
-### Minimum future read-only validation, then separate activation acceptance
+### Read-only validation, then separate activation acceptance
 
 1. **Descriptor-only baseline:** with the cable connected, identify the exact
    USB ancestor/PID, firmware context and bound drivers; save all four HID
@@ -297,6 +298,34 @@ generic parser. [N1][L1]
    No existing authorization to wake V2 or test settings authorizes this wired
    mode test. Keep software activation and writes gated until their own
    evidence is collected.
+
+### Local wired getter result — 2026-11-11
+
+With owner authorization limited to descriptors/getters, the actual E7 cable
+passed `gillete.wired_probe --query-routes`. The retained private report is
+`evidence/v3-wired-read-20261111-01.local.json`:225 explicit getter requests,
+no setting opcodes, route00, and identical before/after state in normal mode.
+The E8 receiver was absent at inspection; the B4 receiver remained connected.
+All four interfaces used hid-generic/usbhid. Their79/159/61/22-byte descriptors
+match the public wired layouts. This is an observed hidraw interface00 route;
+interface03 was not tried after success, so its behavior is still unknown.
+
+Firmware returned01010000; active/assigned slot was1, inventory had33 control
+IDs, and100 binding records covered the25 known controls in both layers for
+active/stored views. The eight extra inventory IDs and unassigned banks were
+not read. DPI remained1600×1600, with unchanged stages and ordinary polling
+readback01. This does not establish polling cadence, any setter, native macro
+execution or driver-mode input behavior.
+
+An offline-tested `gillete.wired_capture` proposal is prepared at
+`evidence/v3-wired-capture-20261111-01.local`. Its separate command guard allows
+only journaled driver/normal mode changes plus the proven getters. A fresh full
+snapshot must match before taking ownership. Cleanup restores normal mode and
+compares the same captured saved state; recovery checks fresh nodes, raw
+descriptors, firmware and serial after a replug. It never repairs changed DPI
+or writes assignments. No wired mode change or input capture has run yet;
+that requires separate owner approval. Normal wired software activation and
+saves remain gated.
 
 ### V3 profiles: capacity is not assignment or selection
 
