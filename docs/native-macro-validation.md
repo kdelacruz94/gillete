@@ -184,7 +184,7 @@ write paths. V2 and wired V3 are rejected by this experimental native planner.
 
 `native_profile_transaction` now connects profile previews to durable allocation,
 upload, binding and undo operations. It remains an experimental library with
-no GUI/CLI caller; no additional hardware acceptance is claimed. Its snapshot
+no production GUI caller; no additional hardware acceptance is claimed. Its snapshot
 contract currently requires the verified V3 receiver with bank1 solely assigned.
 Supporting other assigned-slot arrangements still requires their validation.
 
@@ -209,3 +209,40 @@ Disk-full injection after binding confirms that already durable recovery still
 restores the original button functions. New objects remain unbound when delete
 intent cannot be journaled. The ordinary production Save to Mouse path continues
 to block macros until this backend, acceptance gates and UI are connected.
+
+## Concrete multi-asset / HyperShift experiment
+
+`native_profile_probe` uses the asset-aware backend for a fixed reversible
+experiment. Normal sides11/12 share an F24-down/80-ms/F24-up macro; their
+HyperShift mappings share the corresponding F23 macro. It requires an empty
+initial macro catalog and the existing ring-finger HyperShift action on both
+layers. Exactly those four button mappings may differ; every other assignment,
+including the trigger, must remain unchanged.
+
+After READY, the requested order is side12, ring+side12, side11, ring+side11,
+releasing each side button and the ring trigger before the next combination.
+The read-only keyboard observer requires F24/F23/F24/F23 down/up in that order,
+rejects overlapping keys/dropped events, and records each actual duration.
+An independent user report is required: `run/sequence-report.json` must contain
+exactly `{"sequence_completed": true}`. Key reports cannot identify physical
+button labels, so this human confirmation remains separate evidence. The
+assistant writes it only after the user confirms performing the full sequence.
+
+The 180-second window starts at READY and includes that confirmation. Completion,
+cancellation, timeout or failure calls durable undo, restores original functions
+and flags, and removes only verified unreferenced new objects. Final evidence
+is split between `run/experiment.json` (physical observation) and
+`run/profile.json` (transaction/recovery). `recover` uses the latter to undo
+an interrupted run. No service activation, mode change, input grab, key
+injection, DPI write, formatting or defragmentation is part of this experiment.
+
+```sh
+.venv/bin/python -m gillete.native_profile_probe prepare --directory evidence/v3-native-profile-01.local
+.venv/bin/python -m gillete.native_profile_probe run --directory evidence/v3-native-profile-01.local
+.venv/bin/python -m gillete.native_profile_probe recover --directory evidence/v3-native-profile-01.local
+```
+
+The run requires new approval for uploading two native objects and changing
+four saved mappings. A successful observation would establish this exact
+two-asset/shared-reference/HyperShift case, without proving native repeating
+modes, arbitrary multi-key sequences or V2/wired behavior.

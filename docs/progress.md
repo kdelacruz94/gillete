@@ -1627,3 +1627,34 @@ wheel, CLI and isolated GUI checks pass without host installation. Tests cover
 multi-asset save/undo, sequence references and pre-existing objects, stale and
 forged plans, partial uploads/ACK loss, cancellation, external edits, repeated
 undo and disk-full restoration. Hardware acceptance remains separate.
+
+## Two-asset / HyperShift acceptance prepared — 2026-11-10
+
+Added the opt-in `native_profile_probe` runner. It admits only the fixed test
+profile: normal sides11/12 share F24-down/80-ms/F24-up; shifted sides11/12
+share the F23 equivalent. It requires the existing ring-finger HyperShift
+trigger, preserves it and every unrelated assignment, and rejects any plan
+changing more than exactly those four mappings. The initial catalog must be
+empty. It uses the asset-aware save/undo backend rather than a separate writer.
+
+The observer reads this V3's F24/F23/F24/F23 transitions in order, checks actual
+press/release pairs and records durations without grabbing/injecting. It also
+requires the user's explicit confirmation of the requested physical button
+sequence. The shared 180-second deadline starts at READY. Any failure, timeout
+or cancellation attempts durable undo; ambiguous objects remain journaled.
+Recovery uses `native_profile_probe recover --directory` and the authoritative
+`run/profile.json` parent; physical observations live in `run/experiment.json`.
+
+All 634 tests and 313 packaged-source checks pass, including wrong order,
+missing confirmation, failed allocation, real-event sequencing and full undo.
+Read-only preparation succeeded in
+`evidence/v3-native-profile-20261110-01.local/prepared.json`: two fresh objects,
+1024 bytes estimated allocation, empty catalog, current 1600 DPI. No allocation
+or binding write has occurred. The four changed locations are bank1 controls
+0x4a/0x4b, layers0/1; existing ring-finger mappings are unchanged.
+
+Next requires the user's approval for these two native uploads and four saved
+binding changes. After READY, ask for side12; ring+side12; side11; ring+side11,
+releasing all buttons between combinations. Only after the user confirms the
+full sequence write exactly `{"sequence_completed": true}` to
+`run/sequence-report.json`. No test is running; input-remapper remains untouched.
