@@ -2397,3 +2397,79 @@ failure evidence and retained offending events after verified simulated rollback
 Staged Arch/wheel, CLI and isolated GUI checks pass. Only the first approved
 physical run and subsequent read-only preparation accessed the mouse; no second
 write experiment, production capability expansion or migration occurred.
+
+## Combined V3 diagnostic acceptance and DPI-preserving recovery — 2026-11-11
+
+The owner approved repeating the same combined test with raw diagnostics.
+Attempt02 stopped before creating its initial transaction: current DPI/stage
+had changed from1600/stage3 to800/stage2. No macro/mapping write was admitted.
+The wrapper's historical `recovery-required` status reflects the preparation
+mismatch, not an instruction to overwrite the current settings. The read-only
+state review retained the differing fields and submitted zero setting commands.
+
+The same authorized test was refreshed to that current state as attempt03.
+Three macros uploaded, but DPI changed again to400/stage1 before test bindings
+were applied. Strict cleanup refused deletion while unrelated state differed.
+The owner confirmed pressing an index/DPI button to wake the mouse, then selected
+their preferred setting and explicitly requested it be kept. Scoped undo first
+stopped on another state change, then verified affected mappings and unrelated
+current state, removed all three verified unreferenced objects and left an empty
+catalog at the selected1600 DPI. Its receipt is `affected-bindings-restored`;
+`run/recovery-outcome.json` records the resolution without rewriting the earlier
+failed experiment. No DPI setter or format/rebuild was used in recovery.
+
+Fresh attempt04 matched that recovered1600-DPI snapshot and retained the exact
+approved assets/mappings. Preparation submitted zero setting commands. The owner
+was instructed to wake by movement only and confirmed off/on plus all four taps
+after actual READY. The completed run is
+`evidence/v3-native-combined-20261111-04.local/run/experiment.json`.
+
+This time raw and Qt records both contain exactly16 expected edges, including
+Ctrl+K, plain M and the five F24 pairs. The raw tail has `expected_edge=16`, no
+failure and no cap. The repeated save reused three objects and submitted zero
+setting commands. Post-cycle protected state and all macro bytes verified.
+Measured K/M holds were42.002ms; the counted F24 holds were40.999/41.999/42.001ms
+and onset periods193.001/195.001ms for requested40ms holds plus150ms gaps.
+These are measured timings, not a claim of exact scheduling or instrumented
+battery-removal/NVM behavior.
+
+The runner exited0 with `native-combined-restored`. Both nested transactions
+report original-state restoration, and a separate receipt audit rechecked both
+event sequences, reuse telemetry, empty final catalog and1600×1600 saved DPI.
+Final recyclable storage is6656 bytes; this is not automatically free space.
+No test/window remains running. Input-remapper and startup settings were not
+changed. The cause of the first raw-order rejection remains unknown; this
+successful instrumented run did not weaken the validator or retrospectively
+turn the first failure into a pass.
+
+## Native keyboard save admission follows the combined result — 2026-11-11
+
+Explicit native saving on the accepted E8/firmware0101/sole assigned slot1 route
+now admits balanced keyboard sequences played once and counted single-key
+macros. The accepted combined profile first failed the old gate, then passed
+after the policy change. The source-backed count byte permits1–255; the physical
+case exercised three F24 iterations, not every parameter value. Values above255
+still fail before transport writes. Counted multi-key, held/toggle/turbo, mouse,
+movement/keyless macros, native F13–F23 desktop interpretation and other routes
+remain gated. Existing compiler size/encoding and transaction guards still apply.
+
+The pure preview and explicit-save check share this action policy. Removed stale
+generic pending messages for shared objects, HyperShift and asset-aware recovery
+that now have implementation/physical evidence. Firmware/route checks remain in
+the actual save gate. Counted previews explicitly state the trailing final gap
+and that native playback runs to completion; focus cancellation requires Linux
+service playback. Native saves preserve the explicit Linux profile actions.
+Keep-stored decoding is still limited to separately verified single-key once
+bodies, so other stored bodies need explicit Linux mappings for service use.
+
+Validation: all1069 tests and783 packaged-source checks pass. New checks admit
+the exact accepted combined profile, exercise encoded counts1/2/3/255, reject256
+before writes, and retain the remaining family/route gates. Staged Arch/wheel,
+CLI and isolated GUI checks pass; no host package or startup preference changed.
+
+Prepared the next receiver software check read-only at
+`evidence/v3-controls-20261111-01.local/prepared.json`:50 taps cover all25 controls
+on both layers, rotating the held HyperShift trigger so it is tested too. The
+proposal retains all50 original descriptors and current1600 DPI. It has no run
+and requires separate approval for temporary driver mode, input ownership and
+virtual-keyboard output; the native macro approval does not cover that scope.

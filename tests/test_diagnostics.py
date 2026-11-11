@@ -130,7 +130,7 @@ def test_development_validation_remains_distinct_from_implemented_or_pending_wor
     assert 'references do not' in v2['Native onboard macros and turbo'].detail
     assert v3['Native onboard macros and turbo'].status == 'Partially verified'
     assert 'firmware1.1' in v3['Native onboard macros and turbo'].detail
-    assert 'once-only single-key' in v3['Native onboard macros and turbo'].detail
+    assert 'once-only keyboard sequences and counted single-key' in v3['Native onboard macros and turbo'].detail
     assert 'F13–F23' in v3['Native onboard macros and turbo'].detail
     assert v3['Scalar sensitivity'].status == 'Live examples passed'
     assert 'receiver replug' in v3['Scalar sensitivity'].detail

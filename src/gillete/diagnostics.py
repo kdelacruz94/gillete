@@ -171,7 +171,9 @@ def feature_validation(product):
             Finding('Native onboard macros and turbo', 'Partially verified' if product == 0xE8 else 'Unavailable',
                     'The development V3 receiver firmware1.1 passed once-only native keyboard playback, '
                     'shared objects, HyperShift and a reported off/on retention test. Native save admits only '
-                    'once-only single-key keyboard macros. Chords, repetition/turbo cancellation and native '
+                    'once-only keyboard sequences and counted single-key macros. The combined Ctrl+K then M, '
+                    'three-count F24, retention and zero-setting-write reuse test passed. Held/toggle/turbo, '
+                    'counted multi-key sequences and native '
                     'F13–F23 desktop mapping still need acceptance. Full software actions use the Linux service.'
                     if product == 0xE8 else
                     'The V2 Synapse model disables onboard macro storage; its saved macro references do not '

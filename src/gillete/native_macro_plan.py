@@ -13,6 +13,7 @@ from .compile_onboard import SoftwareOnly, compile_profile, encode_action
 from .macro_reads import MAX_ID, MAX_IDS
 from .model import MODELS
 from .native_macro import compile_macro, metadata
+from .native_profile_support import action_issue
 from .protocol import ProtocolError
 
 
@@ -99,13 +100,13 @@ def preview_profile(profile, product, bank, baseline, *, catalog_ids, referenced
             reserved.add(identifier)
             assets[key] = MacroAsset(identifier, guid, name, compiled.data,
                                      raw_metadata, compiled.items, compiled.allocation_bytes, existing is not None)
-        if action.playback != 'once':
-            pending.append('Native count/held/toggle playback and cancellation need hardware validation.')
+        if issue := action_issue(action):
+            pending.append(issue)
         if action.kind == 'macro' and action.playback == 'count':
             warnings.append(f'Counted native playback includes its {compiled.trailing_gap_ms}-ms gap '
                             'after the final iteration; software playback omits that final gap.')
-        if sum(step.kind == 'down' for step in action.steps) > 1:
-            pending.append('Multi-key native macro sequencing needs hardware validation.')
+            warnings.append('Native counted playback runs to completion on the mouse; '
+                            'focus-based cancellation requires Linux service playback.')
         return compiled.binding(assets[key].identifier)
 
     model = MODELS[1]
@@ -117,13 +118,5 @@ def preview_profile(profile, product, bank, baseline, *, catalog_ids, referenced
     if result.required_bytes > available_bytes:
         result.issues.append(f'Native macros require {result.required_bytes} already-free bytes; '
                              f'only {available_bytes} are available. No format or defragmentation is planned.')
-    identifiers = {asset.identifier for asset in result.assets}
-    if any(where.layer == 1 and function[0] in (3, 4, 5)
-           and int.from_bytes(function[2:4], 'big') in identifiers for where, function in result.bindings.items()):
-        pending.append('Native HyperShift macro execution needs hardware validation.')
-    if len(result.assets) > 1:
-        pending.append('Multiple native macro assets and shared references need hardware validation.')
-    if result.assets:
-        pending.append('Production Save to Mouse needs an asset-aware upload and recovery transaction.')
     result.validation_pending = list(dict.fromkeys(pending))
     return result

@@ -40,7 +40,7 @@ def test_profile_asset_dedup_avoids_catalog_and_dangling_references_without_muta
         for layer in (0, 1):
             assert result.bindings[Location(1, CONTROL_IDS[MODEL][control], layer)].hex() == '03030003010000'
     assert profile.json() == original
-    assert any('HyperShift' in item for item in result.validation_pending)
+    assert not result.validation_pending
     assert not hasattr(result, 'writable') and not hasattr(result, 'apply')
     assert compile_profile(profile, MODEL, 1, baseline()).issues  # Production gate remains intact.
 
@@ -52,7 +52,7 @@ def test_different_events_create_separate_objects_but_keep_unknown_stored_layers
     assert [asset.identifier for asset in result.assets] == [3, 5]
     assert len({asset.guid for asset in result.assets}) == 2 and result.required_bytes == 1024
     assert result.bindings[Location(1, CONTROL_IDS[MODEL]['left_click'], 0)] == baseline()[Location(1, CONTROL_IDS[MODEL]['left_click'], 0)]
-    assert any('Multiple' in item for item in result.validation_pending)
+    assert any('F13–F23' in item for item in result.validation_pending)
     assert preview(profile).assets == result.assets  # Review bytes are deterministic.
 
 
@@ -77,7 +77,8 @@ def test_repeat_timing_difference_and_long_unicode_names_are_explicit():
     profile = Profile('game', '猫' * 100, Layers(normal={'side_12': macro(playback='count', count=3, interval_ms=100)}))
     result = preview(profile)
     assert any('final iteration' in warning for warning in result.warnings)
-    assert any('count/held/toggle' in item for item in result.validation_pending)
+    assert not result.validation_pending
+    assert any('completion' in warning for warning in result.warnings)
     assert len(result.assets[0].name.encode('utf-8')) <= 99
     assert result.assets[0].metadata[20:120].split(b'\0')[0].decode('utf-8') == result.assets[0].name
 

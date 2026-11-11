@@ -274,9 +274,13 @@ block saving until you choose supported alternatives. The Linux service continue
 using the original profile actions. For supported native macros, read the V3
 receiver and select **Review native macro profile…**, then explicitly choose
 **Save to Mouse**. The current acceptance gate covers firmware 1.1, active
-slot1 as the sole assigned slot, and single-key timed macros played once on
-normal/HyperShift layers. Multiple buttons can share their macro data.
-Native multi-key sequences, repetition/turbo, mouse macros, V2 macro storage
+slot1 as the sole assigned slot, keyboard sequences played once, and counted
+single-key macros on normal/HyperShift layers. Multiple buttons can share their
+macro data. The native count field permits1–255 iterations; the physical test
+exercised three F24 presses. Native counted playback runs to completion and
+includes its trailing gap after the final iteration. Use Linux service playback
+when focus-based cancellation is required.
+Native counted multi-key sequences, held/toggle/turbo, mouse macros, V2 macro storage
 and wired V3 remain gated; those actions continue to work through the Linux
 service. Native F13–F23 desktop interpretation is also gated pending scoped
 keyboard-map validation; the Linux service's virtual keyboard already has its

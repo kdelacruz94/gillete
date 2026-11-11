@@ -407,6 +407,22 @@ Future runs retain a bounded private `raw-input.json` tail after cleanup;
 acceptance is unchanged. See the dated entry in `progress.md`. The existing
 run and human confirmation must not be reused. A fresh preparation/run is needed.
 
+**2026-11-11 follow-up:** the instrumented combined attempt04 subsequently
+passed both raw and desktop16-edge validation, reported off/on retention,
+post-cycle macro/state readback and three-object repeated-save reuse with zero
+setting commands. Both transactions restored, the final catalog was empty and
+the selected1600 DPI was preserved. Earlier DPI-button changes caused guarded
+aborts; scoped undo removed unreferenced test objects while preserving the
+owner's newly selected DPI. See the dated evidence in `progress.md`.
+
+The production gate now admits once-only keyboard sequences and counted
+single-key macros on E8/firmware0101/sole assigned slot1. The count byte permits
+1–255; three iterations were physically exercised. Counted multi-key sequences,
+held/toggle/turbo, mouse/movement and native F13–F23 remain separate gates.
+The old unsuccessful combined run remains a failure; its missing raw event
+cannot be reconstructed from the later success. Keep-stored software decoding
+retains its narrower single-key once-only gate.
+
 ## Scoped desktop undo
 
 The desktop recovery chooser uses `undo(..., preserve_unrelated=True)`.
