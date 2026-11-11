@@ -70,7 +70,10 @@ Deleting an unused object frees its catalog slot but can leave its bytes in the
 reported reclaimable pool. The UI reports actual already-free and reclaimable
 values separately. It does not promise immediate byte reclamation or bypass the
 native-save requirement for sufficient already-free space. Safe compaction remains
-a separate protocol/acceptance requirement.
+a separate protocol/acceptance requirement. The retained Synapse implementation's
+`defragStorage` formats and rebuilds selected decoded state; it omits polling,
+scroll/debounce fields, active-profile selection and opaque bytes. That path is
+excluded from Gillete. See [the source trace and preservation gaps](remaining-native-protocols.md).
 
 Offline checks cover shared/active/unassigned references, modified/foreign
 objects, old undo dependencies, acknowledgement, source/state/catalog changes,

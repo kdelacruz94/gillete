@@ -147,6 +147,11 @@ def feature_validation(product):
                     'Linux service features; full desktop acceptance is pending.'),
             Finding('DPI stages and polling rate', 'Live write test pending',
                     'Editing, journaling and restoration are implemented; saved-stage and polling-rate write acceptance is pending.'),
+            Finding('High-speed polling', 'Diagnostic prepared' if product == 0xE8 else 'Unavailable',
+                    'An opt-in receiver diagnostic compares profile/high-speed getter codes without setters. '
+                    'Synapse selects these paths conditionally; effective routing and measured rates remain unverified. '
+                    'The settings editor still offers only 125, 500 and 1000 Hz.' if product == 0xE8 else
+                    'V3 source encodings do not establish V2 high-speed polling support.'),
             Finding('Scalar sensitivity', 'Live examples passed' if product == 0xE8 else 'Live write test pending',
                     'The development V3 accepted 1200 DPI in normal and temporary driver mode. '
                     'Readback retained it across the reported off/on cycle and an observed receiver replug. '
@@ -167,4 +172,10 @@ def feature_validation(product):
                     'establish standalone playback. Use the Linux service for macros and turbo.'),
             Finding('Onboard slots', 'One slot' if product == 0xB4 else 'Inventory only',
                     'V2 exposes one stored slot; the active mirror is not another saved profile.' if product == 0xB4 else
-                    'V3 advertises up to five slots. Read the mouse for its assigned slots; creation and native selection remain unverified.')]
+                    'V3 advertises up to five slots. Read the mouse for its assigned slots; '
+                    'new-slot initialization, lossless restoration and native selection remain unverified.'),
+            Finding('Native storage compaction', 'Unavailable',
+                    'Managed unused macro deletion is implemented for the development V3 firmware1.1, with live acceptance pending. '
+                    'Deletion may leave recyclable bytes. The traced Synapse format/rebuild omits settings and opaque data; '
+                    'it cannot yet preserve arbitrary mouse state.' if product == 0xE8 else
+                    'V2 onboard macro storage is not admitted; V3 reclamation paths do not establish V2 support.')]

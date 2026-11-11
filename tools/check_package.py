@@ -28,7 +28,7 @@ def main():
         for module in ('settings', 'gui_settings', 'gui_controls', 'gui_applications', 'keyboard_map',
                        'startup', 'gui_startup', 'gui_instance', 'function_keymap'):
             assert f'gillete/{module}.py' in archive.namelist()
-        for module in ('applications', 'gui_launch', 'gui_standalone', 'macro_reads', 'macro_inspection', 'firmware_probe',
+        for module in ('applications', 'gui_launch', 'gui_standalone', 'macro_reads', 'macro_inspection', 'firmware_probe', 'polling_reads',
                        'validation_plan', 'guided_service', 'validation_pad', 'mapping_view', 'dpi_probe', 'dpi_sensor_probe',
                        'dpi_replug_probe', 'dpi_driver_probe', 'native_macro', 'macro_memory',
                        'native_macro_probe', 'native_macro_observer', 'native_macro_plan', 'native_profile_transaction',
@@ -72,7 +72,7 @@ def main():
              'import gillete; assert Path(gillete.__file__).is_relative_to(Path.cwd()); '
              'import pytest; raise SystemExit(pytest.main(["-q", "tests/test_wired_probe.py", "tests/test_persistence.py", '
              '"tests/test_device_action_support.py", "tests/test_macro_inspection.py", '
-             '"tests/test_macro_reads.py", "tests/test_firmware_probe.py", "tests/test_dpi_probe.py", '
+             '"tests/test_macro_reads.py", "tests/test_firmware_probe.py", "tests/test_polling_reads.py", "tests/test_dpi_probe.py", '
              '"tests/test_native_macro.py", "tests/test_native_macro_probe.py", "tests/test_native_macro_observer.py", '
              '"tests/test_native_macro_plan.py", "tests/test_native_profile_transaction.py", '
              '"tests/test_native_profile_probe.py", "tests/test_native_profile_review.py", "tests/test_hid_replies.py", '

@@ -2069,3 +2069,43 @@ daemon command handler, lifetime-lock contention, lost/invalid acknowledgements,
 live preflight rejection and GUI worker routing with no cached status. No live
 service, hardware, compositor or input-remapper settings changed. Staged
 Arch/wheel, CLI and isolated GUI checks also pass; no host package was installed.
+
+## Native lifecycle/polling trace and read-only observation tooling — 2026-11-10
+
+Reviewed the completed source report `remaining-native-protocols.md`. It pins
+first-party bundles/factory ranges and separates packet construction from actual
+firmware behavior. Slot creation can delete/initialize an existing target and
+omit default binding writes; new-slot contents and lossless rollback remain
+unresolved. The traced `defragStorage` resets/deletes profiles, formats storage
+and rebuilds only selected decoded fields. Polling/scroll/debounce, active ID and
+opaque bytes are not fully restored. Format/rebuild remains excluded.
+
+V3 source defines separate ordinary, per-profile and high-speed polling families.
+High-speed dispatch depends on injected flags and connection state, still
+unresolved. Implemented `polling_reads` and an explicit E8-only
+`firmware_probe --sections polling` observation path. It queries assigned IDs,
+distinguishes encodings, retains unknown values without the source decoder's
+8000-Hz fallback, validates echoes and rechecks completed values. A clean device
+rejection ends that family; uncertain failures stop remaining polling queries.
+No failed query is retried. Baseline firmware, mode, identity, assigned/active
+inventory, active mirror/slot bindings and ordinary settings are compared.
+
+The existing request/time limits reserve verification work. Reports distinguish
+nominal code recognition from measured cadence, conditional route selection,
+setter support and retention; all those capability claims remain false. Ordinary
+application read/settings allowlists and polling choices stay unchanged.
+Desktop diagnostics expose high-speed and compaction limits. V2 and wired
+candidate polling are rejected before discovery/report creation.
+
+No mouse, service, keymap, remapper or system package was changed. Tests use fake
+devices/sockets and offscreen widgets; physical tests remain deferred. The
+previously prepared combined V3 test is still pending the owner's readiness.
+
+Validation: all905 tests and596 packaged-source checks pass. Coverage includes
+all256 reply codes in both families, exact request framing, selector/transport
+rejection, no production allowlist expansion, clean rejection versus uncertain
+failures, candidate and baseline drift, failed rechecks, assigned-only selectors,
+private new-only reports and summaries without hardware identity. Staged
+Arch/wheel, CLI and isolated GUI checks pass. The two new test-fixture mistakes
+(a category-ambiguous fake firmware response and expecting a file exception
+through argparse's error boundary) were corrected before the passing run.

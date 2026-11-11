@@ -374,7 +374,26 @@ python -m gillete.firmware_probe --product 00b4 --output evidence/v2-firmware-re
 
 Use a new report path and an awake mouse in normal mode. Product `00e8` selects
 the V3 receiver; wired probing remains separate and unverified. `--sections macros`
-or `--sections dpi` narrows the queries. `--include-macro-data` captures bounded
+or `--sections dpi` narrows the queries. An explicit V3 receiver-only polling
+inspection is also prepared:
+
+```bash
+python -m gillete.firmware_probe --product 00e8 --sections polling --output evidence/v3-polling-read1.local.json
+```
+
+It queries only currently assigned profile IDs with the separate profile and
+high-speed getters. Successful replies are read again after baseline verification;
+unknown codes retain their bytes and never default to 8000 Hz. A clean device
+rejection stops that command family; transport, framing or selector failures
+stop remaining polling candidates without retrying. Normal mode, firmware,
+identity, active-mirror and active-slot bindings and saved settings are compared
+before/after.
+These observations cannot prove Synapse's conditional route, actual report
+cadence or setter/retention support. Wired querying stays separate; the settings
+editor still offers only 125, 500 and 1000 Hz. No polling experiment was run
+to prepare this diagnostic. See [protocol findings](docs/remaining-native-protocols.md).
+
+`--include-macro-data` captures bounded
 raw bytes plus an inert interpretation of recognized key, mouse, wheel, delay and
 cursor records beside the raw bytes. Unknown or incomplete records retain
 their unparsed remainder; held inputs are reported without invented releases.
@@ -382,9 +401,10 @@ Only nonzero IDs enumerated from the catalog are read, within the source-backed
 15-bit ID and existing byte/count limits. This does not create playable actions.
 Reports contain device
 identity and, if requested, macro contents; files are private and summaries omit
-both. A rejected query stops that section. Readback alone establishes neither
-native macro playback nor temporary DPI writes; this diagnostic enables no new
-application capability automatically.
+both. Query failures retain their device/transport errors in the report.
+Readback alone establishes neither native macro playback, temporary DPI writes
+nor an effective polling rate; this diagnostic enables no new application
+capability automatically.
 
 A separate development experiment can test DPI getter independence before
 per-program hardware sensitivity is implemented:

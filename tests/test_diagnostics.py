@@ -121,6 +121,11 @@ def test_development_validation_remains_distinct_from_implemented_or_pending_wor
     assert v3['Scalar sensitivity'].status == 'Live examples passed'
     assert 'receiver replug' in v3['Scalar sensitivity'].detail
     assert v2['Scalar sensitivity'].status == 'Live write test pending'
+    assert v3['High-speed polling'].status == 'Diagnostic prepared'
+    assert 'measured rates remain unverified' in v3['High-speed polling'].detail
+    assert v2['High-speed polling'].status == 'Unavailable'
+    assert v3['Native storage compaction'].status == 'Unavailable'
+    assert 'omits settings and opaque data' in v3['Native storage compaction'].detail
 
 
 def test_sysfs_discovery_reports_nearest_hid_driver_without_opening_input(tmp_path, monkeypatch):
