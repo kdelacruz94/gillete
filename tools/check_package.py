@@ -38,6 +38,7 @@ def main():
                        'native_macro_library',
                        'native_sequence_probe', 'native_sequence_pad',
                        'native_profile_undo', 'stored_native', 'memory_access',
+                       'native_history', 'native_cleanup', 'gui_native_library',
                        'descriptors', 'wired_probe', 'diagnostics', 'gui_diagnostics',
                        'profile_transfer', 'gui_profile_transfer', 'profile_activation',
                        'persistence', 'gui_persistence', 'device_action_support'):
@@ -78,6 +79,11 @@ def main():
              '"tests/test_native_profile_support.py", "tests/test_hardware.py", "tests/test_native_macro_reuse.py", '
              '"tests/test_native_sequence_probe.py", "tests/test_native_profile_undo.py", "tests/test_stored_native.py", '
              '"tests/test_function_keymap.py", "tests/test_keyboard_map.py", "tests/test_memory_access.py", '
+             '"tests/test_native_cleanup.py", "tests/test_native_cleanup_review.py", '
+             '"tests/test_gui.py::test_native_library_review_requires_explicit_unused_selection_and_undo_acknowledgement", '
+             '"tests/test_gui.py::test_native_storage_write_waits_for_reader_and_passes_exact_selection", '
+             '"tests/test_gui.py::test_discarding_native_storage_dialog_never_schedules_deletion", '
+             '"tests/test_gui.py::test_native_storage_acknowledgement_is_reset_when_selection_changes", '
              '"tests/test_gui.py::test_native_macro_review_has_mapping_rows_but_no_save_action_or_writes", '
              '"tests/test_gui.py::test_explicit_native_save_preview_checks_firmware_and_preserves_cancelled_plan", '
              '"tests/test_gui.py::test_native_save_waits_for_read_worker_then_runs_once", '

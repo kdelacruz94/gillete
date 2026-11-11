@@ -69,3 +69,35 @@ def restore_review(device, path):
         try: return tx.undo(io, path, preserve_unrelated=True)
         except (OSError, ValueError) as error:
             raise ProtocolError(f'Native undo failed: {error}. Recovery journal: {path}') from error
+
+
+def prepare_library(device, snapshot):
+    from . import native_cleanup
+    if not eligible(snapshot) or device.product_id != snapshot.product or device.model != snapshot.model:
+        raise ProtocolError('Managed macro storage requires the V3 receiver and only active slot1')
+    require_idle(device.model, path=socket_path())
+    with _transport(device) as io:
+        result = native_cleanup.prepare(io, hardware.journal_directory())
+    before = result['before']
+    if (before['serial'] != snapshot.serial or before['firmware'] != snapshot.metadata.get('firmware')
+            or before['controls'] != sorted(snapshot.controls)
+            or before['settings'] != {name: snapshot.settings.get(name) for name in SPECS}
+            or any(bytes.fromhex(entry['raw']) != snapshot.records.get(Location(entry['bank'], entry['control'], entry['layer']))
+                   for entry in before['records'] if entry['bank'] == snapshot.bank)):
+        raise ProtocolError('Mouse state changed since inspection; read it again before storage review')
+    return result
+
+
+def cleanup_review(device, prepared, selected, path, *, acknowledge_undo=False,
+                   stopped=lambda: False, progress=lambda message: None):
+    from . import native_cleanup
+    if device.product_id != 0xE8 or device.model != MODELS[1]:
+        raise ProtocolError('Selected device differs from managed storage review')
+    require_idle(device.model, path=socket_path())
+    with _transport(device) as io:
+        try:
+            return native_cleanup.apply(io, prepared, selected, path, hardware.journal_directory(),
+                acknowledge_undo=acknowledge_undo, stopped=stopped, progress=progress)
+        except (OSError, ValueError, InterruptedError) as error:
+            receipt = f'Receipt: {path}' if path.exists() else 'No deletion receipt was created.'
+            raise ProtocolError(f'Cleanup stopped: {error}. Review storage again; no uncertain deletion is retried. {receipt}') from error

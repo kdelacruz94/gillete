@@ -119,6 +119,91 @@ def test_closing_pending_native_save_panel_cancels_deferred_write(app, tmp_path,
     QTest.qWait(30)
 
 
+def test_native_library_review_requires_explicit_unused_selection_and_undo_acknowledgement(app, tmp_path):
+    from PySide6.QtCore import Qt
+    from gillete.gui_native_library import NativeLibraryReview
+    from test_native_cleanup import library
+    mouse, prepared = library(tmp_path)
+    before = len(mouse.writes)
+    dialog = NativeLibraryReview(prepared)
+    assert not dialog.delete_button.isEnabled() and dialog.selected() == []
+    assigned_row = next(i for i, r in enumerate(prepared['rows']) if r['id'] == 1)
+    unused_row = next(i for i, r in enumerate(prepared['rows']) if r['id'] == 2)
+    assert not dialog.table.item(assigned_row, 0).flags() & Qt.ItemFlag.ItemIsEnabled
+    dialog.table.item(unused_row, 0).setCheckState(Qt.CheckState.Checked)
+    assert dialog.selected() == [2] and not dialog.delete_button.isEnabled()
+    assert 'Native game' in dialog.details.toPlainText() and 'native-second/profile.json' in dialog.details.toPlainText()
+    dialog.acknowledge.setChecked(True)
+    assert dialog.delete_button.isEnabled() and 'private receipt' in dialog.status.text()
+    dialog.reject()
+    assert len(mouse.writes) == before
+    shiboken6.delete(dialog)
+
+
+def test_native_storage_write_waits_for_reader_and_passes_exact_selection(app, tmp_path, monkeypatch):
+    from gillete import gui_hardware, gui_native_library, native_profile_review
+    from PySide6.QtTest import QTest
+    from test_native_cleanup import library
+    _, prepared = library(tmp_path)
+    monkeypatch.setattr(gui_hardware, 'discover', lambda: [])
+    monkeypatch.setattr(gui_hardware.hardware, 'journal_directory', lambda: tmp_path)
+    monkeypatch.setattr(gui_native_library, 'NativeLibraryReview', lambda *args:
+        SimpleNamespace(exec=lambda: gui_hardware.QDialog.DialogCode.Accepted, selected=lambda: [2],
+                        acknowledge=SimpleNamespace(isChecked=lambda: True)))
+    class Progress:
+        def __init__(self, *args): self.canceled = SimpleNamespace(connect=lambda callback: None)
+        def setWindowTitle(self, *args): pass
+        def setWindowModality(self, *args): pass
+        def setMinimumDuration(self, *args): pass
+        def show(self): pass
+    monkeypatch.setattr(gui_hardware, 'QProgressDialog', Progress)
+    calls = []
+    monkeypatch.setattr(native_profile_review, 'cleanup_review', lambda *args, **kwargs: calls.append((args, kwargs)) or {})
+    panel = gui_hardware.HardwarePanel(lambda: Profile('test', 'Test'))
+    panel.run_job = lambda message, operation, success, **kwargs: operation(lambda value: None)
+    device = SimpleNamespace(model=MODELS[1], product_id=0xE8)
+    panel.job = object()
+    panel.library_reviewed(device, prepared)
+    QTest.qWait(20)
+    assert not calls and panel.busy
+    panel.job = None
+    QTest.qWait(30)
+    assert len(calls) == 1 and calls[0][0][2] == [2]
+    assert calls[0][0][3].name == 'cleanup.json' and calls[0][1]['acknowledge_undo'] is True
+    assert not panel.native_save_pending
+    shiboken6.delete(panel)
+
+
+def test_native_storage_acknowledgement_is_reset_when_selection_changes(app, tmp_path):
+    from PySide6.QtCore import Qt
+    from gillete.gui_native_library import NativeLibraryReview
+    from test_native_cleanup import library
+    _, prepared = library(tmp_path, both=True)
+    dialog = NativeLibraryReview(prepared)
+    for identifier in (1, 2):
+        index = next(i for i, r in enumerate(prepared['rows']) if r['id'] == identifier)
+        dialog.table.item(index, 0).setCheckState(Qt.CheckState.Checked)
+        assert not dialog.acknowledge.isChecked() and not dialog.delete_button.isEnabled()
+        dialog.acknowledge.setChecked(True)
+        assert dialog.delete_button.isEnabled()
+    shiboken6.delete(dialog)
+
+
+def test_discarding_native_storage_dialog_never_schedules_deletion(app, tmp_path, monkeypatch):
+    from gillete import gui_hardware, gui_native_library, native_profile_review
+    from test_native_cleanup import library
+    _, prepared = library(tmp_path)
+    monkeypatch.setattr(gui_hardware, 'discover', lambda: [])
+    monkeypatch.setattr(gui_native_library, 'NativeLibraryReview', lambda *args:
+        SimpleNamespace(exec=lambda: gui_hardware.QDialog.DialogCode.Rejected))
+    monkeypatch.setattr(native_profile_review, 'cleanup_review', lambda *args, **kwargs:
+        (_ for _ in ()).throw(AssertionError('Deletion ran after Cancel')))
+    panel = gui_hardware.HardwarePanel(lambda: Profile('test', 'Test'))
+    panel.library_reviewed(None, prepared)
+    assert not panel.native_save_pending and 'Nothing was deleted' in panel.status.text()
+    shiboken6.delete(panel)
+
+
 def test_native_sequence_pad_records_desktop_modifiers_and_only_after_ready(app, tmp_path):
     from gillete.native_sequence_pad import Pad
     from PySide6.QtCore import QEvent, Qt

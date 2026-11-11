@@ -2017,3 +2017,34 @@ Any loss of old undo dependencies needs explicit acknowledgement in the final
 review; no history is silently discarded. Admission and every deletion need
 fresh identity/reference checks and durable intent. Uncertain delete results
 are resolved by new catalog reads, never a blind repeated setter.
+
+## Managed native storage review and explicit deletion — 2026-11-10
+
+Implemented `native_history`, `native_cleanup` and `gui_native_library`, connected
+to Mouse memory after an eligible V3 firmware1.1 read. Review compares catalog
+objects against fully validated local upload artifacts, retains foreign/changed
+objects, and scans every bank/control/layer before allowing an unused object.
+It lists affected original catalog/mapping dependencies and requires explicit
+undo acknowledgement, reset when selection changes. History files and Linux
+profiles remain untouched; private cleanup receipts retain selected full bytes.
+
+Apply reconstructs the preview, then repeats reference/protected-state, catalog,
+history, ownership and identity checks before each durably journaled deletion.
+The progress window can stop between checks, including after durable intent but
+before the setter. Lost replies are observed through fresh catalog reads without
+repeated SETs. An interrupted batch needs a fresh review, not blind resume.
+No mode, binding, sensitivity, upload, format or defragmentation change is sent.
+Actual free/reclaimable counters are reported separately; safe compaction remains
+an outstanding protocol task. See `native-storage.md` for limits and acceptance.
+
+All implementation verification is offline with simulated devices/Qt widgets.
+No hardware operation or live service/migration change was performed, and the
+user's physical-test deferral remains in effect.
+
+Validation: all860 tests and550 packaged-source checks pass. Coverage includes
+all four macro-reference families, unknown controls/unassigned banks, exact byte
+ownership, changed/foreign objects, old undo dependencies, altered history/state,
+selection forgery, lost replies, cancellation during durable intent and between
+objects, disk-write failures, bounds, dialog acknowledgement/cancellation,
+reader-before-writer sequencing and idle-model desktop entry points. Staged
+Arch/wheel, CLI and isolated GUI checks pass. No real object was deleted.

@@ -4,12 +4,13 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
+from threading import Event
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, Signal, Qt
 from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFileDialog,
                               QHBoxLayout, QHeaderView, QLabel, QMessageBox,
                               QPushButton, QTableWidget, QTableWidgetItem,
-                              QTextEdit, QVBoxLayout, QWidget)
+                              QTextEdit, QVBoxLayout, QWidget, QProgressDialog)
 
 from . import hardware
 from .compile_onboard import CONTROL_IDS, describe_function
@@ -25,6 +26,7 @@ from .shortcuts import describe as describe_action
 class HardwareJob(QThread):
     succeeded = Signal(object)
     failed = Signal(str)
+    progress = Signal(str)
 
     def __init__(self, operation, parent):
         super().__init__(parent)
@@ -142,6 +144,10 @@ class HardwarePanel(QWidget):
         self.native_review_button.setEnabled(False)
         self.native_review_button.clicked.connect(self.review_native)
         layout.addWidget(self.native_review_button)
+        self.native_library_button = QPushButton('Manage native macro storage…')
+        self.native_library_button.setEnabled(False)
+        self.native_library_button.clicked.connect(self.review_library)
+        layout.addWidget(self.native_library_button)
         self.status = QLabel("No mouse configuration has been read in this window.")
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
@@ -159,6 +165,7 @@ class HardwarePanel(QWidget):
         self.backup_button.setEnabled(False)
         self.settings_button.setEnabled(False)
         self.native_review_button.setEnabled(False)
+        self.native_library_button.setEnabled(False)
         device = self.devices.currentData()
         self.verify_button.setEnabled(device is not None and device.product_id in (0xB4, 0xE8))
         self.verify_button.setToolTip('Read-only verification for the two validated receiver routes; wired support is pending.')
@@ -172,12 +179,13 @@ class HardwarePanel(QWidget):
         for device in discover():
             self.devices.addItem(f"{device.name} — {device.transport}", device)
 
-    def run_job(self, message, operation, success):
+    def run_job(self, message, operation, success, *, progress=False):
         if self.busy:
             return
         self.status.setText(message)
         self.setEnabled(False)
-        self.job = HardwareJob(operation, self)
+        self.job = HardwareJob((lambda: operation(self.job.progress.emit)) if progress else operation, self)
+        self.job.progress.connect(self.status.setText)
         self.job.succeeded.connect(success)
         self.job.failed.connect(self.failed)
         self.job.finished.connect(self.finished)
@@ -215,6 +223,7 @@ class HardwarePanel(QWidget):
         self.settings_button.setEnabled(snapshot.bank == snapshot.active)
         from .native_profile_review import eligible
         self.native_review_button.setEnabled(eligible(snapshot))
+        self.native_library_button.setEnabled(eligible(snapshot) and snapshot.metadata.get('firmware') == '0101')
         lines = [f"Read {len(snapshot.records)} normal/HyperShift assignments from slot {snapshot.bank}.",
                  f"Assigned onboard slots: {', '.join(map(str, snapshot.assigned))}",
                  "Device identity verified; serial omitted from this display."]
@@ -317,6 +326,56 @@ class HardwarePanel(QWidget):
         self.invalidate()
         self.status.setText(f"Stored assignments verified by readback. Recovery journal: {path}\n"
                             "This save has not been power-cycle tested. Read the mouse again before another save.")
+
+    def review_library(self):
+        if self.snapshot is None or self.busy: return
+        from .native_profile_review import prepare_library
+        device, snapshot = self.devices.currentData(), self.snapshot
+        self.run_job('Reading native macro ownership, references and recovery history… No settings are being changed.',
+            lambda: prepare_library(device, snapshot), lambda prepared: self.library_reviewed(device, prepared))
+
+    def library_reviewed(self, device, prepared):
+        from .gui_native_library import NativeLibraryReview
+        from .native_profile_review import cleanup_review
+        from PySide6.QtCore import QTimer
+        dialog = NativeLibraryReview(prepared, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            self.status.setText('Storage review closed. Nothing was deleted.')
+            return
+        selected, acknowledge = dialog.selected(), dialog.acknowledge.isChecked()
+        path = hardware.journal_directory() / ('native-cleanup-' + uuid4().hex) / 'cleanup.json'
+        stopped = Event()
+        self.native_save_pending = True
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        def start():
+            if self.job is not None or self.verification is not None:
+                timer.start(10)
+                return
+            self.native_save_pending = False
+            timer.deleteLater()
+            progress = QProgressDialog('Preparing managed cleanup…', 'Stop after current check', 0, 0, self.window())
+            progress.setWindowTitle('Delete selected unused native macros')
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
+            progress.setMinimumDuration(0)
+            progress.canceled.connect(stopped.set)
+            self.run_job(f'Deleting only selected unused macros… Receipt: {path}',
+                lambda report: cleanup_review(device, prepared, selected, path, acknowledge_undo=acknowledge,
+                                               stopped=stopped.is_set, progress=report),
+                lambda result: self.library_cleaned(result, path), progress=True)
+            if self.job is not None:
+                self.job.progress.connect(progress.setLabelText)
+                self.job.finished.connect(progress.close)
+                self.job.finished.connect(progress.deleteLater)
+            progress.show()
+        timer.timeout.connect(start)
+        timer.start(0)
+
+    def library_cleaned(self, result, path):
+        self.invalidate()
+        inventory = result['catalog_after']
+        self.status.setText(f'{len(result["deleted_ids"])} unused managed macros deleted; mappings/settings verified unchanged. '
+            f'{inventory["available_bytes"]} bytes free, {inventory["recyclable_bytes"]} reclaimable. Receipt: {path}')
 
     def verify_persistence(self):
         device = self.devices.currentData()

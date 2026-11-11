@@ -257,8 +257,26 @@ original dependencies or edits to affected mappings block unsafe restoration.
 Byte-identical objects from the same named profile
 are reused after metadata/data verification; unchanged saves require no new
 objects. Changed objects are retained for undo, and the preview shows new/reused
-counts and free-space/slot limits. Explicit pruning of obsolete managed objects
-remains pending. Assignment-only slot backups refuse nonzero native
+counts and free-space/slot limits. **Manage native macro storage…** reviews the
+current catalog against validated local native-save artifacts. It permits only
+explicitly selected, unused objects whose complete metadata and event bytes
+match; assigned, foreign and modified objects stay on the mouse. The dialog
+lists affected recovery records and requires acknowledgement when deleting
+their original data could break undo or complete-state verification. Changing
+the selection resets that acknowledgement. Nothing is preselected.
+
+Cleanup rechecks all button banks/layers, ownership and local history before
+each deletion, retaining exact selected bytes in a private `cleanup.json` receipt.
+The progress window can stop between checks. An uncertain reply stops the batch;
+fresh catalog reads identify absent IDs without repeating a deletion. Review
+storage again to choose any remaining objects. Old save records and Linux
+profiles are preserved. Deleted data is not automatically re-uploaded for undo.
+Deletion may free slots while leaving bytes reclaimable rather than already
+free; formatting/defragmentation remains excluded. This integrated cleanup path
+passes simulation/GUI checks; live acceptance is pending. See
+[managed native storage](docs/native-storage.md).
+
+Assignment-only slot backups refuse nonzero native
 macro references because they cannot restore the referenced data; retain the
 full native recovery journal and exported Linux profile instead.
 Recovery journals live under
