@@ -1597,3 +1597,33 @@ Validation after recovery: all 614 tests and 293 packaged-source checks pass.
 Fresh Arch/wheel staging, isolated GUI smoke and CLI validation pass without
 host installation or remapping. The unfinished source is recovered and the
 working tree is checkpointed before proceeding with the production transaction.
+
+## Asset-aware native profile transactions — 2026-11-10
+
+Added the experimental `native_profile_transaction` library. It prepares full
+state/catalog/profile artifacts, recompiles them during validation, rejects stale
+previews and persists complete originals before the first allocation. Multiple
+new assets upload and verify before binding writes. A successful transaction
+retains the saved profile and explicit undo data, checking active/stored bindings,
+native object bytes and unrelated protected state afterward.
+
+Rollback/undo restore original affected groups and reply flags before cleanup.
+They preserve existing macro objects and include sequence-family references
+when avoiding IDs/deleting new assets. Partial unverifiable objects retain
+recovery evidence; fully verified siblings can be removed independently.
+External binding/catalog changes block unsafe overwrites/deletions. Repeated
+undo uses fresh reads rather than resubmitting completed deletes. Disk-full
+failure after bindings still restores originals using the prewritten journal.
+
+The library has no GUI/CLI hardware caller yet. No mouse query/write or service
+change was made in this implementation turn. The current snapshot contract is
+the already verified E8 receiver with only bank1 assigned; other slot arrangements,
+multiple native assets, shifted macro execution and full production integration
+remain pending. Next: build the concrete multi-asset acceptance runner, then
+connect verified transaction/recovery behavior to the native Mouse memory UI.
+
+Validation: all 626 tests and 305 packaged-source checks pass. Staged Arch,
+wheel, CLI and isolated GUI checks pass without host installation. Tests cover
+multi-asset save/undo, sequence references and pre-existing objects, stale and
+forged plans, partial uploads/ACK loss, cancellation, external edits, repeated
+undo and disk-full restoration. Hardware acceptance remains separate.

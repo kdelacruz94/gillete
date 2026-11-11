@@ -179,3 +179,33 @@ sequences, repetition/cancellation and an asset-aware upload/recovery backend.
 It has no writable/apply API. The production compiler and Save to Mouse keep
 their existing macro restrictions; this module is not yet connected to those
 write paths. V2 and wired V3 are rejected by this experimental native planner.
+
+## Asset-aware transaction implementation
+
+`native_profile_transaction` now connects profile previews to durable allocation,
+upload, binding and undo operations. It remains an experimental library with
+no GUI/CLI caller; no additional hardware acceptance is claimed. Its snapshot
+contract currently requires the verified V3 receiver with bank1 solely assigned.
+Supporting other assigned-slot arrangements still requires their validation.
+
+Preparation captures the complete original state and current catalog, compiles
+the profile and stores exact artifacts. Apply recompiles those artifacts,
+rejects stale state/catalogs, and persists both the parent and original binding
+recovery before any allocation. All new objects must independently read back
+correctly before button references are saved. It then verifies active and stored
+bindings, object data, and that unrelated state was preserved. Success leaves
+the saved profile in place with explicit undo data.
+
+Failure/undo restores affected normal/HyperShift groups before deleting new
+objects. Existing catalog IDs are never deleted. Reference discovery includes
+sequence-family `0f`, unknown controls and unassigned banks. Only fully matching
+new metadata/event data can be deleted; ambiguous partial allocations retain
+recovery evidence. Existing fully uploaded objects can be cleaned independently
+of a partial second allocation. External catalog/binding/state changes block
+unsafe cleanup. Lost upload ACKs are not retried. Undo resolves already absent
+objects by reading the catalog and is repeatable without resending deletion.
+
+Disk-full injection after binding confirms that already durable recovery still
+restores the original button functions. New objects remain unbound when delete
+intent cannot be journaled. The ordinary production Save to Mouse path continues
+to block macros until this backend, acceptance gates and UI are connected.

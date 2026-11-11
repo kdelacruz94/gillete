@@ -31,7 +31,7 @@ def main():
         for module in ('applications', 'gui_launch', 'gui_standalone', 'macro_reads', 'macro_inspection', 'firmware_probe',
                        'validation_plan', 'guided_service', 'validation_pad', 'mapping_view', 'dpi_probe', 'dpi_sensor_probe',
                        'dpi_replug_probe', 'dpi_driver_probe', 'native_macro', 'macro_memory',
-                       'native_macro_probe', 'native_macro_observer', 'native_macro_plan',
+                       'native_macro_probe', 'native_macro_observer', 'native_macro_plan', 'native_profile_transaction',
                        'descriptors', 'wired_probe', 'diagnostics', 'gui_diagnostics',
                        'profile_transfer', 'gui_profile_transfer', 'profile_activation',
                        'persistence', 'gui_persistence', 'device_action_support'):
@@ -67,7 +67,7 @@ def main():
              '"tests/test_device_action_support.py", "tests/test_macro_inspection.py", '
              '"tests/test_macro_reads.py", "tests/test_firmware_probe.py", "tests/test_dpi_probe.py", '
              '"tests/test_native_macro.py", "tests/test_native_macro_probe.py", "tests/test_native_macro_observer.py", '
-             '"tests/test_native_macro_plan.py"]))'],
+             '"tests/test_native_macro_plan.py", "tests/test_native_profile_transaction.py"]))'],
             cwd=source_root, env=environment)
         run([str(executable), '--config', str(stage / 'profiles.json'), 'validate'], env=environment)
         gui_smoke = '''
