@@ -396,6 +396,17 @@ Production multi-key/count gates are not cleared merely by implementing this
 runner. Native infinite held/toggle behavior, mouse/movement macros, V2 storage
 and wired transport remain separate acceptance requirements.
 
+## Combined experiment follow-up, 2026-11-11
+
+The approved combined run recorded the correct16 desktop edges and reused all
+three objects with zero setting commands, but the raw observer rejected its
+key sequence. Both transactions verified restoration and the final catalog
+was empty. This is `test-failed-restored`, not physical acceptance of chords or
+counted playback. The offending raw event was not retained by that runner.
+Future runs retain a bounded private `raw-input.json` tail after cleanup;
+acceptance is unchanged. See the dated entry in `progress.md`. The existing
+run and human confirmation must not be reused. A fresh preparation/run is needed.
+
 ## Scoped desktop undo
 
 The desktop recovery chooser uses `undo(..., preserve_unrelated=True)`.

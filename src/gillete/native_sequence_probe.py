@@ -1,6 +1,7 @@
 """Opt-in chord/count/power-cycle/reuse acceptance with a foreground test pad."""
 
 import argparse
+from collections import deque
 import json
 from pathlib import Path
 import select
@@ -53,6 +54,26 @@ def validate(prepared):
 
 
 class EdgeObserver(Observer):
+    def __init__(self, device):
+        super().__init__(device)
+        self.trace = deque(maxlen=128)
+        self.trace_failure = None
+        self.trace_position = 0
+        self.trace_capped = False
+
+    def trace_document(self):
+        return {'version': 1, 'kind': 'native-sequence-input-trace',
+                'expected_edge': self.trace_position, 'failure': self.trace_failure,
+                'capped': self.trace_capped, 'events': list(self.trace)}
+
+    def record_event(self, source, event):
+        if event.type != ecodes.EV_KEY and not (event.type == ecodes.EV_SYN and event.code == ecodes.SYN_DROPPED):
+            return
+        if len(self.trace) >= 128:
+            self.trace_capped = True
+        self.trace.append({'source': self.sources.index(source), 'type': event.type,
+                          'code': event.code, 'value': event.value, 't': event.timestamp()})
+
     def __enter__(self):
         super().__enter__()
         try:
@@ -64,6 +85,13 @@ class EdgeObserver(Observer):
             raise
 
     def observe(self, stopped):
+        try:
+            return self.observe_edges(stopped)
+        except BaseException as error:
+            self.trace_failure = str(error) or type(error).__name__
+            raise
+
+    def observe_edges(self, stopped):
         if self.armed_at is None: raise ProtocolError('Native sequence observer was not armed')
         observed, pressed = [], {}
         while time.monotonic() < self.armed_at + 180:
@@ -71,6 +99,9 @@ class EdgeObserver(Observer):
             readable, _, _ = select.select(self.sources, [], [], .2)
             for source in readable:
                 for event in source.read():
+                    if event.timestamp() >= self.armed_at:
+                        self.record_event(source, event)
+                    self.trace_position = len(observed)
                     if event.type == ecodes.EV_SYN and event.code == ecodes.SYN_DROPPED:
                         raise ProtocolError('Dropped keyboard events invalidate native sequence')
                     if event.timestamp() < self.armed_at or event.type != ecodes.EV_KEY: continue
@@ -85,6 +116,7 @@ class EdgeObserver(Observer):
                     elif pressed.pop(name, None) != source.fd:
                         raise ProtocolError('Native key release belongs to another interface')
                     observed.append({'key': name, 'down': down, 't': event.timestamp()})
+                    self.trace_position = len(observed)
             if len(observed) == len(EDGES): return observed
         raise ProtocolError('Native chord/count observation timed out')
 
@@ -95,6 +127,7 @@ class EdgeObserver(Observer):
             readable, _, _ = select.select(self.sources, [], [], .05)
             for source in readable:
                 for event in source.read():
+                    self.record_event(source, event)
                     if (event.type == ecodes.EV_KEY and event.code < ecodes.BTN_MOUSE
                             or event.type == ecodes.EV_SYN and event.code == ecodes.SYN_DROPPED):
                         raise ProtocolError('Unexpected native keyboard event after sequence completion')
@@ -120,6 +153,10 @@ def setting_count(io):
     value = getattr(io, 'reply_health', {}).get('setting_commands')
     if type(value) is not int: raise ProtocolError('Setting-command telemetry is required for reuse acceptance')
     return value
+
+
+def save_input_trace(root, observer):
+    durable_json(root / 'raw-input.json', observer.trace_document())
 
 
 def recover_all(io, root):
@@ -198,6 +235,7 @@ def main(argv=None):
     parser.add_argument('--directory', type=Path, required=True)
     args = parser.parse_args(argv)
     pad = None
+    observer = None
     try:
         if socket_path().exists(): raise ProtocolError('Disable Gillete software control first')
         if args.operation == 'prepare':
@@ -266,6 +304,11 @@ def main(argv=None):
         return 0 if result['status'] == 'native-combined-restored' else 1
     except (OSError, ValueError) as error: parser.exit(1, f'{error}\n')
     finally:
+        if observer is not None:
+            try:
+                save_input_trace(root, observer)
+            except (OSError, ValueError) as error:
+                print(f'Native input trace could not be saved: {error}', file=sys.stderr, flush=True)
         if pad is not None and pad.poll() is None:
             pad.terminate()
             try: pad.wait(timeout=3)

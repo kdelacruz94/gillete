@@ -2345,3 +2345,55 @@ pass. Staged Arch/wheel, CLI and isolated GUI checks pass. The two layout audits
 also exercised actual offscreen Qt geometry and keyboard focus. No tests were
 added just to mirror this layout change. Full physical acceptance and migration
 remain deferred, and no host package or live remapper was changed.
+
+## Combined V3 native test: desktop sequence observed, raw validation failed — 2026-11-11
+
+The owner approved the prepared combined experiment and confirmed switching the
+V3 off/on and completing all four combinations. The existing prepared directory
+`evidence/v3-native-combined-20261110-01.local` now contains its single completed
+run. Do not restart that run or reuse the human confirmation for another test.
+
+The test window recorded the expected16 edges: Ctrl down, K down/up, Ctrl up,
+plain M down/up and five F24 pairs. K had Ctrl, M had no modifiers, and no
+unexpected desktop key was recorded. The repeated save reused all three objects
+with zero Razer setting commands. However the selected mouse's raw observer
+raised `Unexpected native chord/count key sequence`. It did not retain the
+offending event. Therefore the experiment is `test-failed-restored`, not a pass;
+raw order/timing, post-cycle asset verification and wider native admission are
+not established by the visually correct desktop sequence.
+
+Both nested transactions report `restored-readback-verified` and
+`original_state_restored=true`. The initial transaction's final catalog is empty;
+the three test macros were removed. Final storage reports3584 recyclable bytes,
+not free/compacted memory. No format/rebuild was attempted. The test process
+finished with exit1, and its window was closed by cleanup. Input-remapper was
+not changed. Source gates remain unchanged.
+
+Diagnosis is limited by missing raw failure evidence. A deterministic offline
+replay reproduced this evidence gap: an out-of-order F24 edge raises the same
+validator error, but the observer exposed no trace. This does not reproduce or
+identify the underlying hardware failure. Added a bounded128-event tail with
+source indexes, timestamps, type/code/value, expected-edge index and failure.
+The next run saves it privately as `raw-input.json` after cleanup; it contains
+only the selected mouse's key/drop events, no event-device paths, unit identity
+or pointer motion. Capping is explicit and keeps the offending tail event.
+No filesystem write occurs inside the input loop. Trace-save failure cannot
+prevent the runner's existing hardware cleanup. Acceptance rules are unchanged.
+
+The regression first failed with a missing trace API, then passed through the
+real rejecting observer and transaction cleanup path with simulated sources.
+The original raw-order cause remains unresolved: a fresh awake-mouse preparation
+and another explicitly coordinated physical run are needed to collect it.
+
+Fresh read-only preparation completed at
+`evidence/v3-native-combined-20261111-02.local/prepared.json`: the exact same
+three-object/four-mapping experiment,1536 estimated bytes, empty initial catalog
+and zero preparation setting commands. It has no run directory and has not been
+activated. This proposal includes the new failure trace for a future approved
+repeat; the prior confirmation is not transferred.
+
+Validation: all1063 tests and777 packaged-source checks pass, including bounded
+failure evidence and retained offending events after verified simulated rollback.
+Staged Arch/wheel, CLI and isolated GUI checks pass. Only the first approved
+physical run and subsequent read-only preparation accessed the mouse; no second
+write experiment, production capability expansion or migration occurred.

@@ -101,3 +101,37 @@ def test_missing_telemetry_or_modified_profile_cannot_claim_acceptance():
     with pytest.raises(ProtocolError): seq.setting_count(mouse)
     before['profile']['name'] = 'other'
     with pytest.raises(ProtocolError): seq.validate(before)
+
+
+def test_rejected_native_edge_retains_the_actual_event_and_expected_position(monkeypatch):
+    watcher, _ = setup(monkeypatch, [event(1, 10.1, ecodes.KEY_F24)])
+    observer = seq.EdgeObserver(watcher.device)
+    observer.sources = watcher.sources
+    observer.arm()
+    with pytest.raises(ProtocolError, match='Unexpected native chord/count'):
+        observer.observe(lambda: False)
+    trace = observer.trace_document()
+    assert trace['expected_edge'] == 0
+    assert trace['events'] == [{'source': 0, 'type': ecodes.EV_KEY,
+        'code': ecodes.KEY_F24, 'value': 1, 't': 10.1}]
+    assert trace['failure'] == 'Unexpected native chord/count key sequence'
+
+
+def test_failure_trace_is_bounded_keeps_offending_edge_and_survives_transaction_cleanup(monkeypatch, tmp_path):
+    import json
+    mouse, before = prepared()
+    events = [event(1, 10.01 + i * .0001, ecodes.BTN_LEFT) for i in range(200)]
+    events.append(event(1, 10.1, ecodes.KEY_F24))
+    watcher, _ = setup(monkeypatch, events)
+    observer = seq.EdgeObserver(watcher.device)
+    observer.sources = watcher.sources
+    observer.arm()
+    result = seq.exercise(mouse, before, tmp_path, lambda _: observer.observe(lambda: False))
+    assert result['status'] == 'test-failed-restored' and result['original_state_restored']
+    assert not mouse.macros
+    seq.save_input_trace(tmp_path, observer)
+    trace = json.loads((tmp_path / 'raw-input.json').read_text())
+    assert trace['capped'] and len(trace['events']) == 128
+    assert trace['events'][-1]['code'] == ecodes.KEY_F24 and trace['expected_edge'] == 0
+    assert 'Unexpected native chord/count' in trace['failure']
+    assert (tmp_path / 'raw-input.json').stat().st_mode & 0o777 == 0o600
