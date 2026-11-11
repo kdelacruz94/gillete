@@ -146,11 +146,25 @@ def feature_validation(product):
             Finding('Macro recording and program launches', 'Implemented',
                     'Linux service features; full desktop acceptance is pending.'),
             Finding('DPI stages and polling rate', 'Live write test pending',
-                    'Editing, journaling and restoration are implemented; physical settings-write acceptance is pending.'),
+                    'Editing, journaling and restoration are implemented; saved-stage and polling-rate write acceptance is pending.'),
+            Finding('Scalar sensitivity', 'Live examples passed' if product == 0xE8 else 'Live write test pending',
+                    'The development V3 accepted 1200 DPI in normal and temporary driver mode. '
+                    'Readback retained it across the reported off/on cycle and an observed receiver replug. '
+                    'Original state was restored; this does not prove which memory technology stores the value.'
+                    if product == 0xE8 else 'V3 sensitivity results do not establish the V2 setter or retention behavior.'),
             Finding('Per-program hardware DPI', 'Unavailable',
-                    'Temporary DPI must be verified before focus switching can change sensitivity. No permanent writes or pointer scaling substitute for it.'),
-            Finding('Native onboard macros and turbo', 'Unverified',
-                    'Firmware encoding and playback still need validation. Software macros/turbo require the Linux service.'),
+                    'Automatic focus-driven DPI changes remain disabled. V3 scalar sensitivity tests passed, '
+                    'but the value survives off/on and receiver replug; service integration and restoration need acceptance.'
+                    if product == 0xE8 else
+                    'V2 sensitivity writes and service integration need acceptance before focus switching can change DPI.'),
+            Finding('Native onboard macros and turbo', 'Partially verified' if product == 0xE8 else 'Unavailable',
+                    'The development V3 receiver firmware1.1 passed once-only native keyboard playback, '
+                    'shared objects, HyperShift and a reported off/on retention test. Native save admits only '
+                    'once-only single-key keyboard macros. Chords, repetition/turbo cancellation and native '
+                    'F13–F23 desktop mapping still need acceptance. Full software actions use the Linux service.'
+                    if product == 0xE8 else
+                    'The V2 Synapse model disables onboard macro storage; its saved macro references do not '
+                    'establish standalone playback. Use the Linux service for macros and turbo.'),
             Finding('Onboard slots', 'One slot' if product == 0xB4 else 'Inventory only',
                     'V2 exposes one stored slot; the active mirror is not another saved profile.' if product == 0xB4 else
                     'V3 advertises up to five slots. Read the mouse for its assigned slots; creation and native selection remain unverified.')]

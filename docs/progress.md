@@ -1904,3 +1904,18 @@ Staged Arch/wheel, CLI and isolated GUI checks pass. The earlier four-tap
 shared/HyperShift result is already captured and restored; a repeated human
 confirmation does not authorize or establish the newer combined chord/count
 experiment, which has not run.
+
+## Diagnostic evidence refreshed — 2026-11-10
+
+Updated the desktop's historical feature-validation rows to reflect the actual
+development-unit results: V3 firmware1.1 once-only native keyboard macros,
+shared objects/HyperShift/off-on retention, and scalar1200-DPI observations in
+normal/driver mode with off-on/replug retention. Native chord/repetition/F13–F23
+acceptance, saved DPI-stage/polling writes and automatic sensitivity integration
+remain explicitly pending. V2 onboard macro storage is separately unavailable
+according to its Synapse model; opaque saved references are not proof of
+standalone playback. These rows still do not certify the currently connected
+unit, and diagnostics performs no new mouse/input operations.
+
+Validation: all64 diagnostic/GUI checks pass. No capability gate, device setting,
+service, keyboard configuration or remapper was changed by this text update.
