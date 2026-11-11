@@ -340,3 +340,54 @@ The desktop previews new/reused counts and only newly required storage.
 Save errors with an existing parent journal include its recovery path. Explicit
 pruning and a physical repeated-save acceptance case remain separate work;
 the reuse/state-corruption tests in this step use simulated devices.
+
+## Combined chord, count, retention and repeated-save experiment
+
+`native_sequence_probe` admits only a fixed three-object test profile and an
+initially empty catalog. It changes normal/shifted sides11/12 only, preserving
+the existing ring-finger HyperShift trigger. Side12 normally emits Ctrl down,
+20ms, K down, 40ms, K up, 20ms, Ctrl up, 80ms, M down, 40ms, M up. Shifted
+side12 emits F24 three times, each held40ms with a 150ms trailing gap. Both
+layers of side11 share a once-only F24 macro held40ms.
+
+After the initial journaled save, it prepares/saves the identical profile in a
+separate receipt. Every object must be reused, and the real transport's Razer
+setting-command counter must remain unchanged for that second save. The
+counter classifies submitted Razer operations, not USB SET_REPORT queries.
+
+A dedicated Qt window must be ready/focused before READY is announced. The
+user then switches the mouse off/two seconds/back to 2.4GHz, clicks the window,
+and performs side12; ring+side12; side11; ring+side11, leaving one second between
+combinations. The raw observer reads only the selected V3 keyboard interfaces.
+It requires six ordered chord edges and five F24 pairs (three counted plus
+the two side11 combinations). The window independently records logical keys
+and modifiers, rejects incidental keys, and consumes editing shortcuts locally.
+Acceptance requires actual Ctrl+K, plain M with no leaked Ctrl, exact native
+edge order/count, and the user's separate explicit off/on/sequence confirmation.
+
+Within the same three-minute observation window, the assistant writes
+`run/user-report.json` containing exactly
+`{"power_cycled": true, "sequence_completed": true}` only after the user
+confirms both. No input is grabbed or injected. The pad and native observer
+retain private evidence; the controller also rechecks all saved state and
+macro bytes after the reported cycle. Optional malformed-frame capture retains
+at most16 private frames, never accepts them, and cannot prevent transport
+recovery if capture storage fails. This tests a reported switch cycle, not
+instrumented battery removal/NVM behavior.
+
+Cleanup attempts the repeat receipt first, then the initial receipt, restoring
+original assignments and removing verified new objects. Recovery is repeatable
+after both have completed and uses the initial receipt as final-state authority.
+The runner closes its own window afterward. `prepare` is read-only; `run`
+requires explicit approval for three uploads, four mappings and actual Ctrl+K/M
+input into the dedicated test window. The window is not opened by preparation.
+
+```sh
+.venv/bin/python -m gillete.native_sequence_probe prepare --directory evidence/v3-native-combined-01.local
+.venv/bin/python -m gillete.native_sequence_probe run --directory evidence/v3-native-combined-01.local
+.venv/bin/python -m gillete.native_sequence_probe recover --directory evidence/v3-native-combined-01.local
+```
+
+Production multi-key/count gates are not cleared merely by implementing this
+runner. Native infinite held/toggle behavior, mouse/movement macros, V2 storage
+and wired transport remain separate acceptance requirements.

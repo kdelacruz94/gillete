@@ -1806,3 +1806,69 @@ edits, deleted dependencies, incomplete/version-downgraded snapshots and true
 version1 recovery. Staged Arch/wheel, CLI and isolated GUI checks pass. No
 hardware operation was performed during this turn. Next: prepare a combined
 native key-sequence/repeated-save acceptance case and continue remaining modes.
+
+## Combined native chord/count/reuse acceptance prepared — 2026-11-10
+
+Added `native_sequence_probe` and a dedicated `native_sequence_pad`. The exact
+three-object profile changes only both layers of sides11/12 and preserves the
+existing ring trigger. Normal side12 emits Ctrl+K, releases Ctrl, then M with
+explicit 20/40/20/80/40-ms delays; shifted side12 emits F24 three times with
+40-ms holds/150-ms trailing gaps. Both side11 layers share once-only F24 held40ms.
+
+After initial save, the runner prepares/saves that same profile again. All
+three objects must be reused and the per-transport Razer setting-command
+counter must not increase. Then the dedicated foreground Qt window and selected
+V3 evdev observer independently validate logical Ctrl+K/plain M and the exact
+F24 count/order. Extra keys, repeats, wrong modifier state, dropped events and
+late events invalidate the result. The runner records measured holds/periods.
+
+READY requires the window to be focused and its readiness handshake complete.
+The user then reports off/on and side12; ring+side12; side11; ring+side11, waiting
+one second between combinations. Input must stay in the dedicated window.
+Only after explicit confirmation write exactly
+`{"power_cycled": true, "sequence_completed": true}` to `run/user-report.json`.
+The runner validates post-cycle state/objects and unwinds the repeat receipt
+before the initial receipt. Receipts live in `run/repeat/profile.json` and
+`run/initial/profile.json`; `recover` is repeatable after complete cleanup.
+
+Optional private corruption capture retains at most16 malformed frames during
+this test and cannot block valid reply collection if capture fails. The
+transport's setting-command counter distinguishes actual Razer setting
+operations from USB SET_REPORT queries; unchanged-save acceptance uses it.
+The pad observes only allowed test keys and consumes local editing shortcuts;
+it never opens hardware, injects keys, grabs input or changes keyboard options.
+
+Read-only preparation succeeded at
+`evidence/v3-native-combined-20261110-01.local/prepared.json`: three fresh
+objects/1536-byte estimate, empty catalog, firmware0101, 1600 DPI and zero
+setting commands. No native allocation or binding write occurred, and no
+window/test is running. New approval is required for these three objects,
+four mappings, actual Ctrl+K/M window input and a reported power cycle.
+
+A read-only Hyprland check found empty global/Naga keyboard options. Physical
+F13–F23 desktop interpretation still needs its own acceptance; previous native
+F23 tests observed raw keys, while the existing service correction targets its
+virtual keyboard. This combined case uses F24, leaving that separate requirement
+visible rather than assuming physical XKB behavior. No keyboard setting changed.
+
+The production native save gate now explicitly blocks F13–F23 until their
+physical-keyboard desktop interpretation is accepted, rather than extending
+the earlier raw-key result to Qt/application behavior. F24 and ordinary key
+families remain eligible under existing gates. Linux service correction and
+existing stored mappings are unchanged. This is a remaining compatibility
+requirement, not a reason to omit the requested function-key support.
+
+Validation: all 688 tests and 372 packaged-source checks pass, including raw
+edge order/count, desktop modifier state, extra/late events, missing human
+confirmation, failed apply, nested/idempotent recovery, setting-command counters,
+readiness-gated pad capture and failed diagnostic storage. Staged Arch/wheel,
+CLI and isolated GUI checks pass. No test/window is running and no native
+setting was written during preparation.
+
+Additional production follow-up from code inspection: undo currently compares
+the entire original protected snapshot. An unrelated legitimate DPI edit can
+therefore cause recovery-required after restoring affected bindings. Investigate
+scoped undo that preserves unrelated current state while retaining affected-group,
+catalog and original macro dependency guards. No such behavior change was made
+in this preparation step. Managed-object pruning and physical function-key
+compatibility remain outstanding too.

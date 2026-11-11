@@ -34,6 +34,7 @@ def test_corrupt_reply_then_valid_never_resubmits_even_a_setting_command(monkeyp
     assert io._exchange(command) == command.payload
     assert sent == [b'\0' + command.encode()] and len(reads) == 2
     assert io.last_reply['completed'] and io.reply_health['malformed_reports'] == 1
+    assert io.reply_health['setting_commands'] == int(command.operation < 0x80)
 
 
 def test_persistent_corruption_fails_after_three_gets_without_resubmitting(monkeypatch):
@@ -80,3 +81,18 @@ def test_corruption_followed_by_only_stale_replies_keeps_protocol_failure_classi
     io, sent, reads = harness(monkeypatch, command, [bytes(corrupt), stale])
     with pytest.raises(ProtocolError, match='after malformed reports'): io.execute(command)
     assert len(sent) == 1 and len(reads) <= 33
+
+
+def test_optional_private_corruption_capture_cannot_prevent_valid_reply_collection(monkeypatch):
+    command = Command(0, 0x84, bytes(2))
+    good = response(command, bytes(2))
+    bad = bytearray(good)
+    bad[88] ^= 1
+    io, sent, _ = harness(monkeypatch, command, [bytes(bad), good])
+    captured = []
+    def failed_capture(command, report, error):
+        captured.append((command.category, command.operation, report, error))
+        raise OSError('disk full')
+    io.bad_report_observer = failed_capture
+    assert io.execute(command) == bytes(2) and len(sent) == 1
+    assert captured[0][2] == bytes(bad) and io.last_reply['capture_failed']

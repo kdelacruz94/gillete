@@ -12,7 +12,11 @@ from test_native_profile_review import inputs
 def fixture():
     mouse, prepared, snapshot, device = inputs()
     mouse.firmware = b'\1\1'
-    return mouse, review.tx.prepare(mouse, Profile.parse(prepared['profile'])), device
+    source = Profile.parse(prepared['profile'])
+    for control in ('side_11', 'side_12'):
+        source.common.shifted[control] = Action('macro', steps=(Step('down', 'KEY_A'),
+                                         Step('wait', milliseconds=80), Step('up', 'KEY_A')))
+    return mouse, review.tx.prepare(mouse, source), device
 
 
 def test_verified_receiver_firmware_and_single_key_once_profile_pass_save_gate():
@@ -24,6 +28,7 @@ def test_verified_receiver_firmware_and_single_key_once_profile_pass_save_gate()
 
 
 @pytest.mark.parametrize('action', [Action('turbo', keys=('KEY_1',), playback='toggle'),
+    Action('macro', steps=(Step('down', 'KEY_F23'), Step('up', 'KEY_F23'))),
     Action('macro', steps=(Step('down', 'KEY_F24'), Step('up', 'KEY_F24')), playback='count', count=2),
     Action('macro', steps=(Step('down', 'KEY_LEFTCTRL'), Step('down', 'KEY_K'), Step('up', 'KEY_K'), Step('up', 'KEY_LEFTCTRL'))),
     Action('macro', steps=(Step('down', 'BTN_LEFT'), Step('up', 'BTN_LEFT')))])

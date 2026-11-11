@@ -221,7 +221,9 @@ slot1 as the sole assigned slot, and single-key timed macros played once on
 normal/HyperShift layers. Multiple buttons can share their macro data.
 Native multi-key sequences, repetition/turbo, mouse macros, V2 macro storage
 and wired V3 remain gated; those actions continue to work through the Linux
-service. These are remaining implementation/acceptance requirements.
+service. Native F13–F23 desktop interpretation is also gated pending scoped
+keyboard-map validation; the Linux service's virtual keyboard already has its
+function-key correction. These are remaining implementation/acceptance requirements.
 
 Native saves verify macro data before assigning references and preserve full
 transaction originals. **Restore from recovery journal…** accepts the native

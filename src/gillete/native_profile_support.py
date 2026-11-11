@@ -28,4 +28,7 @@ def save_issues(prepared):
                   or sum(s.kind == 'down' for s in action.steps) != 1):
                 issues.append(f'{location}: native multi-key, mouse and movement macros need validation; '
                               'use the Linux service or choose a standalone alternative.')
+            elif any(s.key in {f'KEY_F{i}' for i in range(13, 24)} for s in action.steps if s.kind in ('down', 'up')):
+                issues.append(f'{location}: native F13–F23 desktop mapping needs validation; '
+                              'use the Linux service, whose virtual-keyboard mapping is corrected.')
     return issues

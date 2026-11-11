@@ -49,8 +49,9 @@ class ReadOnlyHID:
         self.product = expected_product
         self.fd: int | None = None
         self.reply_health = {'exchanges': 0, 'get_reports': 0, 'malformed_reports': 0,
-                             'exchanges_with_malformed_reports': 0}
+                             'exchanges_with_malformed_reports': 0, 'setting_commands': 0}
         self.last_reply = None
+        self.bad_report_observer = None  # Opt-in private diagnostics; no default raw-payload retention.
 
     def __enter__(self):
         if self.product not in (0x00B4, 0x00E7, 0x00E8):
@@ -88,6 +89,8 @@ class ReadOnlyHID:
         if self.fd is None:
             raise RuntimeError("Transport is closed")
         self.reply_health['exchanges'] += 1
+        if command.operation < 0x80:
+            self.reply_health['setting_commands'] += 1
         self.last_reply = diagnostics = {'category': command.category, 'operation': command.operation,
                                         'get_reports': 0, 'malformed_reports': 0, 'completed': False}
         outgoing = bytearray(b"\0" + command.encode())
@@ -109,6 +112,9 @@ class ReadOnlyHID:
             try:
                 command.validate_frame(report)
             except ProtocolError as error:
+                if self.bad_report_observer is not None:
+                    try: self.bad_report_observer(command, report, str(error))
+                    except Exception: diagnostics['capture_failed'] = True
                 diagnostics['malformed_reports'] += 1
                 self.reply_health['malformed_reports'] += 1
                 if diagnostics['malformed_reports'] == 1:

@@ -119,6 +119,28 @@ def test_closing_pending_native_save_panel_cancels_deferred_write(app, tmp_path,
     QTest.qWait(30)
 
 
+def test_native_sequence_pad_records_desktop_modifiers_and_only_after_ready(app, tmp_path):
+    from gillete.native_sequence_pad import Pad
+    from PySide6.QtCore import QEvent, Qt
+    from PySide6.QtGui import QKeyEvent
+    from gillete.hardware import read_journal
+    output, ready = tmp_path / 'desktop.json', tmp_path / 'ready.json'
+    pad = Pad(output, ready)
+    pad.isActiveWindow = lambda: True
+    key = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_K, Qt.KeyboardModifier.ControlModifier)
+    pad.eventFilter(pad, key)
+    assert not pad.events
+    ready.touch()
+    pad.tick()
+    pad.eventFilter(pad, key)
+    assert read_journal(output)['events'][0]['modifiers'] == Qt.KeyboardModifier.ControlModifier.value
+    pad.eventFilter(pad, QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_A, Qt.KeyboardModifier.NoModifier))
+    assert read_journal(output)['unexpected_keys']
+    pad.close()
+    assert read_journal(output)['closed']
+    shiboken6.delete(pad)
+
+
 def test_failed_save_restores_ui_and_does_not_query_hardware(app, tmp_path, monkeypatch):
     from gillete import hardware
     monkeypatch.setattr(hardware, 'transport', lambda _: (_ for _ in ()).throw(AssertionError('Implicit hardware access')))
