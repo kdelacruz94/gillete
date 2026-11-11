@@ -46,6 +46,21 @@ def test_scroll_and_dpi_editors_preserve_assignments(app):
         shiboken6.delete(dialog)
 
 
+def test_native_macro_review_has_mapping_rows_but_no_save_action_or_writes(app):
+    from gillete.gui_native_profile import NativeProfileReview
+    from test_native_profile_probe import prepared_mouse
+    from PySide6.QtWidgets import QPushButton
+    mouse, prepared = prepared_mouse()
+    previous = deepcopy(prepared)
+    dialog = NativeProfileReview(prepared)
+    assert dialog.table.rowCount() == len(MODEL_CONTROLS[MODELS[1]]) * 2
+    assert any('Native macro:' in dialog.table.item(row, 4).text() for row in range(dialog.table.rowCount()))
+    assert 'not enabled' in dialog.notes.toPlainText()
+    assert not any('Save' in button.text() for button in dialog.findChildren(QPushButton))
+    assert prepared == previous and not mouse.writes
+    shiboken6.delete(dialog)
+
+
 def test_failed_save_restores_ui_and_does_not_query_hardware(app, tmp_path, monkeypatch):
     from gillete import hardware
     monkeypatch.setattr(hardware, 'transport', lambda _: (_ for _ in ()).throw(AssertionError('Implicit hardware access')))

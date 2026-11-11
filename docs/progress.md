@@ -1658,3 +1658,43 @@ binding changes. After READY, ask for side12; ring+side12; side11; ring+side11,
 releasing all buttons between combinations. Only after the user confirms the
 full sequence write exactly `{"sequence_completed": true}` to
 `run/sequence-report.json`. No test is running; input-remapper remains untouched.
+
+## V3 shared native macros and HyperShift observed — 2026-11-10
+
+The user approved the uploads/four mappings and confirmed performing side12,
+ring+side12, side11, ring+side11. Actual events were F24/F23/F24/F23 with holds
+81.989/82.964/81.998/80.997 ms. Saved state and both objects verified after
+playback. This accepts the exact shared-reference/native HyperShift case,
+separate from cleanup reliability.
+
+Automatic undo restored the original bindings but encountered an invalid
+report length/checksum during final verification. The first fresh-connection
+recovery failed with the same error. Its catalog showed both objects were
+already deleted and the binding-recovery journal was restored. A second
+fresh-connection recovery, instrumented to name any failed command, succeeded
+without reporting one. The authoritative `run/profile.json` now records
+`restored-readback-verified`, `original_state_restored=true`, an empty catalog
+and full normalized original-state equality, preserving 1600 DPI. The separate
+experiment retains the initial recovery error and now records
+`recovered-after-verification-error` with the verified recovery reference.
+
+Full private evidence: `evidence/v3-native-profile-20261110-01.local/run/`.
+No test is running. Openrazer-daemon and polychromatic-tray-applet were observed
+running; no kernel error appeared in the checked interval. This does not prove
+they caused the malformed reply. No service/driver change was made. Production
+macro writes remain gated while communication/recovery robustness is investigated.
+
+## Native desktop read-only review — 2026-11-10
+
+Added Review native macro profile to Mouse memory for the eligible V3 receiver
+and active slot1. Preparation rediscovers the selected route, refuses an active
+Gillete service and compares inspected identity, firmware, controls, bindings
+and saved settings with a fresh complete read-only snapshot/catalog.
+
+The native dialog shows Linux actions, current/proposed bindings, shared asset
+count, storage admission and pending requirements. It has only Close, with no
+save action or implicit upload. Ordinary Save to Mouse remains unchanged.
+Tests cover immutability, stale inspection, service/route gates and the actual
+offscreen dialog. All 641 tests and 320 packaged-source checks pass; staged
+Arch/wheel/GUI/CLI checks pass. Next: investigate bounded malformed-report
+handling before connecting native macro writes to the production UI.

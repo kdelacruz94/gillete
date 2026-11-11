@@ -246,3 +246,23 @@ The run requires new approval for uploading two native objects and changing
 four saved mappings. A successful observation would establish this exact
 two-asset/shared-reference/HyperShift case, without proving native repeating
 modes, arbitrary multi-key sequences or V2/wired behavior.
+
+### Physical result
+
+The user confirmed the sequence on 2026-11-10. Actual F24/F23/F24/F23 holds
+were about 82/83/82/81 ms, and objects plus saved state verified afterward.
+The exact shared-reference/HyperShift case is physically accepted. Automatic
+cleanup and the first fresh recovery encountered a report length/checksum error;
+another fresh recovery verified complete original state and an empty catalog.
+Initial errors remain in private evidence. Production write integration stays
+gated pending communication/recovery robustness work; playback success does
+not erase that reliability limitation.
+
+## Desktop read-only review
+
+Mouse memory offers Review native macro profile for the eligible V3 receiver
+and slot1. A worker compares the inspected snapshot to fresh complete state
+and catalog data before showing proposed mappings, shared objects, storage
+admission and pending requirements. The dialog cannot save or activate anything.
+Software control must be disabled, and stale inspection requires another mouse
+read. Ordinary Save to Mouse compilation remains unchanged.

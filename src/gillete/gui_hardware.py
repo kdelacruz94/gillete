@@ -137,6 +137,10 @@ class HardwarePanel(QWidget):
         self.verify_button = QPushButton('Verify a saved binding journal after restart…')
         self.verify_button.clicked.connect(self.verify_persistence)
         layout.addWidget(self.verify_button)
+        self.native_review_button = QPushButton('Review native macro profile…')
+        self.native_review_button.setEnabled(False)
+        self.native_review_button.clicked.connect(self.review_native)
+        layout.addWidget(self.native_review_button)
         self.status = QLabel("No mouse configuration has been read in this window.")
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
@@ -153,6 +157,7 @@ class HardwarePanel(QWidget):
         self.preview.setEnabled(False)
         self.backup_button.setEnabled(False)
         self.settings_button.setEnabled(False)
+        self.native_review_button.setEnabled(False)
         device = self.devices.currentData()
         self.verify_button.setEnabled(device is not None and device.product_id in (0xB4, 0xE8))
         self.verify_button.setToolTip('Read-only verification for the two validated receiver routes; wired support is pending.')
@@ -207,6 +212,8 @@ class HardwarePanel(QWidget):
         self.preview.setEnabled(True)
         self.backup_button.setEnabled(True)
         self.settings_button.setEnabled(snapshot.bank == snapshot.active)
+        from .native_profile_review import eligible
+        self.native_review_button.setEnabled(eligible(snapshot))
         lines = [f"Read {len(snapshot.records)} normal/HyperShift assignments from slot {snapshot.bank}.",
                  f"Assigned onboard slots: {', '.join(map(str, snapshot.assigned))}",
                  "Device identity verified; serial omitted from this display."]
@@ -268,6 +275,16 @@ class HardwarePanel(QWidget):
         self.run_job(f"Saving to mouse… Recovery journal: {path}",
                      lambda: hardware.apply(device, snapshot, profile, path),
                      lambda result: self.saved(result, path))
+
+    def review_native(self):
+        if self.snapshot is None or self.busy:
+            return
+        from .native_profile_review import prepare_review
+        from .gui_native_profile import NativeProfileReview
+        device, snapshot, profile = self.devices.currentData(), self.snapshot, deepcopy(self.current_profile())
+        self.run_job('Reading native macro catalog and profile dependencies… No settings are being changed.',
+                     lambda: prepare_review(device, snapshot, profile),
+                     lambda prepared: NativeProfileReview(prepared, self).exec())
 
     def saved(self, result, path):
         self.invalidate()
