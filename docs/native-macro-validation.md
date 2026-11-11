@@ -3,7 +3,9 @@
 2026-11-10. The compiler and experiment pass offline checks. The user's V3
 receiver has now physically accepted allocation, upload, counted-once F24
 playback (83.001-ms measured hold for 80-ms requested delay) and cleanup.
-Power-cycle persistence, HyperShift and repetition remain unverified.
+The same macro and stored/active binding also survived the user's reported
+off/on cycle, with 81.001-ms observed playback and complete cleanup afterward.
+Battery-removal retention, HyperShift and repetition remain unverified.
 Production Save to Mouse capabilities remain unchanged.
 
 ## First-party wire findings
@@ -110,7 +112,7 @@ macro-storage writes):
 .venv/bin/python -m gillete.native_macro_probe recover --directory evidence/v3-native-macro-01.local
 ```
 
-V2, wired V3, HyperShift macros, power-cycle persistence, native repetition
+V2, wired V3, HyperShift macros, battery-removal retention, native repetition
 and production multi-macro/profile dependency management require separate
 acceptance. V2's disabled onboard macro feature remains a material boundary;
 this experiment never writes to it.

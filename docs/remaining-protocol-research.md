@@ -77,6 +77,13 @@ protected settings were restored, and the test object was deleted. The catalog
 is empty; 512 bytes are reclaimable. This accepts the bounded native path,
 not persistence, HyperShift or repeated playback. See `progress.md`.
 
+**Approved off/on follow-up:** the user reported switching the V3 off/on and
+then tapping side 12. Actual native F24 down/up lasted 81.001 ms. Complete
+macro metadata/event bytes and stored/active bindings matched afterward;
+original bindings/settings and 3200 DPI were restored, and the test object
+was deleted. This establishes retention across that reported switch cycle,
+not battery-removal/NVM implementation or untested playback modes.
+
 ## 1. V2 stored functions
 
 ### Class `05` is a macro family, not a disabled/default marker

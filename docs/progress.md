@@ -1538,3 +1538,28 @@ with `durable_json` to its `run/power-cycle-report.json`; do not invent that
 confirmation. Its process automatically restores on completion or timeout.
 Check `run/journal.json` before any new mouse operation. Input-remapper and
 production services remain unchanged.
+
+## V3 native macro off/on retention accepted — 2026-11-10
+
+The user completed the requested mouse off/two-second wait/on/side-12 sequence
+and explicitly confirmed it. That report was recorded separately from actual
+keyboard events. The V3 emitted F24 down/up with an 81.001-ms hold for the
+requested 80-ms delay. Post-execution getters verified the catalog, complete
+250-byte metadata, six event bytes and both stored/active macro bindings.
+The run recorded `power_cycle_retention_observed=true` and
+`post_execution_readback_verified=true`.
+
+Cleanup completed `native-macro-restored`, `native_playback_verified=true`,
+`original_state_restored=true`, with no experiment/recovery error. Original
+functions, reply flags and protected settings matched, preserving 3200 DPI.
+The macro catalog is empty again: maximum 307200, free 306176, reclaimable1024
+bytes. No format/compaction was used. Full private journal:
+`evidence/v3-native-macro-power-20261110-01.local/run/journal.json`.
+No experiment is currently running.
+
+This accepts native counted-once execution and retention across the user's
+reported mouse switch cycle on the V3 receiver. It does not establish battery
+removal/flash implementation, native HyperShift macros, multiple-object/profile
+management, repeat/toggle cancellation, V2 native storage or wired transport.
+Continue independent production integration; request physical cooperation only
+for the next concrete acceptance case.
