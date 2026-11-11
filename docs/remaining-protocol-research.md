@@ -55,6 +55,14 @@ Cleanup verified restoration to 6400 and the full normalized original state.
 Receiver retention is now established on this V3; flash/NVM behavior versus
 mouse-side powered memory and driver-mode acceptance remain unresolved.
 
+**Driver-mode follow-up:** the user's V3 receiver also accepted selector-zero
+1200 DPI while a journaled ModeLease held driver mode. Immediate and final
+readback matched 1200 with unchanged saved DPI/stages/polling; the user reported
+normal sensitivity. Cleanup verified normal mode, selector-zero 6400 and the
+full original protected state. Driver-mode behavior is now physically accepted
+for this V3 receiver. V2/wired behavior, NVM implementation and automatic
+profile-switch/service integration remain separate unverified requirements.
+
 ## 1. V2 stored functions
 
 ### Class `05` is a macro family, not a disabled/default marker
