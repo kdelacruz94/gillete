@@ -26,7 +26,7 @@ class ServicePanel(QWidget):
         layout = QVBoxLayout(self)
         label = QLabel('Software control applies program profiles, macros, turbo and launches.\n'
                        'Suspend any other remapper for a mouse before enabling it here. Stored bindings are preserved.\n'
-                       'Emergency stop: Ctrl+Alt+Pause. Live remapping is still undergoing hardware validation.')
+                       'Set the emergency shortcut in Startup. Live remapping is still undergoing hardware validation.')
         label.setWordWrap(True)
         layout.addWidget(label)
         tools = QHBoxLayout()
@@ -143,6 +143,13 @@ class ServicePanel(QWidget):
         lines = ['Focus monitoring: ' + ('refreshing active window' if data.get('focus_pending') and data['focus_available'] else
                                         'ready' if data['focus_available'] else data['focus_error'] or 'unavailable'),
                  'Suspend monitoring: ' + ('ready' if data['suspend_monitor'] else 'unavailable')]
+        if data.get('emergency_shortcut'):
+            lines.append('Active emergency stop: ' + data['emergency_shortcut'])
+        elif data.get('emergency_shortcut_configured'):
+            lines.append('Emergency stop when enabling: ' + data['emergency_shortcut_configured'])
+        if data.get('emergency_shortcut_restart_required'):
+            lines.append('Saved emergency shortcut: ' + data['emergency_shortcut_saved']
+                         + ' — stop and restart the background service to apply.')
         for model, name in zip(MODELS, ('Naga V2 HyperSpeed', 'Naga V3 Pro')):
             state = data['devices'][model]
             retry = state.get('retry_in_ms', 0)

@@ -26,7 +26,7 @@ def main():
     with zipfile.ZipFile(wheel) as archive:
         assert not any('evidence/' in name or '.local' in name for name in archive.namelist())
         for module in ('settings', 'gui_settings', 'gui_controls', 'gui_applications', 'keyboard_map',
-                       'startup', 'gui_startup', 'gui_instance', 'function_keymap'):
+                       'startup', 'gui_startup', 'gui_instance', 'function_keymap', 'stop_shortcut'):
             assert f'gillete/{module}.py' in archive.namelist()
         for module in ('applications', 'gui_launch', 'gui_standalone', 'macro_reads', 'macro_inspection', 'firmware_probe', 'polling_reads',
                        'validation_plan', 'guided_service', 'validation_pad', 'mapping_view', 'dpi_probe', 'dpi_sensor_probe',
@@ -82,7 +82,9 @@ def main():
              '"tests/test_native_sequence_probe.py", "tests/test_native_profile_undo.py", "tests/test_stored_native.py", '
              '"tests/test_function_keymap.py", "tests/test_keyboard_map.py", "tests/test_memory_access.py", '
              '"tests/test_native_cleanup.py", "tests/test_native_cleanup_review.py", '
-             '"tests/test_profile_selection.py", "tests/test_profile_from_mouse.py", '
+             '"tests/test_profile_selection.py", "tests/test_profile_from_mouse.py", "tests/test_stop_shortcut.py", '
+             '"tests/test_gui.py::test_emergency_shortcut_preferences_are_local_and_preserve_unrelated_edits", '
+             '"tests/test_gui.py::test_software_control_displays_active_and_pending_emergency_shortcuts", '
              '"tests/test_gui.py::test_mouse_profile_review_keeps_unknowns_until_rows_are_explicitly_disabled", '
              '"tests/test_gui.py::test_mouse_profile_review_explains_unavailable_device_actions_and_keeps_trigger_layers_consistent", '
              '"tests/test_gui.py::test_create_profile_from_mouse_is_local_only_and_preserves_selection_rules_and_originals", '

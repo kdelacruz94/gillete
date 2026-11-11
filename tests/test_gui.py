@@ -816,6 +816,55 @@ def test_startup_preferences_preserve_external_profile_edits_and_do_not_activate
     shiboken6.delete(panel)
 
 
+def test_emergency_shortcut_preferences_are_local_and_preserve_unrelated_edits(app, tmp_path, monkeypatch):
+    from gillete import service
+    async def forbidden(*args, **kwargs): raise AssertionError('Saving must not contact the compositor or service')
+    monkeypatch.setattr(service, 'request', forbidden)
+    store = ProfileStore(tmp_path / 'profiles.json')
+    entry = AutostartEntry(store.path, path=tmp_path / 'autostart/gillete.desktop')
+    panel = StartupPanel(store, entry=entry)
+    try:
+        external = store.read()
+        external.profiles['default'].name = 'Edited elsewhere'
+        external.startup_models = [MODELS[1]]
+        external.pinned[MODELS[0]] = 'default'
+        store.save(external, expected_revision=0)
+        for name, box in panel.stop_mods.items(): box.setChecked(name in ('Super', 'Shift'))
+        panel.stop_key.setCurrentText('F8')
+        panel.save_stop_button.click()
+        saved = store.read()
+        assert saved.emergency_shortcut == 'Shift+Super+F8'
+        assert saved.profiles == external.profiles and saved.pinned == external.pinned
+        assert saved.startup_models == [MODELS[1]] and saved.rules == external.rules
+        assert 'restart' in panel.stop_result.text() and not entry.path.exists()
+        before = store.path.read_bytes()
+        def fail(*args, **kwargs): raise OSError('Disk full')
+        monkeypatch.setattr(store, 'save', fail)
+        panel.stop_key.setCurrentText('F9')
+        panel.save_stop_button.click()
+        assert 'Not saved' in panel.stop_result.text() and store.path.read_bytes() == before
+    finally:
+        shiboken6.delete(panel)
+
+
+def test_software_control_displays_active_and_pending_emergency_shortcuts(app, tmp_path):
+    from gillete.gui_service import ServicePanel
+    from gillete.service import Daemon
+    store = ProfileStore(tmp_path / 'profiles.json')
+    daemon = Daemon(store)
+    daemon.emergency.installed = True
+    daemon.coordinator.config.emergency_shortcut = 'Super+F8'
+    panel = ServicePanel(store)
+    try:
+        panel.status(daemon.status())
+        text = panel.info.toPlainText()
+        assert 'Active emergency stop: Ctrl+Alt+Pause' in text
+        assert 'Saved emergency shortcut: Super+F8' in text and 'restart' in text
+    finally:
+        panel.shutdown_ui()
+        shiboken6.delete(panel)
+
+
 def test_installed_app_picker_filters_and_saves_only_the_selected_target(app, monkeypatch):
     from PySide6.QtWidgets import QDialogButtonBox
     apps = [DesktopApplication('editor.desktop', 'Editor', 'Edit source files'),

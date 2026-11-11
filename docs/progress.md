@@ -2270,3 +2270,47 @@ isolated offscreen GUI checks pass. No host package, live service, generated
 input, remapper migration or hardware experiment occurred. The owner's physical
 test deferral remains in effect; the earlier combined V3 native experiment and
 complete receiver-control suites remain prepared, not passed.
+
+## Configurable emergency-stop shortcut — 2026-11-11
+
+The specification requires a configurable emergency shortcut, but the service
+previously fixed it at Ctrl+Alt+Pause. Added a validated local preference and
+Startup controls for Pause/F1–F12 plus optional Ctrl/Alt/Shift/Super. Legacy
+version1 configurations retain the default. Preferences normalize into a bounded
+chord rather than accepting arbitrary compositor syntax. Profile import and
+duplication preserve the local choice.
+
+The daemon takes its active choice at startup. Saving a preference or reloading
+profiles leaves that choice installed until the service is stopped/restarted;
+enabling the second mouse reuses the active choice. Status/Software control show
+the active, configured and saved choices, including restart-required state.
+The Startup save reads current configuration and changes only this preference.
+No compositor/service command, remapping or startup activation occurs on save.
+
+Conflict inspection covers the selected named key, known XKB keycodes, submaps
+and reported ignore-modifier bindings. The existing installed receipt contains
+the exact observed binding; cleanup does not unbind if another matching row was
+added. Removal is read back, and failures retain the receipt. Switching after an
+interruption first recovers an unchanged owned old chord; a user replacement
+is preserved. Old receipts without a chord field retain their default meaning.
+
+New installations journal intent before the compositor mutation, including before
+the older keyword fallback. If a reply is lost after creation, shutdown or a later
+start can identify the pending owned row and verify its removal or adoption.
+Prepared Lua recovery uses the recorded generated description; legacy recovery
+uses the exact executable command. Neither claims ownership of arbitrary rows.
+An unwritable intent journal prevents the mutation. These are bounded registry
+checks, not an atomic lock against other desktop configuration writers.
+
+The implementation uses first-party [Hyprland bind/unbind syntax](https://wiki.hypr.land/configuring/core/binds/)
+and preserves the documented case-sensitive chord on removal. Tests substitute
+an inert compositor registry and temporary stores: no live binding was read,
+added or removed, and no hardware, service, remapper or host package was changed.
+Live shortcut/desktop acceptance remains pending with the other deferred tests.
+
+Validation: all1061 tests and775 packaged-source checks pass. Coverage includes
+old configuration/receipt migration, custom Lua and legacy chords, named/code/
+submap conflicts, lost replies, failed journals/removal, shared and replaced
+bindings, local-only GUI saves, active/pending display and service reload/restart
+semantics. Staged Arch/wheel, CLI and isolated GUI checks pass. No host package
+was installed and no live shortcut or physical test was run.

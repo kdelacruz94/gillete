@@ -34,7 +34,7 @@ class Daemon:
         self.trace_controls = trace_controls
         self.coordinator = ProfileCoordinator(store.read())
         self.focus = HyprlandWatcher(self.coordinator)
-        self.emergency = EmergencyShortcut(self.focus)
+        self.emergency = EmergencyShortcut(self.focus, shortcut=self.coordinator.config.emergency_shortcut)
         self.requested = set()
         self.startup_pending = set(self.coordinator.config.startup_models)
         self.sessions = {}
@@ -74,6 +74,9 @@ class Daemon:
                 'focus': asdict(self.coordinator.window), 'focus_error': self.focus.last_error,
                 'suspended': self.suspended, 'suspend_monitor': self.sleep_monitor_ready,
                 'emergency_shortcut': self.emergency.label if self.emergency.installed else None,
+                'emergency_shortcut_configured': self.emergency.label,
+                'emergency_shortcut_saved': self.coordinator.config.emergency_shortcut,
+                'emergency_shortcut_restart_required': self.emergency.label != self.coordinator.config.emergency_shortcut,
                 'configuration_error': self.config_error,
                 'devices': {model: {'requested': model in self.requested,
                                     'active': bool(self.sessions.get(model) and self.sessions[model].ready),

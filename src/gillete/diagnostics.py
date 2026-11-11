@@ -122,7 +122,9 @@ def findings(device, devices, *, uinput_access=None, service=None, service_error
     if service.get('configuration_error'):
         rows.append(Finding('Profile configuration', 'Error', service['configuration_error']))
     rows.append(Finding('Emergency shortcut', 'Installed' if service.get('emergency_shortcut') else 'Not installed',
-                        service.get('emergency_shortcut') or 'The service checks Ctrl+Alt+Pause before enabling a mouse.'))
+                        service.get('emergency_shortcut') or
+                        ('The service checks ' + service.get('emergency_shortcut_configured', 'the configured shortcut')
+                         + ' before enabling a mouse.')))
     return rows
 
 

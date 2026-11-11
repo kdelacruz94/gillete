@@ -13,6 +13,7 @@ import tempfile
 from typing import Any
 
 from .model import ConfigurationError, MODELS, Profile, integer, object_fields
+from .stop_shortcut import DEFAULT as DEFAULT_STOP, StopShortcut
 
 
 def literal_pattern(value):
@@ -68,9 +69,11 @@ class Configuration:
     rules: list[Rule] = field(default_factory=list)
     revision: int = 0
     startup_models: list[str] = field(default_factory=list)
+    emergency_shortcut: str = DEFAULT_STOP
 
     def validate(self):
         integer(self.revision, "Revision", 0, 2**53 - 1)
+        StopShortcut.parse(self.emergency_shortcut)
         if (not isinstance(self.startup_models, list)
                 or any(not isinstance(m, str) or m not in MODELS for m in self.startup_models)
                 or len(set(self.startup_models)) != len(self.startup_models)):
@@ -108,11 +111,12 @@ class Configuration:
         return {"version": 1, "revision": self.revision,
                 "profiles": [p.json() for p in self.profiles.values()],
                 "defaults": self.defaults, "pinned": self.pinned,
-                "rules": [asdict(r) for r in self.rules], "startup_models": self.startup_models}
+                "rules": [asdict(r) for r in self.rules], "startup_models": self.startup_models,
+                "emergency_shortcut": StopShortcut.parse(self.emergency_shortcut).label}
 
     @classmethod
     def parse(cls, data: Any) -> Configuration:
-        fields = object_fields(data, {"version", "revision", "profiles", "defaults", "pinned", "rules", "startup_models"}, "configuration")
+        fields = object_fields(data, {"version", "revision", "profiles", "defaults", "pinned", "rules", "startup_models", "emergency_shortcut"}, "configuration")
         if type(fields.get("version")) is not int or fields["version"] != 1:
             raise ConfigurationError("Unsupported configuration version")
         profiles, rules = fields.get("profiles"), fields.get("rules", [])
@@ -128,7 +132,8 @@ class Configuration:
             raise ConfigurationError("Defaults/pins must be objects")
         result = cls({p.id: p for p in parsed}, defaults, pinned,
                      [Rule(**object_fields(r, set(Rule.__dataclass_fields__), "rule")) for r in rules],
-                     fields.get("revision", 0), fields.get("startup_models", []))
+                     fields.get("revision", 0), fields.get("startup_models", []),
+                     StopShortcut.parse(fields.get('emergency_shortcut', DEFAULT_STOP)).label)
         result.validate()
         return result
 

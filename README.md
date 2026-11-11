@@ -150,8 +150,21 @@ The tray menu provides profile pins and Automatic for each mouse, enable/disable
 and stopping software actions. Closing the editor hides it when a system tray
 is available; **Quit editor** exits the UI while the service can continue.
 Opening Gillete again brings back the existing editor for that profile file.
-Ctrl+Alt+Pause stops generated actions while the service is active; an existing
-Hyprland binding on that chord is preserved and prevents activation.
+Ctrl+Alt+Pause is the default emergency stop for generated actions. In **Startup**,
+choose Pause or F1–F12 with optional Ctrl/Alt/Shift/Super modifiers and select
+**Save emergency shortcut preference**. Stop and restart the background service
+to apply it. Saving does not change the active shortcut or desktop bindings;
+Software control shows the active choice and any saved choice awaiting restart.
+Existing configurations keep the default. The preference belongs to this local
+installation and stays unchanged when importing or duplicating profiles.
+
+An existing Hyprland binding on the selected chord prevents activation. Gillete
+uses the compositor's [Lua bind/unbind interface](https://wiki.hypr.land/configuring/core/binds/)
+or its older keyword interface, checking registered state before and after.
+An interrupted installation retains an ownership receipt for recovery, including
+a command whose reply was lost. Cleanup preserves changed/shared bindings and
+retains recovery data when it cannot verify removal. The configurable path is
+tested with simulated compositor replies; live desktop acceptance remains pending.
 
 The service uses temporary driver mode and evdev ownership plus uinput output.
 It restores normal mode on disable/shutdown. Program focus changes select local

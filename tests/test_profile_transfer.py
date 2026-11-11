@@ -25,6 +25,7 @@ def library():
                     Rule('unused', app_class='other')]
     config.pinned[MODELS[1]] = 'game'
     config.startup_models = [MODELS[0]]
+    config.emergency_shortcut = 'Super+F8'
     return config
 
 
@@ -44,6 +45,7 @@ def test_duplicate_rebases_all_self_switches_without_changing_other_profiles_or_
     assert copied.rules == config.rules + rules
     assert copied.defaults == config.defaults and copied.pinned == config.pinned
     assert copied.startup_models == config.startup_models
+    assert copied.emergency_shortcut == config.emergency_shortcut
     profile.standalone[MODELS[0]].normal.clear()
     copied.profiles['game'].name = 'A later edit'
     assert config.json() == before
@@ -90,6 +92,7 @@ def test_collision_import_rewrites_cross_links_and_keeps_existing_configuration(
                                  replace(config.rules[1], profile=imported_game.id)]
     assert result.defaults == config.defaults and result.pinned == config.pinned
     assert result.startup_models == config.startup_models and result.revision == config.revision
+    assert result.emergency_shortcut == config.emergency_shortcut
     assert all(result.profiles[key].json() == value.json() for key, value in config.profiles.items())
     assert config.json() == before
     assert bundle.profiles['work'].common.normal['side_1'].target == 'work'

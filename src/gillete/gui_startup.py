@@ -1,10 +1,11 @@
 """Startup preferences do not activate or disable any current mouse session."""
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QCheckBox, QLabel, QMessageBox, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QLabel, QMessageBox, QPushButton, QVBoxLayout, QWidget
 
 from .model import MODELS
 from .startup import AutostartEntry
+from .stop_shortcut import KEYS, MODIFIERS, StopShortcut
 
 
 class StartupPanel(QWidget):
@@ -44,6 +45,31 @@ class StartupPanel(QWidget):
         self.result = QLabel()
         self.result.setWordWrap(True)
         layout.addWidget(self.result)
+        emergency = QLabel('Emergency stop shortcut\n'
+                           'Stops macros and releases generated keys. Changes apply after you stop and restart the background service. '
+                           'The current shortcut stays active until then. Conflicting desktop bindings prevent mouse activation.')
+        emergency.setWordWrap(True)
+        layout.addWidget(emergency)
+        current = StopShortcut.parse(config.emergency_shortcut)
+        choices = QHBoxLayout()
+        self.stop_mods = {}
+        for modifier in MODIFIERS:
+            box = QCheckBox(modifier)
+            box.setChecked(modifier in current.modifiers)
+            choices.addWidget(box)
+            self.stop_mods[modifier] = box
+        self.stop_key = QComboBox()
+        self.stop_key.setAccessibleName('Emergency stop key')
+        self.stop_key.addItems(KEYS)
+        self.stop_key.setCurrentText(current.key)
+        choices.addWidget(self.stop_key)
+        layout.addLayout(choices)
+        self.save_stop_button = QPushButton('Save emergency shortcut preference')
+        self.save_stop_button.clicked.connect(self.save_stop)
+        layout.addWidget(self.save_stop_button)
+        self.stop_result = QLabel()
+        self.stop_result.setWordWrap(True)
+        layout.addWidget(self.stop_result)
         layout.addStretch()
 
     def load_desktop(self):
@@ -75,3 +101,15 @@ class StartupPanel(QWidget):
             self.saved.emit()
         except (OSError, ValueError) as error:
             self.result.setText('Not saved: ' + str(error))
+
+    def save_stop(self):
+        try:
+            chord = '+'.join((*[mod for mod, box in self.stop_mods.items() if box.isChecked()],
+                              self.stop_key.currentText()))
+            config = self.store.read()
+            config.emergency_shortcut = StopShortcut.parse(chord).label
+            self.store.save(config, expected_revision=config.revision)
+            self.stop_result.setText('Saved ' + config.emergency_shortcut + '. Stop and restart the background service to apply; no desktop binding changed now.')
+            self.saved.emit()
+        except (OSError, ValueError) as error:
+            self.stop_result.setText('Not saved: ' + str(error))
