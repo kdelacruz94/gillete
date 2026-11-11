@@ -60,7 +60,8 @@ class DeviceSession:
 
     def current_input(self, generation):
         return (self.engine is not None and generation == self.engine.generation
-                and self.coordinator.available and not self.stop_requested.is_set())
+                and self.coordinator.available and not self.coordinator.focus_pending
+                and not self.stop_requested.is_set())
 
     def cleanup_error(self, label, error, *, allow_retry=False):
         self.error += f' {label}: {str(error) or type(error).__name__}'
@@ -237,7 +238,8 @@ class DeviceSession:
                     return
                 if not self.coordinator.available:
                     raise SessionInterrupted('Hyprland focus monitoring is unavailable; reconnecting')
-                await router.feed(frame, activate=generation == self.engine.generation)
+                await router.feed(frame, activate=(not self.coordinator.focus_pending
+                                                   and generation == self.engine.generation))
 
     async def process_controls(self, controls):
         while True:

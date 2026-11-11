@@ -16,6 +16,8 @@ class ProfileCoordinator:
         self.window = Window()
         self.engines: dict[str, Engine] = {}
         self.available = False
+        self.focus_pending = False
+        self.focus_revision = 0
         self.lock = asyncio.Lock()
 
     async def attach(self, identity: str, engine: Engine):
@@ -31,23 +33,49 @@ class ProfileCoordinator:
             if engine:
                 await engine.disconnect()
 
-    async def focus_changed(self, window: Window):
+    async def focus_event(self, *, moved):
+        # Invalidate an outstanding query before waiting for an input/config
+        # handler's lock. New button commands are blocked immediately; the
+        # event reader keeps consuming changes while hyprctl is outstanding.
+        self.focus_revision += 1
+        if moved:
+            self.focus_pending = True
         async with self.lock:
+            if moved:
+                for engine in self.engines.values():
+                    await engine.cancel()
+
+    async def focus_changed(self, window: Window, *, revision=None):
+        async with self.lock:
+            if revision is not None and revision != self.focus_revision:
+                return False
             moved = self.window.address != window.address or self.window.app_class != window.app_class
-            self.window = window
-            self.available = True
+            boundary = moved or self.focus_pending
+            if boundary:
+                self.focus_pending = True
             for engine in self.engines.values():
                 desired = self.config.select(engine.model, window)
                 if desired.json() != engine.profile.json():
+                    self.focus_pending = True
                     await engine.change_profile(desired)
-                elif moved:
+                elif boundary:
                     # A pin controls selection, not permission to keep a game
                     # turbo running after the user leaves its window.
                     await engine.cancel()
+            # Cancellation yields. A newer event may have invalidated this
+            # result while another engine was releasing its outputs.
+            if revision is not None and revision != self.focus_revision:
+                return False
+            self.window = window
+            self.available = True
+            self.focus_pending = False
+            return True
 
     async def unavailable(self):
+        self.focus_revision += 1
+        self.available = False
+        self.focus_pending = True
         async with self.lock:
-            self.available = False
             self.window = Window()
             for engine in self.engines.values():
                 await engine.change_profile(self.config.select(engine.model, self.window))
@@ -75,6 +103,8 @@ async def query_window(signature: str) -> Window:
     if process.returncode or len(output) > 1024 * 1024:
         raise RuntimeError("Hyprland focus query failed")
     data = json.loads(output)
+    if not isinstance(data, dict) or any(not isinstance(data.get(name, ''), str) for name in ('address', 'class', 'title')):
+        raise ValueError('Invalid Hyprland active-window response')
     executable = ""
     pid = data.get("pid")
     if type(pid) is int and pid > 0:
@@ -142,15 +172,7 @@ class HyprlandWatcher:
                 writer = None
                 try:
                     reader, writer = await asyncio.open_unix_connection(str(self.socket_path()), limit=131072)
-                    # Subscribe before querying to avoid losing a focus transition.
-                    await self.coordinator.focus_changed(await query_window(self.signature))
-                    self.last_error = ""
-                    while True:
-                        line = await reader.readline()
-                        if not line:
-                            raise ConnectionError("Hyprland event stream disconnected")
-                        if line.startswith((b"activewindowv2>>", b"activewindow>>", b"windowtitle>>", b"windowtitlev2>>")):
-                            await self.coordinator.focus_changed(await query_window(self.signature))
+                    await self.monitor(reader)
                 except (OSError, ValueError, RuntimeError, asyncio.TimeoutError) as error:
                     self.last_error = str(error)
                     await self.coordinator.unavailable()
@@ -158,6 +180,48 @@ class HyprlandWatcher:
                 finally:
                     if writer:
                         writer.close()
-                        await writer.wait_closed()
+                        try:
+                            await writer.wait_closed()
+                        except OSError:
+                            pass  # A reset socket must not prevent reconnection.
         finally:
             await self.coordinator.unavailable()
+
+    async def monitor(self, reader):
+        """Keep consuming events independently of the single window query.
+
+        Active-window events cancel before querying. Title notifications still
+        refresh matching without canceling an otherwise unchanged profile.
+        An Event coalesces refresh work; revisions prevent stale publication.
+        """
+        refresh = asyncio.Event()
+        refresh.set()  # Subscribe before the initial query.
+
+        async def events():
+            while True:
+                line = await reader.readline()
+                if not line:
+                    raise ConnectionError('Hyprland event stream disconnected')
+                moved = line.startswith((b'activewindowv2>>', b'activewindow>>'))
+                if moved or line.startswith((b'windowtitle>>', b'windowtitlev2>>')):
+                    await self.coordinator.focus_event(moved=moved)
+                    refresh.set()
+
+        async def queries():
+            while True:
+                await refresh.wait()
+                refresh.clear()
+                revision = self.coordinator.focus_revision
+                window = await query_window(self.signature)
+                if await self.coordinator.focus_changed(window, revision=revision):
+                    self.last_error = ''
+
+        jobs = [asyncio.create_task(events()), asyncio.create_task(queries())]
+        try:
+            done, _ = await asyncio.wait(jobs, return_when=asyncio.FIRST_COMPLETED)
+            for job in done:
+                job.result()
+        finally:
+            for job in jobs:
+                job.cancel()
+            await asyncio.gather(*jobs, return_exceptions=True)

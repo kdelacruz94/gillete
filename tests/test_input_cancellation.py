@@ -4,6 +4,7 @@ import asyncio
 from copy import deepcopy
 import socket
 import threading
+import time
 from types import SimpleNamespace
 
 from evdev import ecodes as E
@@ -59,7 +60,7 @@ async def setup_session(tmp_path, model=MODELS[0]):
 
 
 @pytest.mark.parametrize('buffer', ['hidraw', 'python'])
-@pytest.mark.parametrize('boundary', ['focus', 'pinned_focus', 'profile', 'emergency', 'monitor_lost'])
+@pytest.mark.parametrize('boundary', ['focus', 'pinned_focus', 'profile', 'emergency', 'monitor_lost', 'focus_query'])
 def test_buffered_press_never_runs_after_cancellation_until_release_and_fresh_press(tmp_path, buffer, boundary):
     async def check():
         session, output, _ = await setup_session(tmp_path)
@@ -85,6 +86,9 @@ def test_buffered_press_never_runs_after_cancellation_until_release_and_fresh_pr
                 await coordinator.reload(config)
             elif boundary == 'emergency':
                 await engine.cancel(preserve_pointer=False)
+            elif boundary == 'focus_query':
+                await coordinator.focus_event(moved=True)
+                await coordinator.focus_changed(Window('two', 'next'), revision=coordinator.focus_revision)
             else:
                 await coordinator.unavailable()
                 await coordinator.focus_changed(Window('two', 'next'))
@@ -189,7 +193,7 @@ def test_old_cross_interface_trigger_and_button_wait_for_release_without_restart
     asyncio.run(check())
 
 
-@pytest.mark.parametrize('reason', ['cancel', 'stop', 'unavailable'])
+@pytest.mark.parametrize('reason', ['cancel', 'stop', 'unavailable', 'focus_pending'])
 def test_button_command_waiting_for_hardware_lock_cannot_write_after_cancellation(tmp_path, reason):
     async def check():
         session, _, pins = await setup_session(tmp_path)
@@ -211,6 +215,8 @@ def test_button_command_waiting_for_hardware_lock_cannot_write_after_cancellatio
             await engine.cancel()
         elif reason == 'stop':
             session.stop_requested.set()
+        elif reason == 'focus_pending':
+            session.coordinator.focus_pending = True
         else:
             session.coordinator.available = False
         session.io_lock.release()
@@ -220,6 +226,7 @@ def test_button_command_waiting_for_hardware_lock_cannot_write_after_cancellatio
         # A subsequently enabled, freshly pressed action still works normally.
         session.stop_requested.clear()
         session.coordinator.available = True
+        session.coordinator.focus_pending = False
         for control in ('side_2', 'side_3', 'side_4'):
             await engine.press(control)
             await engine.release(control)
@@ -227,6 +234,48 @@ def test_button_command_waiting_for_hardware_lock_cannot_write_after_cancellatio
         await session.process_controls(controls)
         assert writes == [('dpi', 'up'), ('native', 'wheel_mode_cycle')]
         assert pins == [(MODELS[0], 'next')]
+    asyncio.run(check())
+
+
+def test_pending_focus_drains_motion_releases_and_held_state_but_never_activates_actions(tmp_path):
+    async def check():
+        session, output, pins = await setup_session(tmp_path)
+        engine, coordinator = session.engine, session.coordinator
+        engine.stored = {('left_click', False): Action('keys', keys=('BTN_LEFT',))}
+        router = TrackedRouter(engine)
+        task = asyncio.create_task(session.process_frames(router))
+        async def frame(held=(), **kwargs):
+            session.frames.put_nowait((time.monotonic(), engine.generation, Frame('test', frozenset(held), **kwargs)))
+            await router.processed()
+        try:
+            await frame(('left_click',))
+            await coordinator.focus_event(moved=True)
+            assert coordinator.available and coordinator.focus_pending and not session.current_input(engine.generation)
+            await frame(('left_click', 'side_1'), motion=(('REL_X', 5),), pulses=(('wheel_up', 1),))
+            assert output.events == [('key', E.BTN_LEFT, 1), ('relative', E.REL_X, 5)]
+            assert 'side_1' in engine.disarmed
+            await frame(('side_1',))  # Release the existing drag while the query is pending.
+            assert output.events[-1] == ('key', E.BTN_LEFT, 0)
+            writes = []
+            controls = SimpleNamespace(dpi=lambda target: writes.append(target), native=lambda target: writes.append(target))
+            for kind, target in (('dpi', 'up'), ('native', 'wheel_mode_cycle'), ('profile', 'next')):
+                await session.enqueue(kind, target)
+            session.control_queue.put_nowait(None)
+            await session.process_controls(controls)
+            assert not writes and not pins
+            await coordinator.focus_changed(Window('two', 'next'), revision=coordinator.focus_revision)
+            assert not coordinator.focus_pending and session.current_input(engine.generation)
+            await frame(('side_1',))  # Still held is not a fresh press in the new profile.
+            assert not engine.ledger.holders
+            await frame()
+            await frame(('side_1',))
+            await frame()
+            assert output.events[-2:] == [('key', E.KEY_B, 1), ('key', E.KEY_B, 0)]
+        finally:
+            session.stop_requested.set()
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+            await coordinator.detach('test')
     asyncio.run(check())
 
 

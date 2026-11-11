@@ -86,9 +86,9 @@ def findings(device, devices, *, uinput_access=None, service=None, service_error
                              'Diagnostics never attempts an exclusive input grab. Enable software control only after suspending another remapper for this mouse.')))
         return rows
 
-    rows.append(Finding('Desktop monitoring', 'Ready' if service.get('focus_available') and service.get('suspend_monitor') and not service.get('suspended') else 'Waiting',
-                        'Focus and suspend monitoring are available.' if service.get('focus_available') and service.get('suspend_monitor') and not service.get('suspended') else
-                        'Software activation waits for focus and suspend monitoring and an awake desktop. '
+    rows.append(Finding('Desktop monitoring', 'Ready' if service.get('focus_available') and not service.get('focus_pending') and service.get('suspend_monitor') and not service.get('suspended') else 'Waiting',
+                        'Focus and suspend monitoring are available.' if service.get('focus_available') and not service.get('focus_pending') and service.get('suspend_monitor') and not service.get('suspended') else
+                        'Software activation waits for current focus details, focus and suspend monitoring and an awake desktop. '
                         + (service.get('focus_error') or '')))
     state = service.get('devices', {}).get(device.model, {})
     route = state.get('transport')

@@ -159,6 +159,12 @@ profiles without writing onboard bindings. Suspend/disconnect/focus loss cancel
 macros and turbo; ordinary unchanged mouse dragging survives a focus transition.
 Buffered presses from before a cancellation are suppressed until release and a
 fresh press, including reports still waiting in Linux's raw-input buffer.
+Active-window events cancel generated actions before waiting for a window query.
+The event reader continues during that query, and newer events invalidate stale
+results. While focus details are pending, pointer motion and releases continue;
+new mapped presses, scroll actions and queued button commands wait for settled
+focus and a fresh press. Title-only refreshes keep an unchanged profile's macros
+running. Software control reports when the active window is being refreshed.
 Delayed button commands are discarded if their profile/focus context changed.
 Generated keys are released before shutdown waits for an in-flight USB operation;
 that operation completes before the transport closes and normal mode is restored.

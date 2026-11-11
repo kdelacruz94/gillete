@@ -103,6 +103,18 @@ def test_current_service_failures_and_backoff_are_visible_without_classifying_er
     assert unavailable['Background service'].detail == 'Service uses a different profile file'
 
 
+def test_connected_monitor_with_pending_focus_is_not_reported_ready(tmp_path):
+    device = mouse()
+    daemon = Daemon(ProfileStore(tmp_path / 'profiles.json'))
+    data = daemon.status()
+    data.update(focus_available=True, focus_pending=True, suspend_monitor=True)
+    rows = checks(device, service=data)
+    assert rows['Desktop monitoring'].status == 'Waiting'
+    assert 'current focus details' in rows['Desktop monitoring'].detail
+    data['focus_pending'] = False
+    assert checks(device, service=data)['Desktop monitoring'].status == 'Ready'
+
+
 def test_development_validation_remains_distinct_from_implemented_or_pending_work():
     v2, v3 = ({r.name: r for r in feature_validation(product)} for product in (0xB4, 0xE8))
     assert v2['Program profiles, macros and turbo'].status == 'Live test pending'

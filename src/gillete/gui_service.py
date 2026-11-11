@@ -140,7 +140,8 @@ class ServicePanel(QWidget):
         self.last = data
         self.last_error = ''
         self.start_button.setEnabled(False)
-        lines = ['Focus monitoring: ' + ('ready' if data['focus_available'] else data['focus_error'] or 'unavailable'),
+        lines = ['Focus monitoring: ' + ('refreshing active window' if data.get('focus_pending') and data['focus_available'] else
+                                        'ready' if data['focus_available'] else data['focus_error'] or 'unavailable'),
                  'Suspend monitoring: ' + ('ready' if data['suspend_monitor'] else 'unavailable')]
         for model, name in zip(MODELS, ('Naga V2 HyperSpeed', 'Naga V3 Pro')):
             state = data['devices'][model]

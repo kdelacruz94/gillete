@@ -15,7 +15,7 @@ from gillete.focus import ProfileCoordinator
 from gillete.hardware import Snapshot
 from gillete.model import MODELS
 from gillete.onboard import Location
-from gillete.profiles import Configuration, ProfileStore
+from gillete.profiles import Configuration, ProfileStore, Window
 from gillete.protocol import ProtocolError
 from gillete.service import Daemon, request
 
@@ -111,6 +111,31 @@ def test_daemon_starts_disabled_and_manual_pin_is_durable(tmp_path):
         assert store.read().pinned == {}
         with pytest.raises(ValueError, match='monitoring'):
             await daemon.command({'command': 'enable', 'model': MODELS[0]})
+    asyncio.run(check())
+
+
+def test_pending_focus_blocks_enable_and_saved_startup_until_details_settle(tmp_path):
+    async def check():
+        store = ProfileStore(tmp_path / 'profiles.json')
+        config = store.read()
+        config.startup_models = [MODELS[0]]
+        store.save(config, expected_revision=0)
+        daemon = Daemon(store)
+        daemon.sleep_monitor_ready = True
+        await daemon.coordinator.focus_changed(Window('one', 'app'))
+        await daemon.coordinator.focus_event(moved=True)
+        installs = []
+        async def install(): installs.append(True)
+        daemon.emergency.install = install
+        with pytest.raises(ValueError, match='current focus'):
+            await daemon.command({'command': 'enable', 'model': MODELS[1]})
+        await daemon.start_preferences()
+        assert not daemon.requested and not installs and daemon.startup_pending == {MODELS[0]}
+        assert daemon.status()['focus_available'] and daemon.status()['focus_pending']
+        await daemon.coordinator.focus_changed(Window('two', 'other'), revision=daemon.coordinator.focus_revision)
+        await daemon.start_preferences()
+        assert daemon.requested == {MODELS[0]} and installs == [True]
+        assert not daemon.status()['focus_pending']
     asyncio.run(check())
 
 

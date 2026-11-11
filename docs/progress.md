@@ -2109,3 +2109,52 @@ private new-only reports and summaries without hardware identity. Staged
 Arch/wheel, CLI and isolated GUI checks pass. The two new test-fixture mistakes
 (a category-ambiguous fake firmware response and expecting a file exception
 through argparse's error boundary) were corrected before the passing run.
+
+## Focus events cancel before window queries — 2026-11-11
+
+Code inspection found a gap in the requested focus-loss behavior: the watcher
+awaited `hyprctl activewindow` before canceling macros. Reproduced it with a
+blocked query and a running toggle turbo; the original test failed with its
+macro job and held key still active. The production watcher now consumes the
+event stream independently of its single window-query worker. Active-window
+events establish a pending boundary and cancel before querying; an Event
+coalesces refresh requests, with revision checks before and after engine updates
+to reject superseded results. No per-event task/query queue grows unbounded.
+
+Mapped input, hardware button commands and new service activation wait for
+settled focus. Existing sessions retain ownership during a refresh, continue
+pointer movement and releases, and suppress pending/old presses until release
+and a fresh press. Publishing current focus fences reports buffered during the
+query, including when the final profile is manually pinned or focus returned to
+the same window. Title-only refreshes preserve unchanged profiles and running
+macros. A profile-changing title update gates input while outputs are released;
+if superseded mid-update, it stays gated until the current result is applied.
+
+Query failure/disconnection stops both monitor workers and marks focus
+unavailable; query cancellation kills/reaps its owned subprocess. Startup choices
+remain pending during refresh, and software control/diagnostics show the wait.
+Malformed active-window field types fail rather than becoming string identities.
+
+Event framing comes from the first-party [Hyprland IPC documentation](https://wiki.hypr.land/ipc/):
+activewindow/activewindowv2 are focus notifications; windowtitle/windowtitlev2
+refresh title matching. Event contents are not interpreted as commands. Tests
+use in-memory streams, packet sockets, simulated outputs and stub subprocesses;
+no live desktop, service, input capture, mouse setting or remapper was changed.
+The owner's physical-test deferral remains in effect.
+
+A separate read-only smoke check connected this watcher to the current Hyprland
+event socket and parsed a real active-window query successfully: available=true,
+pending=false, a focused window present and zero engines attached. It generated
+no input, accessed no mouse node and retained no window title/class in its
+summary. This establishes initial desktop IPC compatibility only; physical
+macro delivery/cancellation and the deferred acceptance tests remain pending.
+An additional reset-on-close test found and fixes a reconnect error path: an
+OSError from closing the old compositor socket no longer terminates monitoring.
+
+Validation: all928 tests and645 packaged-source checks pass. The regression
+first failed on the old watcher. New coverage includes 100-event coalescing,
+in-flight/lock-wait/mid-release invalidation, pinned turbo cancellation before a
+blocked query, unchanged title refreshes, malformed query fields, subprocess
+cleanup, disconnect/reset recovery, pending input/commands, drag releases and
+fresh-press recovery. Staged Arch/wheel, CLI and isolated GUI checks pass; no
+host package or service startup preference was installed or enabled.

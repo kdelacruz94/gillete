@@ -69,6 +69,7 @@ class Daemon:
         return {'running': True, 'config_path': str(self.store.path.resolve()),
                 'startup_pending': sorted(self.startup_pending),
                 'focus_available': self.coordinator.available,
+                'focus_pending': self.coordinator.focus_pending,
                 'focus': asdict(self.coordinator.window), 'focus_error': self.focus.last_error,
                 'suspended': self.suspended, 'suspend_monitor': self.sleep_monitor_ready,
                 'emergency_shortcut': self.emergency.label if self.emergency.installed else None,
@@ -103,8 +104,9 @@ class Daemon:
             raise ValueError('Unknown mouse model')
         if command == 'enable':
             self.startup_pending.discard(model)
-            if not self.sleep_monitor_ready or not self.coordinator.available or self.suspended:
-                raise ValueError('Focus and suspend monitoring must be available before enabling a mouse')
+            if (not self.sleep_monitor_ready or not self.coordinator.available
+                    or self.coordinator.focus_pending or self.suspended):
+                raise ValueError('Focus and suspend monitoring must be available with current focus details before enabling a mouse')
             # A shutdown during the compositor request must finish ownership
             # verification so cleanup can remove any shortcut that was created.
             installation = asyncio.create_task(self.emergency.install())
@@ -114,7 +116,7 @@ class Daemon:
                 await installation
                 raise
             if (self.shutdown.is_set() or self.suspended or not self.sleep_monitor_ready
-                    or not self.coordinator.available):
+                    or not self.coordinator.available or self.coordinator.focus_pending):
                 raise ValueError('Desktop monitoring changed while enabling the mouse; try again when ready')
             self.requested.add(model)
             self.errors.pop(model, None)
@@ -167,7 +169,8 @@ class Daemon:
 
     async def start_preferences(self):
         if (not self.startup_pending or self.shutdown.is_set() or self.suspended
-                or not self.sleep_monitor_ready or not self.coordinator.available or self.config_error):
+                or not self.sleep_monitor_ready or not self.coordinator.available
+                or self.coordinator.focus_pending or self.config_error):
             return
         for model in list(self.startup_pending):
             async with self.command_lock:
@@ -210,7 +213,7 @@ class Daemon:
                 session.stop_requested.set()
         for model in list(self.requested):
             if (model in self.sessions or self.suspended or not self.sleep_monitor_ready
-                    or not self.coordinator.available):
+                    or not self.coordinator.available or self.coordinator.focus_pending):
                 continue
             if time.monotonic() < self.retry_at.get(model, 0):
                 continue
