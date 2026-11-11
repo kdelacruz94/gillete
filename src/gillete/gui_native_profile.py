@@ -22,7 +22,8 @@ class NativeProfileReview(QDialog):
         changes = {w: value for w, value in preview.bindings.items()
                    if old[w][3:] != value}
         heading = QLabel(f'{prepared["profile"]["name"]} · V3 receiver · slot 1\n'
-                         f'{len(changes)} changed assignments; {len(preview.assets)} shared native macros.\n'
+                         f'{len(changes)} changed assignments; {len(preview.uploads)} new native macros, '
+                         f'{len(preview.assets) - len(preview.uploads)} reused.\n'
                          f'Estimated storage: {preview.required_bytes} bytes; '
                          f'already free: {prepared["catalog_before"]["available_bytes"]} bytes.\n'
                          + ('Only Save to Mouse writes these persistent mappings. Original values are journaled for undo.'
@@ -55,7 +56,7 @@ class NativeProfileReview(QDialog):
         self.notes.setPlainText('\n'.join((['Save blocked:'] + issues if issues else
                                           ['Native macro data is uploaded and verified before button references are saved.'])
                                          + ([] if allow_save else ['Native macro saving is not enabled in this screen.'])
-                                         + ['Existing native objects are retained for undo; this save allocates new objects.']
+                                         + ['Existing native objects are retained for undo; byte-identical objects are reused.']
                                          + preview.warnings))
         layout.addWidget(self.notes)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)

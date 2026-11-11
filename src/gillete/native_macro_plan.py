@@ -1,8 +1,8 @@
 """Pure native macro asset previews; writes belong to the transaction layer.
 
 The caller supplies a complete catalog and references from all mouse banks.
-Every planned object is new; no existing ID is overwritten or reclaimed.
-Execution still needs an asset-aware transaction and hardware acceptance.
+Existing byte-identical objects may be reused; no existing ID is overwritten.
+Execution belongs to the asset-aware transaction and its capability gates.
 """
 
 from dataclasses import dataclass
@@ -25,6 +25,7 @@ class MacroAsset:
     metadata: bytes
     items: int
     allocation_bytes: int
+    reused: bool = False
 
 
 @dataclass
@@ -37,7 +38,11 @@ class MacroProfilePreview:
 
     @property
     def required_bytes(self):
-        return sum(asset.allocation_bytes for asset in self.assets)
+        return sum(asset.allocation_bytes for asset in self.uploads)
+
+    @property
+    def uploads(self):
+        return tuple(asset for asset in self.assets if not asset.reused)
 
 
 def _ids(values, *, references=False):
@@ -51,7 +56,7 @@ def _ids(values, *, references=False):
 
 
 def preview_profile(profile, product, bank, baseline, *, catalog_ids, referenced_ids,
-                    available_bytes, slot_capacity):
+                    available_bytes, slot_capacity, reusable=()):
     """Compile a dependency preview without changing the profile or hardware.
 
     `referenced_ids` must include every normal/HyperShift binding, even unknown
@@ -61,6 +66,9 @@ def preview_profile(profile, product, bank, baseline, *, catalog_ids, referenced
     if type(product) is not int or product != 0xE8:
         raise ProtocolError('Native macro asset planning currently requires the verified V3 receiver')
     catalog = _ids(catalog_ids)
+    if (len(reusable) > MAX_IDS or any(not isinstance(a, MacroAsset) or a.identifier not in catalog for a in reusable)
+            or len({a.identifier for a in reusable}) != len(reusable)):
+        raise ProtocolError('Invalid native macro reuse inventory')
     reserved = catalog | _ids(referenced_ids, references=True)
     if (type(available_bytes) is not int or not 0 <= available_bytes <= 64 * 1024 * 1024
             or type(slot_capacity) is not int or not 1 <= slot_capacity <= 65535
@@ -76,17 +84,21 @@ def preview_profile(profile, product, bank, baseline, *, catalog_ids, referenced
         compiled = compile_macro(action)
         key = (compiled.data, compiled.items)
         if key not in assets:
-            identifier = next((value for value in range(1, MAX_ID + 1) if value not in reserved), None)
-            if identifier is None:
-                raise SoftwareOnly('No fresh unreferenced native macro ID remains')
-            reserved.add(identifier)
             digest = sha256(compiled.data).hexdigest()
             guid = str(uuid5(NAMESPACE_URL, f'org.gillete/macro/{profile.id}/{digest}/{compiled.items}'))
             # Truncate on a character boundary, leaving room for a useful suffix.
             prefix = profile.name.encode('utf-8')[:80].decode('utf-8', errors='ignore')
             name = f'{prefix} macro {len(assets) + 1}'
+            raw_metadata = metadata(compiled, guid, name)
+            existing = next((a for a in sorted(reusable, key=lambda a: a.identifier)
+                             if a.data == compiled.data and a.metadata == raw_metadata and a.items == compiled.items), None)
+            identifier = existing.identifier if existing else next((value for value in range(1, MAX_ID + 1)
+                                                                     if value not in reserved), None)
+            if identifier is None:
+                raise SoftwareOnly('No fresh unreferenced native macro ID remains')
+            reserved.add(identifier)
             assets[key] = MacroAsset(identifier, guid, name, compiled.data,
-                                     metadata(compiled, guid, name), compiled.items, compiled.allocation_bytes)
+                                     raw_metadata, compiled.items, compiled.allocation_bytes, existing is not None)
         if action.playback != 'once':
             pending.append('Native count/held/toggle playback and cancellation need hardware validation.')
         if action.kind == 'macro' and action.playback == 'count':
@@ -100,7 +112,7 @@ def preview_profile(profile, product, bank, baseline, *, catalog_ids, referenced
     plan = compile_profile(profile, model, bank, baseline, encoder=encode)
     result = MacroProfilePreview(plan.targets, tuple(assets.values()), list(plan.issues),
                                  list(dict.fromkeys(warnings)), [])
-    if len(catalog) + len(result.assets) > min(slot_capacity, MAX_IDS):
+    if len(catalog) + len(result.uploads) > min(slot_capacity, MAX_IDS):
         result.issues.append('Planned macros exceed native slot capacity or the readable catalog limit.')
     if result.required_bytes > available_bytes:
         result.issues.append(f'Native macros require {result.required_bytes} already-free bytes; '

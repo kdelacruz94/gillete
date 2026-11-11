@@ -178,7 +178,8 @@ def read_journal(path: Path) -> dict:
     if len(raw) > 1024 * 1024:
         raise ProtocolError("Oversized recovery journal")
     document = json.loads(raw)
-    if not isinstance(document, dict) or document.get("version") != 1:
+    if (not isinstance(document, dict) or document.get('version') != 1
+            and not (document.get('version') == 2 and document.get('kind') == 'native-macro-profile-transaction')):
         raise ProtocolError("Unsupported recovery journal")
     return document
 

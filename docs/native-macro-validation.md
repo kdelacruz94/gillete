@@ -308,4 +308,35 @@ and restored snapshots plus status/error data before allowing hardware writes.
 Assignment-only backups reject nonzero native macro references rather than
 promise restoration without macro content. Full native receipts and portable
 Linux profiles remain the recovery sources. Existing objects are retained for
-undo, so managed asset reuse/pruning is still needed for efficient repeated saves.
+undo. Byte-identical reuse is implemented below; explicit pruning remains pending.
+
+## Existing-object reuse and dependency fingerprints
+
+Preparation scans bounded catalog metadata for exact matches to this profile's
+generated GUID, name, item count and reserved fields, then verifies event length
+and SHA-256. Only complete byte-identical objects qualify for reuse. Reused
+objects are never allocated, rewritten or deleted by the new transaction.
+An unchanged profile can reuse its objects even when no storage/slots remain;
+changing one event stream uploads only its replacement. Metadata/name changes
+require a new object rather than modifying existing data needed by undo.
+
+New receipts use native transaction version2 with a mandatory `library_before`
+snapshot. It fingerprints reused objects and existing macro dependencies of
+affected original bindings, including companions. Apply checks these before
+any SET. Undo checks catalog/dependency integrity before restoring references,
+then verifies again around cleanup. Missing/externally modified dependencies
+block restoration rather than installing references to deleted or changed data.
+Unrelated objects remain untouched; this is not a backup of the entire library.
+
+The library reader is bounded to 8192 queries, 240 seconds, the existing catalog
+limit and 4096 event bytes per object. Raw unknown events are hashed without
+being decoded or executed. Reuse relies on the metadata plus event hash; the
+journal need not duplicate every original macro body. Artifact validation
+recompiles against these snapshots, rejects missing dependency records, and
+prevents version1 receipts from claiming version2 reuse semantics. Actual old
+version1 receipts remain recoverable with their original evidence limits.
+
+The desktop previews new/reused counts and only newly required storage.
+Save errors with an existing parent journal include its recovery path. Explicit
+pruning and a physical repeated-save acceptance case remain separate work;
+the reuse/state-corruption tests in this step use simulated devices.

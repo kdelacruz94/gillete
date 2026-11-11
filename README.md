@@ -226,9 +226,11 @@ service. These are remaining implementation/acceptance requirements.
 Native saves verify macro data before assigning references and preserve full
 transaction originals. **Restore from recovery journal…** accepts the native
 save's `profile.json`, restores original mappings and removes only verified
-unreferenced new objects. Existing objects are retained for undo; saves allocate
-fresh objects and preview free-space/slot limits. Reuse/pruning of managed
-objects remains pending. Assignment-only slot backups refuse nonzero native
+unreferenced new objects. Byte-identical objects from the same named profile
+are reused after metadata/data verification; unchanged saves require no new
+objects. Changed objects are retained for undo, and the preview shows new/reused
+counts and free-space/slot limits. Explicit pruning of obsolete managed objects
+remains pending. Assignment-only slot backups refuse nonzero native
 macro references because they cannot restore the referenced data; retain the
 full native recovery journal and exported Linux profile instead.
 Recovery journals live under

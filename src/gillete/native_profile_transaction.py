@@ -14,6 +14,7 @@ from .hardware import read_journal
 from .macro_reads import catalog
 from .model import Profile
 from .native_macro_plan import preview_profile
+from . import native_macro_library as library
 from .onboard import Location, Programmer, durable_json as _durable_json
 from .protocol import ProtocolError
 
@@ -44,26 +45,43 @@ def originals(before):
     return {Location(e['bank'], e['control'], e['layer']): bytes.fromhex(e['raw']) for e in before['all_records']}
 
 
-def plan(profile, before, inventory):
-    return preview_profile(profile, before['product'], 1, {w: raw[3:] for w, raw in originals(before).items()},
-                           catalog_ids=inventory['ids'], referenced_ids=referenced_ids(before),
-                           available_bytes=inventory['available_bytes'], slot_capacity=inventory['slots'])
+def plan(profile, before, inventory, existing=None):
+    parameters = dict(catalog_ids=inventory['ids'], referenced_ids=referenced_ids(before),
+                      available_bytes=inventory['available_bytes'], slot_capacity=inventory['slots'])
+    baseline = {w: raw[3:] for w, raw in originals(before).items()}
+    templates = preview_profile(profile, before['product'], 1, baseline, **parameters)
+    if existing is None: return templates
+    library.validate(existing, inventory['ids'])
+    return preview_profile(profile, before['product'], 1, baseline,
+                           **parameters, reusable=library.reusable(existing, templates.assets))
+
+
+def dependencies(before, preview):
+    old = originals(before)
+    groups = {(w.bank, w.control) for w, target in preview.bindings.items() if old[w][3:] != target}
+    return {int.from_bytes(raw[5:7], 'big') for w, raw in old.items()
+            if (w.bank, w.control) in groups and raw[3] in (3, 4, 5, 15) and int.from_bytes(raw[5:7], 'big')}
 
 
 def artifacts(preview):
     return {'bindings': [{**w.json(), 'function': value.hex()} for w, value in sorted(preview.bindings.items())],
             'assets': [{'identifier': a.identifier, 'data': a.data.hex(), 'metadata': a.metadata.hex()}
-                       for a in preview.assets]}
+                       | ({'reused': True} if a.reused else {}) for a in preview.assets]}
 
 
 def prepare(io, profile):
     before = probe.snapshot(state.ReadBudget(io))
     inventory = catalog(io)
     preview = plan(profile, before, inventory)
+    existing = library.capture(io, inventory['ids'], preview.assets, dependencies(before, preview))
+    preview = plan(profile, before, inventory, existing)
+    required = dependencies(before, preview) | {a.identifier for a in preview.assets if a.reused}
+    existing = [entry for entry in existing if entry['id'] in required]
     if preview.issues:
         raise ProtocolError('; '.join(preview.issues))
-    document = {'version': 1, 'kind': KIND, 'status': 'prepared-read-only', 'before': before,
+    document = {'version': 2, 'kind': KIND, 'status': 'prepared-read-only', 'before': before,
             'catalog_before': inventory, 'profile': profile.json(), 'artifacts': artifacts(preview),
+            'library_before': existing,
             'validation_pending': preview.validation_pending, 'warnings': preview.warnings,
             'original_state_restored': False, 'transport_health': dict(getattr(io, 'reply_health', {}))}
     require_recovery_space(document)
@@ -72,10 +90,20 @@ def prepare(io, profile):
 
 def validate(document):
     try:
-        if type(document['version']) is not int or document['version'] != 1 or document['kind'] != KIND:
+        if type(document['version']) is not int or document['version'] not in (1, 2) or document['kind'] != KIND:
             raise ValueError('Unknown profile transaction')
+        if document['version'] == 2 and 'library_before' not in document:
+            raise ValueError('Missing version-2 native library snapshot')
+        if document['version'] == 1 and any(a.get('reused') for a in document['artifacts']['assets']):
+            raise ValueError('Legacy native journal cannot claim reused assets')
         probe.validate_snapshot(document['before'])
-        preview = plan(Profile.parse(document['profile']), document['before'], document['catalog_before'])
+        preview = plan(Profile.parse(document['profile']), document['before'], document['catalog_before'],
+                       document.get('library_before'))
+        if 'library_before' in document:
+            required = (dependencies(document['before'], preview) & set(document['catalog_before']['ids']))
+            required |= {a.identifier for a in preview.assets if a.reused}
+            if {e['id'] for e in document['library_before']} != required:
+                raise ValueError('Incomplete existing macro dependencies')
         if preview.issues or artifacts(preview) != document['artifacts']:
             raise ValueError('Profile artifacts differ from their compiled source')
         return preview
@@ -112,6 +140,12 @@ def restore(io, document, path):
     preview = validate(document)
     document['original_state_restored'] = False
     state.guard(io, document['before'])
+    inventory = catalog(io)
+    old_ids = set(document['catalog_before']['ids'])
+    owned = {a.identifier for a in preview.uploads}
+    if not old_ids <= set(inventory['ids']) or set(inventory['ids']) - old_ids - owned:
+        raise ProtocolError('External macro catalog change; no bindings restored or objects deleted')
+    library.verify(io, document.get('library_before', []))
     expected = recovery(document, preview)
     changed = False
     for entry in expected['entries']:
@@ -128,12 +162,11 @@ def restore(io, document, path):
     if probe.normalized(current) != probe.normalized(document['before']):
         raise ProtocolError('Protected state changed; no native objects deleted')
     inventory = catalog(io)
-    old_ids = set(document['catalog_before']['ids'])
-    owned = {a.identifier for a in preview.assets}
     if not old_ids <= set(inventory['ids']) or set(inventory['ids']) - old_ids - owned:
         raise ProtocolError('External macro catalog change; no native objects deleted')
     failures = []
-    for asset in preview.assets:
+    library.verify(io, document.get('library_before', []))
+    for asset in preview.uploads:
         if asset.identifier not in inventory['ids']:
             continue
         try:
@@ -152,6 +185,7 @@ def restore(io, document, path):
     document['after'] = probe.snapshot(state.ReadBudget(io))
     if probe.normalized(document['after']) != probe.normalized(document['before']):
         raise ProtocolError('Original profile state did not verify after cleanup')
+    library.verify(io, document.get('library_before', []))
     document['original_state_restored'] = True
 
 
@@ -169,6 +203,7 @@ def apply(io, prepared, path, *, stopped=lambda: False):
         raise ProtocolError('Mouse changed since profile preparation')
     if catalog(io) != prepared['catalog_before']:
         raise ProtocolError('Macro catalog changed since profile preparation')
+    library.verify(io, prepared.get('library_before', []), stopped=stopped)
     document = deepcopy(prepared)
     document['status'] = 'armed'
     durable_json(path, document)
@@ -180,7 +215,7 @@ def apply(io, prepared, path, *, stopped=lambda: False):
             document['status'] = phase
             durable_json(path, document)
             io._exchange(command)
-        for asset in preview.assets:
+        for asset in preview.uploads:
             send(memory.allocate(asset.identifier, len(asset.data)), f'allocating-{asset.identifier}')
             for raw, size, builder, name in ((asset.metadata, memory.NAME_CHUNK, memory.name_chunk, 'metadata'),
                                              (asset.data, memory.CHUNK_SIZE, memory.memory_chunk, 'events')):
@@ -204,6 +239,7 @@ def apply(io, prepared, path, *, stopped=lambda: False):
             if io.read_binding(0, where.control, where.layer) != target:
                 raise ProtocolError('Active profile binding did not verify')
         for asset in preview.assets: verify_asset(io, asset)
+        library.verify(io, prepared.get('library_before', []), stopped=stopped)
         after = probe.snapshot(state.ReadBudget(io))
         expected = deepcopy(prepared['before'])
         for field in ('records', 'all_records'):

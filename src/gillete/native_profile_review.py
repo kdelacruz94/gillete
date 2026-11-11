@@ -50,7 +50,12 @@ def save_review(device, prepared, path):
     if device.product_id != prepared['before']['product'] or device.model != MODELS[1]:
         raise ProtocolError('Selected device differs from the native macro preview')
     with _transport(device) as io:
-        return tx.apply(io, prepared, path)
+        try:
+            return tx.apply(io, prepared, path)
+        except (OSError, ValueError) as error:
+            if path.exists():
+                raise ProtocolError(f'Native save failed: {error}. Recovery journal: {path}') from error
+            raise
 
 
 def restore_review(device, path):

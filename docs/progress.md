@@ -1771,3 +1771,38 @@ asset-aware desktop save/undo, native backup rejection and oversized journal
 protection. Fresh staged Arch/wheel, CLI and isolated GUI checks pass. No live
 native save was performed during this turn. This is staged UI integration,
 not completion of the full macro/device/migration acceptance requirements.
+
+## Native macro reuse and dependency integrity — 2026-11-10
+
+Added `native_macro_library`: bounded metadata scanning and inert event
+fingerprints identify byte-identical managed objects. Profile planning can reuse
+their IDs; only new uploads count against space/slots. No existing object is
+rewritten/deleted. Unchanged saves produce no setting commands, including on
+full storage; modifying one stream uploads only that replacement. GUI previews
+now show new/reused counts and correct storage costs.
+
+New version2 native receipts require `library_before` fingerprints for reused
+objects and macro dependencies of affected original bindings. Apply verifies
+them before writes. Undo checks catalog/dependency integrity before restoring
+old references, preventing dangling references if original data was deleted or
+edited externally. Reused/old objects are never included in cleanup ownership.
+Metadata, size and SHA-256 are checked around save/recovery, with bounded query,
+time and object-size budgets. Unknown event bytes are never executed.
+
+Artifact validation rejects missing dependency records and version downgrade
+claims for reused assets. True old version1 native receipts remain readable and
+recoverable with their prior evidence limits. The shared journal reader accepts
+version2 only for the native transaction kind. Save failures expose their
+recovery path if a durable parent exists. Old managed objects still retained for
+undo require explicit pruning later; unrelated catalog data is preserved.
+
+All changes in this step were verified offline with simulated devices; no mouse
+query/write, service change or migration occurred. Physical repeated-save reuse
+acceptance and native multi-key/repetition validation remain pending.
+
+Validation: all 674 tests and 358 packaged-source checks pass, including no-op
+save/undo, one-stream replacement, full-storage reuse, external data/metadata
+edits, deleted dependencies, incomplete/version-downgraded snapshots and true
+version1 recovery. Staged Arch/wheel, CLI and isolated GUI checks pass. No
+hardware operation was performed during this turn. Next: prepare a combined
+native key-sequence/repeated-save acceptance case and continue remaining modes.
