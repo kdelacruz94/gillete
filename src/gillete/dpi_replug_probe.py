@@ -1,7 +1,9 @@
 """Journaled DPI retention check across an observed receiver USB replug."""
 
 import argparse
+from contextlib import contextmanager, ExitStack
 from copy import deepcopy
+import errno
 from pathlib import Path
 import time
 
@@ -11,7 +13,7 @@ from .devices import discover
 from .hardware import read_journal, transport
 from .onboard import durable_json
 from .persistence import route
-from .protocol import Command, ProtocolError
+from .protocol import Command, DeviceStatusError, DeviceUnavailable, ProtocolError
 
 
 def validate_prepared(document):
@@ -24,6 +26,49 @@ def validate_prepared(document):
             or any(not isinstance(expected.get(k), str) or not expected[k].isdecimal()
                    for k in ('busnum', 'devnum'))):
         raise ProtocolError('Requires a complete receiver-replug preparation')
+
+
+@contextmanager
+def responsive_transport(opening, before, document, path, phase, *, stopped, wait, now):
+    """Retry getter readiness only; errors from the yielded setter path escape."""
+    deadline, remaining = now() + 45, 2048
+    for attempt in range(1, 17):
+        if stopped():
+            raise InterruptedError('Receiver readiness cancelled')
+        if now() >= deadline:
+            raise ProtocolError('Receiver read-only readiness time limit reached')
+        stack, reads = ExitStack(), None
+        try:
+            io = stack.enter_context(opening())
+            reads = base.ReadBudget(io, stopped)
+            reads.remaining = remaining
+            base.guard(reads, before)
+            observed = base.capture(reads)
+        except BaseException as error:
+            stack.close()
+            transient = (isinstance(error, DeviceUnavailable)
+                         or isinstance(error, DeviceStatusError) and error.status in (1, 4)
+                         or isinstance(error, OSError) and error.errno in (errno.ENOENT, errno.ENODEV, errno.ENXIO))
+            if not transient:
+                raise
+            if reads is not None:
+                remaining = reads.remaining
+            entry = {'phase': phase, 'attempt': attempt, 'error': str(error)}
+            if isinstance(error, DeviceStatusError):
+                entry['device_status'] = error.status
+            document.setdefault('readiness_retries', []).append(entry)
+            durable_json(path, document)
+            if attempt == 16 or now() >= deadline or remaining <= 0:
+                raise ProtocolError('Receiver read-only readiness limit reached: ' + str(error)) from error
+            wait(.5)
+            continue
+        # Deliberately outside the retry try/except. A caller's uncertain SET
+        # or restoration failure must never cause another setter submission.
+        try:
+            yield io, observed
+        finally:
+            stack.close()
+        return
 
 
 def exercise(prepared, path, opening, observe, *, ready=lambda: None,
@@ -76,9 +121,8 @@ def exercise(prepared, path, opening, observe, *, ready=lambda: None,
                     document['reconnected_route'] = current
                     break
             wait(.2)
-        wait(1)  # Allow radio enumeration to settle before the read-only identity check.
-        with opening() as io:
-            observed = base.capture(base.ReadBudget(io, stopped))
+        with responsive_transport(opening, document['before'], document, path, 'after-replug',
+                                  stopped=stopped, wait=wait, now=now) as (io, observed):
             document['after_receiver_replug'] = observed
             if base.stable_state(observed, include_zero=False) != base.stable_state(document['before'], include_zero=False):
                 raise ProtocolError('Protected mouse state changed across receiver replug')
@@ -94,7 +138,8 @@ def exercise(prepared, path, opening, observe, *, ready=lambda: None,
     finally:
         if armed:
             try:
-                with opening() as io:
+                with responsive_transport(opening, document['before'], document, path, 'restoration',
+                                          stopped=lambda: False, wait=wait, now=now) as (io, _):
                     base.restore_original(io, document)
             except BaseException as error:
                 document['recovery_error'] = str(error) or type(error).__name__

@@ -331,6 +331,11 @@ as well as the complete original mouse state. Explicit `run` writes the
 prepared lower DPI, closes the descriptor and waits up to three minutes for
 observed USB removal and a new enumeration address on that same port. It then
 opens a fresh transport, reads protected state and restores the original values.
+USB enumeration alone does not mean the mouse radio can answer yet. Reconnect
+and restoration preflight retry only transient getter failures using fresh
+transports, with a per-phase 2048-read allowance shared across attempts, at most 16 attempts and a
+45-second limit checked between attempts. Identity/state errors stop the test;
+setter failures never enter that retry loop.
 If the receiver remains absent at timeout, restoration is unverified and the
 journal is retained for `gillete.dpi_probe recover` after reconnecting it.
 

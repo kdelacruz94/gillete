@@ -1289,3 +1289,38 @@ No recovery error remains. The old `Receiver-replug observation timed out`
 message is the retained experiment error; it does not indicate a new recovery
 failure. No hardware experiment is currently running, and no successful
 receiver-retention outcome is inferred from this recovery.
+
+## V3 replug detected; reconnect read timed out — 2026-11-10
+
+The fresh receiver test observed actual USB removal and a changed enumeration
+address on the original port. The first post-reconnect capture returned
+`Device timeout`, and immediate cleanup also timed out. The user then confirmed
+replugging. Explicit journal recovery succeeded: `original-state-restored`,
+6400 × 6400, matching saved settings and complete normalized original state,
+with no remaining recovery error. The experiment's old timeout is retained as
+historical evidence. No post-replug DPI value was obtained, so this run does
+not establish whether 1200 survived receiver removal.
+
+Private journal:
+`evidence/v3-dpi-replug-1200-20261110-01.local/run/journal.json`.
+
+The failing regression reproduced USB enumeration followed by transient
+readiness failures, yielding `recovery-required` despite later responsiveness.
+Replace the fixed one-second assumption with fresh-transport read-only
+readiness checks before both the retention snapshot and restoration. These
+retry only typed device-unavailable, busy/timeout status (1/4), and missing
+USB-device errors. Each attempt revalidates the original mouse identity and
+captures state. Attempts share a per-phase 2048-read budget, max 16 attempts
+and a 45-second retry deadline checked between attempts. Malformed
+responses, identity/state mismatches, command rejection and permission errors
+are not retry reasons. The caller's setter is outside the retry handler;
+uncertain writes never cause the candidate or restoration SET to be resent.
+
+Added regression coverage for actual getter busy/timeout, temporary transport
+unavailability, structural rejection, permanent unavailability, and an
+uncertain setter escaping the read-only retry loop. Full suite: 538 passed;
+package source checks: 217 passed. An initial parallel check run hit the existing
+GUI-instance acknowledgement timing failure; that test passed independently
+and subsequent full suites passed. No GUI behavior was changed in this fix.
+Physical acceptance of the new readiness loop still needs the next live trial.
+No hardware experiment is currently running; original V3 state is verified.

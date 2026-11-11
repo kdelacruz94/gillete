@@ -521,7 +521,7 @@ def test_receiver_replug_failures_restore_without_replaying_candidate(tmp_path, 
     def opening():
         opened[0] += 1
         if failure == 'read-failure' and opened[0] == 2:
-            raise DeviceUnavailable('Radio unavailable after reconnect')
+            raise ProtocolError('Invalid response after reconnect')
         yield mouse
     def wait(_):
         if failure in ('timeout', 'same-address'): clock[0] = 181
@@ -553,3 +553,101 @@ def test_receiver_replug_unavailable_cleanup_retains_recoverable_journal(tmp_pat
     monkeypatch.setattr(probe, 'transport', lambda _: mouse)
     assert probe.recover(path)['original_state_restored']
     assert probe.capture(mouse) == prepared['before']
+
+
+@pytest.mark.parametrize('transient', [DeviceStatusError(4), DeviceUnavailable('Radio is reconnecting')])
+def test_receiver_replug_waits_for_radio_after_usb_enumeration_without_replaying_setter(tmp_path, transient):
+    from contextlib import contextmanager
+    mouse = Mouse(0xE8)
+    prepared = probe.prepare_document(mouse, purpose=sensor.PURPOSE, requested_dpi=1200)
+    before = {'product': mouse.product, 'usb_path': '/sys/devices/usb1/1-2', 'busnum': '1', 'devnum': '4'}
+    prepared.update(experiment='receiver-replug', receiver_route=before)
+    after = {**before, 'devnum': '5'}
+    seen = iter([before, None, after])
+    opened = [0]
+    @contextmanager
+    def opening():
+        opened[0] += 1
+        if opened[0] in (2, 3):
+            raise transient
+        yield mouse
+    result = replug.exercise(prepared, tmp_path / 'journal.json', opening, lambda: next(seen), wait=lambda _: None)
+    assert result['status'] == 'receiver-replug-restored'
+    assert result['receiver_replug_readback'] == 'candidate' and result['original_state_restored']
+    assert sum(c.payload == bytes.fromhex(prepared['target']) for c in mouse.writes) == 1
+    assert probe.capture(mouse) == prepared['before']
+
+
+@pytest.mark.parametrize('status', [1, 4])
+def test_receiver_readiness_retries_actual_getter_failures(tmp_path, status):
+    from contextlib import contextmanager
+    mouse = Mouse(0xE8)
+    before = probe.capture(mouse)
+    calls = [0]
+    original = mouse.execute
+    def execute(command):
+        if (command.category, command.operation) == (0, 0x84):
+            calls[0] += 1
+            if calls[0] <= 2: raise DeviceStatusError(status)
+        return original(command)
+    mouse.execute = execute
+    @contextmanager
+    def opening(): yield mouse
+    document = {}
+    with replug.responsive_transport(opening, before, document, tmp_path / 'journal.json', 'check',
+                                     stopped=lambda: False, wait=lambda _: None, now=lambda: 0) as (io, state):
+        assert io is mouse and state == before
+    assert len(document['readiness_retries']) == 2 and not mouse.writes
+
+
+@pytest.mark.parametrize('failure', [DeviceStatusError(3), DeviceStatusError(5), ProtocolError('Identity mismatch')])
+def test_receiver_readiness_does_not_retry_structural_failures(tmp_path, failure):
+    from contextlib import contextmanager
+    mouse = Mouse(0xE8)
+    before = probe.capture(mouse)
+    calls = []
+    @contextmanager
+    def opening():
+        calls.append(True)
+        raise failure
+        yield mouse
+    with pytest.raises(type(failure)):
+        with replug.responsive_transport(opening, before, {}, tmp_path / 'never.json', 'check',
+                                         stopped=lambda: False, wait=lambda _: None, now=lambda: 0):
+            pytest.fail('Should not yield')
+    assert len(calls) == 1 and not mouse.writes
+
+
+def test_receiver_readiness_never_retries_an_uncertain_setter_from_its_caller(tmp_path):
+    from contextlib import contextmanager
+    mouse = Mouse(0xE8)
+    before = probe.capture(mouse)
+    calls = []
+    @contextmanager
+    def opening():
+        calls.append(True)
+        yield mouse
+    mouse.fail_at = {1}
+    with pytest.raises(DeviceUnavailable):
+        with replug.responsive_transport(opening, before, {}, tmp_path / 'never.json', 'restore',
+                                         stopped=lambda: False, wait=lambda _: None, now=lambda: 0) as (io, _):
+            io._exchange(probe.Command(4, 5, bytes.fromhex(before['selector_zero'])))
+    assert len(calls) == 1 and len(mouse.writes) == 1
+
+
+def test_receiver_readiness_bounds_retries_even_when_clock_does_not_advance(tmp_path):
+    from contextlib import contextmanager
+    mouse = Mouse(0xE8)
+    before = probe.capture(mouse)
+    calls = []
+    @contextmanager
+    def opening():
+        calls.append(True)
+        raise DeviceStatusError(4)
+        yield mouse
+    document = {}
+    with pytest.raises(ProtocolError, match='read-only readiness limit'):
+        with replug.responsive_transport(opening, before, document, tmp_path / 'journal.json', 'check',
+                                         stopped=lambda: False, wait=lambda _: None, now=lambda: 0):
+            pytest.fail('Should not yield')
+    assert len(calls) == len(document['readiness_retries']) == 16 and not mouse.writes
