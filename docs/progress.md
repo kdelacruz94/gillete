@@ -1278,3 +1278,14 @@ Retained journal:
 Next action is to wake the V3 with its receiver connected, then retry the
 already-authorized journal recovery and verify originals. Do not start another
 hardware experiment or claim restoration until recovery succeeds.
+
+## V3 pending recovery completed — 2026-11-10
+
+After the user woke the V3, explicit recovery of the retained receiver-test
+journal completed as `original-state-restored`. `original_state_restored=true`
+and the full normalized captured state matches the original snapshot,
+including selector-zero 6400 × 6400, saved settings and binding functions.
+No recovery error remains. The old `Receiver-replug observation timed out`
+message is the retained experiment error; it does not indicate a new recovery
+failure. No hardware experiment is currently running, and no successful
+receiver-retention outcome is inferred from this recovery.
