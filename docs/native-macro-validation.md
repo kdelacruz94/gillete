@@ -81,6 +81,12 @@ Uncertain upload SETs are never automatically resent. The existing Programmer
 journals binding changes and preserves original normal/HyperShift functions
 and reply flags.
 
+The complete binding-recovery journal is also written before allocation.
+Cleanup verifies its original values against the parent and reuses that
+durable file. If the disk fills during observation, Programmer can still
+restore the button even when subsequent journal updates fail. Macro deletion
+then stops if its intent cannot be made durable, retaining an unbound object.
+
 Cleanup restores side 12 first, then reads every bank/control, requires
 protected-state equality, checks references/catalog ownership and verifies
 all UUID/metadata/event bytes before deleting only the test object. External

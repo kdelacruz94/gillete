@@ -1517,3 +1517,24 @@ succeeded in `evidence/v3-native-macro-power-20261110-01.local/prepared.json`,
 with the current 3200 DPI, empty catalog, 306688 free and 512 reclaimable bytes.
 No follow-up upload or binding change has been submitted. The next step needs
 the user to power-cycle and tap the mouse after READY; no test is running.
+
+## Power-cycle run active and recovery hardening — 2026-11-10
+
+The user selected Ready for the prepared retention test. Before launching,
+an offline disk-full test exposed that creating binding-recovery data for
+the first time during cleanup could prevent restoring a live candidate.
+The complete canonical binding-recovery journal is now durable before the
+first allocation. Cleanup verifies/reuses it; Programmer's best-effort status
+writes cannot prevent restoration if the disk fills later. Deletion still
+requires a durable intent and retains an unbound object if that fails.
+The regression fails on the previous code and passes after this change.
+All 597 tests and 276 packaged-source checks pass.
+
+The approved `v3-native-macro-power-20261110-01.local` run has now uploaded
+and verified its exact macro, temporarily bound side 12 and announced READY.
+It is awaiting the user's off/on + side-12 sequence and explicit report. When
+the user confirms completing the cycle, write exactly `{"power_cycled": true}`
+with `durable_json` to its `run/power-cycle-report.json`; do not invent that
+confirmation. Its process automatically restores on completion or timeout.
+Check `run/journal.json` before any new mouse operation. Input-remapper and
+production services remain unchanged.

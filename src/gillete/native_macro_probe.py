@@ -147,6 +147,26 @@ def verify_object(io, document):
         raise ProtocolError('Native macro metadata/data did not match independent readback')
 
 
+def recovery_document(document):
+    return {'version': 1, 'product': 0xE8, 'serial': document['before']['serial'],
+            'entries': [{**{n: entry[n] for n in ('bank', 'control', 'layer')},
+                         'before': entry['raw'][6:], 'after': entry['raw'][6:],
+                         'reply_flag_before': bytes.fromhex(entry['raw'])[2]}
+                        for entry in document['before']['all_records']
+                        if entry['bank'] == 1 and entry['control'] == CONTROL]}
+
+
+def ensure_recovery(path, document):
+    """Create before SET, or verify the durable original without rewriting it."""
+    expected = recovery_document(document)
+    if path.exists():
+        stored = read_journal(path)
+        if any(stored.get(key) != value for key, value in expected.items()):
+            raise ProtocolError('Binding recovery differs from validated parent originals')
+    else:
+        durable_json(path, expected)
+
+
 def restore(io, document, path):
     """Restore bindings before deleting; retain uncertain allocations as evidence."""
     validate(document)
@@ -162,13 +182,9 @@ def restore(io, document, path):
             raise ProtocolError('Side 12 changed outside this experiment; refusing to overwrite it')
         changed |= current != raw
     if changed:
-        # Rebuild recovery solely from validated parent originals, never trust a
-        # partially written secondary binding journal to select restore bytes.
+        # Verify against parent originals, without requiring new disk space.
         binding_path = path.with_name('binding-recovery.json')
-        recovery = {'version': 1, 'product': 0xE8, 'serial': document['before']['serial'],
-                    'entries': [{**w.json(), 'before': raw[3:].hex(), 'after': raw[3:].hex(),
-                                 'reply_flag_before': raw[2]} for w, raw in originals.items()]}
-        durable_json(binding_path, recovery)
+        ensure_recovery(binding_path, document)
         Programmer(io, binding_path, document['before']['serial'], set(document['before']['controls'])).restore()
     current = snapshot(base.ReadBudget(io))
     if normalized(current) != normalized(document['before']):
@@ -210,6 +226,9 @@ def exercise(io, prepared, path, observe, *, ready=lambda: None, stopped=lambda:
     document = deepcopy(prepared)
     document['status'] = 'armed'
     durable_json(path, document)
+    # Complete recovery is durable before allocation, not first created during
+    # cleanup. Programmer can then restore even if status updates hit ENOSPC.
+    ensure_recovery(path.with_name('binding-recovery.json'), document)
     fatal = None
     try:
         def send(command, phase):

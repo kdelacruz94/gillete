@@ -224,6 +224,23 @@ def test_journal_failure_before_allocation_prevents_all_setters(tmp_path, monkey
     assert not mouse.writes
 
 
+def test_disk_full_during_observation_still_restores_button_using_existing_durable_recovery(tmp_path, monkeypatch):
+    import gillete.onboard as onboard
+    mouse = Mouse()
+    prepared = probe.prepare_document(mouse)
+    def disk_failure(*_): raise OSError('disk full')
+    def observation(_):
+        monkeypatch.setattr(probe, 'durable_json', disk_failure)
+        monkeypatch.setattr(onboard, 'durable_json', disk_failure)
+        raise InterruptedError('cancel while disk full')
+    with pytest.raises(OSError, match='disk full'):
+        probe.exercise(mouse, prepared, tmp_path / 'journal.json', observation)
+    # Deletion cannot journal its intent, so the unbound object is retained.
+    assert mouse.macros
+    assert mouse.read_binding(1, probe.CONTROL, 0).hex() == '05020000000000'
+    assert mouse.flags[1, probe.CONTROL] == 0
+
+
 def test_experimental_reads_do_not_admit_setters_to_normal_or_macro_transport(monkeypatch):
     regular = ReadOnlyHID('/dev/hidraw999', 0xE8)
     experimental = probe.MacroHID('/dev/hidraw999', 0xE8)
