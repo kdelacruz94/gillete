@@ -70,6 +70,13 @@ packet sizes, ownership checks, recovery limits and timing evidence are in
 has been run; upload/playback/persistence remain unverified, and no production
 native macro capability is enabled.
 
+**Subsequent approved native write:** the V3 uploaded and read back the exact
+six-byte macro and metadata, then executed F24 down/up from normal side 12.
+Measured hold was 83.001 ms for the requested 80 ms. Original functions and
+protected settings were restored, and the test object was deleted. The catalog
+is empty; 512 bytes are reclaimable. This accepts the bounded native path,
+not persistence, HyperShift or repeated playback. See `progress.md`.
+
 ## 1. V2 stored functions
 
 ### Class `05` is a macro family, not a disabled/default marker

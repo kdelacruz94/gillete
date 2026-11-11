@@ -1,8 +1,10 @@
 # Native macro validation
 
-2026-11-10. The compiler and experiment are implemented and tested offline.
-Native macro allocation, upload, playback and deletion remain physically
-unverified. Production Save to Mouse capabilities remain unchanged.
+2026-11-10. The compiler and experiment pass offline checks. The user's V3
+receiver has now physically accepted allocation, upload, counted-once F24
+playback (83.001-ms measured hold for 80-ms requested delay) and cleanup.
+Power-cycle persistence, HyperShift and repetition remain unverified.
+Production Save to Mouse capabilities remain unchanged.
 
 ## First-party wire findings
 
@@ -106,3 +108,21 @@ V2, wired V3, HyperShift macros, power-cycle persistence, native repetition
 and production multi-macro/profile dependency management require separate
 acceptance. V2's disabled onboard macro feature remains a material boundary;
 this experiment never writes to it.
+
+## Focus-loss cancellation remains separate
+
+The shared first-party protocol exposes methods named interruptible macro
+settings, but their seven-byte commands are `02:ad` (get) and `02:2d` (set),
+not class-06 stop-playback commands. The getter carries one numeric selector;
+the setter carries three numeric values and up to four additional key IDs.
+The retained V3 bundle provides no call site beyond those method definitions
+that establishes their meaning for this mouse. A generic shared method is
+insufficient evidence to send it or claim a Naga cancellation feature.
+
+No explicit native stop-playback method was found in the retained macro
+protocol/engine factories. This limited source search does not prove firmware
+lacks one. Until hardware establishes cancellation, native toggled playback
+must not be presented as satisfying the user's stop-on-focus-loss requirement.
+The Linux Runner's cancellation applies to its own generated events; it cannot
+be assumed to control autonomous firmware playback. Neither these new candidate
+commands nor mode/profile changes are introduced as cancellation fallbacks.

@@ -1469,3 +1469,32 @@ experiment is privately prepared in
 upload, binding or deletion has been submitted. Native playback/persistence
 and production integration remain unverified. The next physical stage needs
 explicit approval for this newly prepared macro-storage experiment.
+
+## V3 native macro execution accepted — 2026-11-10
+
+The user approved the exact F24-down/80-ms/F24-up macro upload, temporary
+normal side-12 binding and cleanup. The first launch stopped before hardware
+changes because installed evdev has no `set_clockid` method. The observer now
+uses Linux EVIOCSCLOCKID on its own descriptor, verified both by a regression
+test and by opening the real V3 keyboard interface. A subsequent read-only
+preflight found DPI had changed from 6400/stage 5 to 3200/stage 4 since the
+preparation. It stopped without a macro SET. Fresh preparation preserved the
+current 3200 setting rather than restoring the stale snapshot.
+
+The refreshed run uploaded a fresh native macro, independently verified all
+metadata/event bytes, bound normal side 12 and announced READY. The user
+confirmed pressing/releasing it. The observer recorded F24 down/up with an
+83.001-ms hold, without input grabbing or key injection. This physically
+accepts the bounded allocation, metadata/data upload, counted-once binding
+and basic delay/execution path on this V3 receiver.
+
+Cleanup completed `native-macro-restored`, `native_playback_verified=true`,
+`original_state_restored=true`, with no experiment or recovery error. All
+original bindings and protected settings matched, including current 3200 DPI.
+The catalog is empty again: maximum 307200 bytes, 306688 immediately free and
+512 reclaimable. No formatting/compaction was attempted. Private full journal:
+`evidence/v3-native-macro-20261110-02.local/run/journal.json`.
+
+All 590 tests and 269 packaged-source checks pass after the observer fix.
+Native macro power-cycle retention, HyperShift/repetition and production
+multi-profile dependency handling remain unverified. No test is running.

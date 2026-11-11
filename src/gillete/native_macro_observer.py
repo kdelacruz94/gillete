@@ -1,6 +1,8 @@
 """Read only F24 transitions from the selected V3; no grabs or injection."""
 
+import fcntl
 import select
+import struct
 import time
 
 from evdev import InputDevice, ecodes
@@ -21,7 +23,9 @@ class Observer:
                 if ecodes.KEY_F24 not in source.capabilities().get(ecodes.EV_KEY, []):
                     self.sources.pop().close()
                 else:
-                    source.set_clockid(time.CLOCK_MONOTONIC)
+                    # Linux EVIOCSCLOCKID is not exposed by installed evdev.
+                    # This changes timestamps on our fd only, not mouse state.
+                    fcntl.ioctl(source.fd, 0x400445A0, struct.pack('i', time.CLOCK_MONOTONIC))
             if not self.sources:
                 raise ProtocolError('No readable V3 F24 keyboard interface; no macro change attempted')
             return self

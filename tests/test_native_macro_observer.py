@@ -1,4 +1,7 @@
 from types import SimpleNamespace
+import fcntl
+import struct
+import time
 
 import pytest
 from evdev import ecodes
@@ -48,10 +51,23 @@ def test_observer_closes_every_opened_source_on_failure_and_never_grabs(monkeypa
     closed = []
     def make(path):
         if path == 'bad': raise PermissionError('unreadable keyboard')
-        return SimpleNamespace(close=lambda: closed.append(path),
+        return SimpleNamespace(fd=123, close=lambda: closed.append(path),
                                capabilities=lambda: {ecodes.EV_KEY: [ecodes.KEY_F24]}, set_clockid=lambda _: None)
+    monkeypatch.setattr(fcntl, 'ioctl', lambda *_: 0)
     monkeypatch.setattr(observer, 'InputDevice', make)
     watcher = observer.Observer(SimpleNamespace(interfaces=[{'kind': 'input', 'path': 'ok'},
                                                             {'kind': 'input', 'path': 'bad'}]))
     with pytest.raises(PermissionError): watcher.__enter__()
     assert closed == ['ok'] and watcher.sources == []
+
+
+def test_monotonic_clock_works_with_installed_evdev_without_set_clockid_method(monkeypatch):
+    calls, closed = [], []
+    source = SimpleNamespace(fd=123, close=lambda: closed.append(True),
+                             capabilities=lambda: {ecodes.EV_KEY: [ecodes.KEY_F24]})
+    monkeypatch.setattr(observer, 'InputDevice', lambda _: source)
+    monkeypatch.setattr(fcntl, 'ioctl', lambda *args: calls.append(args))
+    with observer.Observer(SimpleNamespace(interfaces=[{'kind': 'input', 'path': 'keyboard'}])):
+        pass
+    assert calls == [(123, 0x400445A0, struct.pack('i', time.CLOCK_MONOTONIC))]
+    assert closed == [True]
