@@ -5,6 +5,7 @@ import pytest
 from gillete import native_macro_probe as probe
 from gillete.hid import ReadOnlyHID
 from gillete.protocol import Command, DeviceUnavailable, ProtocolError
+from types import SimpleNamespace
 from test_dpi_probe import Mouse as SettingsMouse
 
 
@@ -232,3 +233,53 @@ def test_experimental_reads_do_not_admit_setters_to_normal_or_macro_transport(mo
     for command in (probe.memory.allocate(7, 6), probe.memory.delete(7), Command(6, 10, bytes(2))):
         with pytest.raises(ProtocolError): experimental.execute(command)
     assert not calls
+
+
+def test_reported_power_cycle_requires_real_key_events_and_post_cycle_object_and_binding_readback(tmp_path):
+    mouse = Mouse()
+    prepared = probe.prepare_document(mouse, purpose='power-cycle')
+    result = probe.exercise(mouse, prepared, tmp_path / 'journal.json',
+                            lambda _: {'f24_down': True, 'f24_up': True, 'hold_ms': 83., 'power_cycled': True})
+    assert result['status'] == 'native-macro-restored'
+    assert result['power_cycle_retention_observed'] and result['post_execution_readback_verified']
+    assert result['catalog_observed']['ids'] == [prepared['identifier']]
+    assert not mouse.macros
+
+
+@pytest.mark.parametrize('report', [False, 1, None])
+def test_missing_or_ambiguous_human_cycle_report_does_not_claim_persistence(tmp_path, report):
+    mouse = Mouse()
+    prepared = probe.prepare_document(mouse, purpose='power-cycle')
+    result = probe.exercise(mouse, prepared, tmp_path / 'journal.json',
+                            lambda _: {'f24_down': True, 'f24_up': True, 'hold_ms': 80., 'power_cycled': report})
+    assert result['status'] == 'test-failed-restored'
+    assert result['original_state_restored'] and not result['power_cycle_retention_observed']
+
+
+def test_lost_macro_after_reported_cycle_is_not_accepted(tmp_path):
+    mouse = Mouse()
+    prepared = probe.prepare_document(mouse, purpose='power-cycle')
+    def observation(_):
+        mouse.macros.clear()
+        return {'f24_down': True, 'f24_up': True, 'hold_ms': 80., 'power_cycled': True}
+    result = probe.exercise(mouse, prepared, tmp_path / 'journal.json', observation)
+    assert result['status'] == 'test-failed-restored'
+    assert 'catalog changed' in result['experiment_error']
+    assert not result['power_cycle_retention_observed'] and result['original_state_restored']
+
+
+def test_power_cycle_feedback_shares_observers_deadline_and_requires_literal_true(tmp_path):
+    report = tmp_path / 'report.json'
+    clock = [100.]
+    observed = SimpleNamespace(armed_at=100., observe=lambda _: {'f24_down': True, 'f24_up': True, 'hold_ms': 83.})
+    def wait(_):
+        clock[0] += 1
+        report.write_text('{"power_cycled": true}')
+    result = probe.power_cycle_observation(observed, report, lambda: False, wait=wait, now=lambda: clock[0])
+    assert result['power_cycled'] is True and result['hold_ms'] == 83.
+    report.write_text('{"power_cycled": 1}')
+    with pytest.raises(ProtocolError, match='explicitly confirm'):
+        probe.power_cycle_observation(observed, report, lambda: False, now=lambda: clock[0])
+    report.unlink()
+    with pytest.raises(ProtocolError, match='timed out'):
+        probe.power_cycle_observation(observed, report, lambda: False, now=lambda: 280.)

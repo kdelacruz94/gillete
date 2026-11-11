@@ -7,9 +7,11 @@ remain journaled for investigation rather than being deleted speculatively.
 
 import argparse
 from copy import deepcopy
+import json
 import math
 from pathlib import Path
 import secrets
+import time
 from uuid import uuid4
 
 from . import dpi_probe as base
@@ -92,7 +94,9 @@ def references(state, identifier):
     return False
 
 
-def prepare_document(io):
+def prepare_document(io, *, purpose='once'):
+    if purpose not in ('once', 'power-cycle'):
+        raise ProtocolError('Unsupported native macro experiment purpose')
     before = snapshot(base.ReadBudget(io))
     inventory = catalog(io)
     compiled = compile_macro(ACTION)
@@ -105,17 +109,20 @@ def prepare_document(io):
     else:
         raise ProtocolError('Could not choose an unreferenced fresh macro ID')
     guid = str(uuid4())
-    return {'version': 1, 'kind': KIND, 'status': 'prepared-read-only', 'before': before,
+    return {'version': 1, 'kind': KIND, 'purpose': purpose, 'status': 'prepared-read-only', 'before': before,
             'catalog_before': inventory, 'identifier': identifier, 'guid': guid,
             'action': ACTION.json(), 'name': NAME, 'data': compiled.data.hex(),
             'metadata': metadata(compiled, guid, NAME).hex(), 'binding': compiled.binding(identifier).hex(),
-            'original_state_restored': False, 'native_playback_verified': False}
+            'original_state_restored': False, 'native_playback_verified': False,
+            'power_cycle_retention_observed': False}
 
 
 def validate(document):
     try:
         if type(document['version']) is not int or document['version'] != 1 or document['kind'] != KIND:
             raise ValueError('Unknown macro journal')
+        if document.get('purpose', 'once') not in ('once', 'power-cycle'):
+            raise ValueError('Unknown native macro experiment purpose')
         validate_snapshot(document['before'])
         compiled = compile_macro(ACTION)
         if (document['action'] != ACTION.json() or document['name'] != NAME
@@ -234,7 +241,9 @@ def exercise(io, prepared, path, observe, *, ready=lambda: None, stopped=lambda:
         durable_json(path, document)
         ready()
         observation = observe(stopped)
-        if (not isinstance(observation, dict) or set(observation) != {'f24_down', 'f24_up', 'hold_ms'}
+        power_cycle = document.get('purpose') == 'power-cycle'
+        expected = {'f24_down', 'f24_up', 'hold_ms'} | ({'power_cycled'} if power_cycle else set())
+        if (not isinstance(observation, dict) or set(observation) != expected
                 or any(type(observation[k]) is not bool for k in ('f24_down', 'f24_up'))
                 or type(observation['hold_ms']) not in (int, float)
                 or not math.isfinite(observation['hold_ms']) or not 0 <= observation['hold_ms'] <= 180000):
@@ -243,6 +252,18 @@ def exercise(io, prepared, path, observe, *, ready=lambda: None, stopped=lambda:
         document['native_playback_verified'] = observation['f24_down'] and observation['f24_up']
         if not document['native_playback_verified']:
             raise ProtocolError('Native F24 playback was not observed')
+        if power_cycle and observation['power_cycled'] is not True:
+            raise ProtocolError('An explicit human power-cycle report is required')
+        base.guard(io, document['before'])
+        document['catalog_observed'] = catalog(io)
+        if document['catalog_observed']['ids'] != [identifier]:
+            raise ProtocolError('Test macro catalog changed during observation')
+        verify_object(io, document)
+        if (io.read_binding(0, CONTROL, 0).hex() != document['binding']
+                or io.read_binding(1, CONTROL, 0).hex() != document['binding']):
+            raise ProtocolError('Stored/active macro binding changed during observation')
+        document['post_execution_readback_verified'] = True
+        document['power_cycle_retention_observed'] = power_cycle
     except BaseException as error:
         document['experiment_error'] = str(error) or type(error).__name__
         if not isinstance(error, Exception): fatal = error
@@ -259,18 +280,40 @@ def exercise(io, prepared, path, observe, *, ready=lambda: None, stopped=lambda:
     return document
 
 
+def power_cycle_observation(observer, report, stopped, *, wait=time.sleep, now=time.monotonic):
+    """Combine actual post-READY key events with a separate human cycle report."""
+    observation = observer.observe(stopped)
+    while now() < observer.armed_at + 180:
+        if stopped(): raise InterruptedError('Power-cycle report cancelled')
+        if report.exists():
+            with report.open('rb') as handle:
+                raw = handle.read(4097)
+            if len(raw) > 4096:
+                raise ProtocolError('Power-cycle report too large')
+            value = json.loads(raw)
+            if value != {'power_cycled': True} or type(value['power_cycled']) is not bool:
+                raise ProtocolError('Expected the user to explicitly confirm the off/on cycle')
+            return {**observation, 'power_cycled': True}
+        wait(.2)
+    raise ProtocolError('Power-cycle report timed out')
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=('prepare', 'run', 'recover'))
     parser.add_argument('--directory', type=Path, required=True)
+    parser.add_argument('--power-cycle', action='store_true', help='Prepare a user-reported off/on retention test')
     args = parser.parse_args(argv)
     directory = args.directory
     try:
+        if args.power_cycle and args.operation != 'prepare':
+            raise ProtocolError('Power-cycle purpose must be selected during preparation')
         if socket_path().exists():
             raise ProtocolError('Stop the Gillete service before an isolated macro test')
         if args.operation == 'prepare':
             if directory.exists(): raise ProtocolError('Choose a fresh experiment directory')
-            with open_mouse() as io: document = prepare_document(io)
+            with open_mouse() as io:
+                document = prepare_document(io, purpose='power-cycle' if args.power_cycle else 'once')
             directory.mkdir(parents=True, mode=0o700)
             durable_json(directory / 'prepared.json', document)
         elif args.operation == 'run':
@@ -283,9 +326,15 @@ def main(argv=None):
             with base.cancellation() as stopped, Observer(base.connected(0xE8)) as observer, open_mouse() as io:
                 def ready():
                     observer.arm()
-                    print('READY: tap V3 side 12 once. Native F24 macro active; '
-                          'restores after press/release or 180 seconds.', flush=True)
-                document = exercise(io, prepared, root / 'journal.json', observer.observe, stopped=stopped,
+                    print('READY: ' + ('switch V3 off, wait two seconds, switch on, then tap side 12. '
+                                      'Report the power cycle; restores on completion or 180 seconds.'
+                                      if prepared.get('purpose') == 'power-cycle' else
+                                      'tap V3 side 12 once. Native F24 macro active; '
+                                      'restores after press/release or 180 seconds.'), flush=True)
+                def observe(stopped):
+                    return (power_cycle_observation(observer, root / 'power-cycle-report.json', stopped)
+                            if prepared.get('purpose') == 'power-cycle' else observer.observe(stopped))
+                document = exercise(io, prepared, root / 'journal.json', observe, stopped=stopped,
                                     ready=ready)
         else:
             path = directory / 'run/journal.json'

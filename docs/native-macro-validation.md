@@ -109,6 +109,28 @@ and production multi-macro/profile dependency management require separate
 acceptance. V2's disabled onboard macro feature remains a material boundary;
 this experiment never writes to it.
 
+## Prepared power-cycle follow-up
+
+`prepare --power-cycle` selects a separate user-paced retention purpose with
+the same exact F24 stream and single normal side-12 mapping. It uses a fresh
+object and snapshot. After READY, the user switches the mouse off, waits two
+seconds, switches it on, taps/releases side 12 and reports completing the
+cycle. The keyboard observer still measures actual native F24 down/up.
+
+During the same 180-second observation deadline, the run requires a private
+`run/power-cycle-report.json` containing exactly `{"power_cycled": true}`.
+The assistant writes that only after the user's explicit cycle report.
+Then the run checks the catalog, complete metadata/event data and both
+stored/active binding before restoring the original button and deleting the
+test object. It records `power_cycle_retention_observed` only after those
+checks. This is a human-reported off/on observation, not instrumented proof
+of battery power loss or a particular NVM implementation.
+
+The preparation command adds `--power-cycle`; run/recover use the prepared
+directory without that option. Missing/negative/ambiguous reports, lost data,
+changed bindings, event loss, cancellation or timeout cannot claim retention.
+Incomplete or conflicting state retains the same conservative recovery rules.
+
 ## Focus-loss cancellation remains separate
 
 The shared first-party protocol exposes methods named interruptible macro

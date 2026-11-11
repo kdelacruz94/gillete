@@ -1498,3 +1498,22 @@ The catalog is empty again: maximum 307200 bytes, 306688 immediately free and
 All 590 tests and 269 packaged-source checks pass after the observer fix.
 Native macro power-cycle retention, HyperShift/repetition and production
 multi-profile dependency handling remain unverified. No test is running.
+
+## Native macro retention test prepared — 2026-11-10
+
+Added a separate `--power-cycle` preparation purpose using the same exact
+F24-down/80-ms/F24-up stream and temporary normal side-12 binding. The run
+requires actual post-READY F24 down/up plus an explicit human off/on report
+within the same 180-second deadline. It independently rechecks the catalog,
+all metadata/event bytes and stored/active binding before claiming observed
+retention. It never claims instrumented battery removal or flash/NVM proof.
+Cleanup and recovery retain the original experiment's ownership/dependency
+checks. Ordinary execution now also verifies the object/binding after playback.
+
+All 596 tests and 275 packaged-source checks pass, including missing/ambiguous
+cycle reports, shared deadlines and a missing macro after a reported cycle.
+The staged Arch/wheel and native GUI checks pass. Read-only preparation
+succeeded in `evidence/v3-native-macro-power-20261110-01.local/prepared.json`,
+with the current 3200 DPI, empty catalog, 306688 free and 512 reclaimable bytes.
+No follow-up upload or binding change has been submitted. The next step needs
+the user to power-cycle and tap the mouse after READY; no test is running.
