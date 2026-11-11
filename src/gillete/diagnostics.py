@@ -141,18 +141,15 @@ def feature_validation(product):
     return [Finding('Physical controls', 'Captured on device',
                     f'All {count} controls were identified on the development receiver. '
                     'Software mapping and saved-mapping acceptance are reported separately below.'),
-            Finding('Every-control software mapping', 'Live test passed' if product == 0xE8 else 'Guided test prepared',
-                    'All50 normal/HyperShift control pairs passed with routed mouse edges and desktop key pairs, '
+            Finding('Every-control software mapping', 'Live test passed',
+                    f'All{count * 2} normal/HyperShift control pairs passed with routed mouse edges and desktop key pairs, '
                     'including the trigger through an alternate trigger. Original state restoration verified. '
-                    'Native saves and wider lifecycle acceptance remain separate.' if product == 0xE8 else
-                    f'A separate {count * 2}-tap receiver test checks every normal/HyperShift assignment, '
-                    'including the trigger through an alternate trigger. Mouse edges and desktop keys must both match. '
-                    'The complete physical run is pending.'),
+                    'Native saves and wider lifecycle acceptance remain separate.'),
             Finding('Saved mappings and held HyperShift', 'Partially verified',
                     'Side 12 F24/F23 tests survived a mouse power cycle. Receiver replug and broader assignment tests remain pending.'),
             Finding('Program profiles, macros and turbo', 'Live examples passed' if product == 0xE8 else 'Live test pending',
                     'V3 examples passed F24/F23, Ctrl+K then M, toggle-1 and focus cancellation. Full lifecycle acceptance remains pending.'
-                    if product == 0xE8 else 'Software actions are implemented and tested in simulation; the V2 live software test is pending.'),
+                    if product == 0xE8 else 'All42 control/layer mappings passed; V2 live macro/turbo and focus-cancellation examples remain pending.'),
             Finding('Macro recording and program launches', 'Implemented',
                     'Linux service features; full desktop acceptance is pending.'),
             Finding('DPI stages and polling rate', 'Live write test pending',

@@ -124,8 +124,9 @@ def test_development_validation_remains_distinct_from_implemented_or_pending_wor
         assert 'replug' in rows['Saved mappings and held HyperShift'].detail
         assert rows['Per-program hardware DPI'].status == 'Unavailable'
         assert rows['DPI stages and polling rate'].status == 'Live write test pending'
-    assert v2['Every-control software mapping'].status == 'Guided test prepared'
-    assert 'physical run is pending' in v2['Every-control software mapping'].detail
+    assert v2['Every-control software mapping'].status == 'Live test passed'
+    assert 'All42' in v2['Every-control software mapping'].detail
+    assert 'macro/turbo' in v2['Program profiles, macros and turbo'].detail
     assert v3['Every-control software mapping'].status == 'Live test passed'
     assert 'All50' in v3['Every-control software mapping'].detail
     assert 'restoration verified' in v3['Every-control software mapping'].detail

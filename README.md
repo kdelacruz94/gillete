@@ -406,9 +406,9 @@ A separate **all-controls** plan is prepared for complete receiver mapping
 acceptance. It guides 42 V2 or 50 V3 control/layer taps, including the HyperShift
 trigger itself through a second trigger assignment. Each pass needs a routed
 mouse press/release and the corresponding key pair in the window; typing a
-marker on the keyboard alone cannot pass. The V3 receiver has passed all50 pairs
-with verified normal-mode restoration and unchanged saved state; V2 remains
-pending. It uses an isolated service and
+marker on the keyboard alone cannot pass. Both receivers have passed their
+complete50/42-pair suites with verified normal-mode restoration and unchanged
+saved state. It uses an isolated service and
 bounded control tracing, leaves saved bindings/settings unchanged, and restores
 normal mode on exit. This larger live test has not run yet.
 

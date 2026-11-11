@@ -2516,3 +2516,50 @@ Validation:78 relevant diagnostics/GUI checks and783 packaged-source checks pass
 the final diagnostic wording check also passes. Arch/wheel, CLI and isolated GUI
 checks pass. V2 preparation preserved its current1800×1800 DPI and has no run
 directory. No host package was installed and no remapper migration occurred.
+
+## V2 complete receiver control/layer software acceptance — 2026-11-11
+
+The owner approved the42-tap V2 software test. Its first activation was blocked
+by an exclusive event-device grab. Cleanup verified normal mode, unchanged saved
+state and42 original descriptors, with no mode journal or shutdown notes. No
+successful input-ownership claim or coverage was inferred from that attempt.
+
+Read-only process/descriptor inspection and the installed input-remapper API
+identified its V2 injector as RUNNING with global suspension false. No process
+was killed. The owner then explicitly authorized temporarily stopping only the
+V2 preset and restoring the exact same preset afterward. A fresh read-only
+proposal was prepared at `evidence/v2-controls-20261111-02.local`.
+
+The private handoff journal recorded the original preset and file fingerprints
+before the stop. It stopped only the V2 group through the existing daemon's
+device-specific API, launched the reviewed isolated test and arranged to restore
+that preset only after verified normal-mode/stored-state cleanup. It did not
+change preset/autostart files or suspend other groups. The final wrapper and
+controller both exited0.
+
+The live test completed42/42 control/layer pairs, including normal and shifted
+front/rear index triggers through trigger rotation. Its source/Qt receipts
+independently replay against the exact recipe, readiness nonce and service epoch.
+Seven failed attempts are retained: initial left-click lost focus; shifted
+rear-index and sides1/3/4/10 crossed the arming/cancellation boundary; another
+shifted side1 attempt had a desktop order/count mismatch. Their later attempts
+passed. No failure was erased or used as a pass, and no cause beyond the recorded
+error is asserted.
+
+Restoration verifies normal mode, unchanged stored state/all42 descriptors and
+the1800×1800-DPI baseline with no errors or shutdown notes. The owned mode lease
+is normal-mode-restored. The handoff receipt is original-preset-restored; a fresh
+read of the existing daemon independently confirms the same original V2 preset
+RUNNING and matching preset/config/xmodmap file hashes. The owned Gillete test
+daemon/window exited. This is temporary coexistence, not migration.
+
+Both receiver suites now pass92 total normal/HyperShift control pairs. Diagnostics
+and documentation reflect that bounded result. V2 macro/turbo/focus examples,
+wired operation, saved/onboard coverage and broader lifecycle acceptance remain
+separate. Cached discovery still shows only B4/E8, so the next wired investigation
+needs the owner to connect the V3 USB cable; no wired probe has been run here.
+
+Validation:78 relevant diagnostics/GUI checks and783 packaged-source checks pass.
+Staged Arch/wheel, CLI and isolated GUI checks pass. Original input-remapper
+operation was independently verified restored; no migration/autostart change or
+host package installation occurred.

@@ -1,7 +1,8 @@
 # Complete receiver control/layer software acceptance
 
-Status: the V3 receiver completed all50 physical control/layer pairs on2026-11-11,
-with restored normal mode and unchanged saved state. The V2 suite remains pending.
+Status: on2026-11-11 the V3 receiver completed all50 physical control/layer pairs
+and the V2 receiver completed all42, with restored normal mode and unchanged saved
+state on each. V2's original input-remapper preset was restored afterward.
 Source:
 `control_validation.py`, `control_pad.py`, `control_trace.py`, `guided_service.py`,
 `runtime.py` and `validation_plan.py`.
@@ -143,3 +144,27 @@ This also exercises real virtual-keyboard F13–F24 delivery for the recipe's
 base/Shift/Alt/Shift+Alt combinations plus Ctrl and Ctrl+Alt on F13. It does not
 test all256 modifier masks live, physical onboard F-key mapping, every application,
 layout/reload handling or the other lifecycle requirements above.
+
+## V2 receiver result — 2026-11-11
+
+The initial V2 attempt was blocked by another application's exclusive grab.
+It verified normal mode and unchanged42 descriptors/settings without starting
+coverage. A direct read of input-remapper's existing daemon reported the V2
+preset RUNNING. The owner explicitly authorized stopping only that preset for
+the test and restarting the same preset after cleanup.
+
+`evidence/v2-controls-20261111-02.local/run/coverage.json` is complete with42
+passing receipts. Replay against its prepared recipe, nonce and service epoch
+passes. Seven failed attempts are retained: initial normal left-click lost
+focus; shifted rear-index/sides1/3/4/10 crossed the arming boundary; another
+shifted side1 attempt had a desktop order/count mismatch. Retries passed, without
+attributing a cause beyond the recorded errors or treating failures as passes.
+
+The controller exited0, its mode lease is normal-mode-restored, and restoration
+verifies unchanged stored state/all42 original descriptors with no errors or
+shutdown notes. Its verified baseline was1800×1800 DPI. The owner-authorized
+handoff receipt is `original-preset-restored`; the exact original preset was
+independently rechecked RUNNING through the existing daemon proxy. Preset,
+config and xmodmap file hashes match their pre-stop values. Other devices were
+not stopped, and no preset/autostart file or permanent mouse setting was changed.
+This temporary coexistence test is not a production migration.
