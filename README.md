@@ -227,8 +227,11 @@ function-key correction. These are remaining implementation/acceptance requireme
 
 Native saves verify macro data before assigning references and preserve full
 transaction originals. **Restore from recovery journal…** accepts the native
-save's `profile.json`, restores original mappings and removes only verified
-unreferenced new objects. Byte-identical objects from the same named profile
+save's `profile.json`, restores affected original mappings and removes only
+verified unreferenced new objects. Later unrelated DPI/button edits are preserved;
+shared or unmatched macro objects are retained and reported. Missing/changed
+original dependencies or edits to affected mappings block unsafe restoration.
+Byte-identical objects from the same named profile
 are reused after metadata/data verification; unchanged saves require no new
 objects. Changed objects are retained for undo, and the preview shows new/reused
 counts and free-space/slot limits. Explicit pruning of obsolete managed objects

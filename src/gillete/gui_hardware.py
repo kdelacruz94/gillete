@@ -374,7 +374,8 @@ class HardwarePanel(QWidget):
                 from .native_profile_transaction import validate, recovery
                 preview = validate(document)
                 summary = (f'Restore {len(recovery(document, preview)["entries"])} original button layers '
-                           'and remove only verified, unreferenced macros created by this save?')
+                           'and remove only verified, unreferenced macros created by this save?\n'
+                           'Later unrelated settings/mappings are preserved. Shared or modified macros are retained.')
             else:
                 entries = document.get("entries")
                 if not isinstance(entries, list):
@@ -392,8 +393,13 @@ class HardwarePanel(QWidget):
         if answer == QMessageBox.StandardButton.Yes:
             self.run_job("Restoring the journal's original assignments…",
                          lambda: hardware.restore(device, path),
-                         lambda _: self.restored(path))
+                         lambda result: self.restored(path, result))
 
-    def restored(self, path):
+    def restored(self, path, result=None):
         self.invalidate()
-        self.status.setText(f"Original values restored and verified. Journal: {path}")
+        if result and result.get('restoration_scope') == 'affected-bindings':
+            count = len(result.get('retained_macros', []))
+            self.status.setText(f'Original affected mappings restored; unrelated current state preserved. '
+                                f'{count} shared or unmatched macros retained. Journal: {path}')
+        else:
+            self.status.setText(f"Original values restored and verified. Journal: {path}")

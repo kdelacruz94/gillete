@@ -1872,3 +1872,35 @@ scoped undo that preserves unrelated current state while retaining affected-grou
 catalog and original macro dependency guards. No such behavior change was made
 in this preparation step. Managed-object pruning and physical function-key
 compatibility remain outstanding too.
+
+## Scoped desktop native undo — 2026-11-10
+
+Implemented the production follow-up identified above. Desktop restore now
+requests explicit scoped undo: current unrelated settings/mappings/catalog
+entries are preserved while affected original groups and reply flags are
+restored. Snapshot projection checks that inverse writes did not alter that
+unrelated current state. Original macro dependencies are checked before inverse
+writes; missing/changed dependencies and externally edited affected mappings
+still block restoration. Geometry/route/profile changes are not treated as
+ordinary unrelated edits.
+
+Owned macro objects still referenced elsewhere, including sequence references
+on unknown controls/unassigned banks, remain in memory with receipt reasons.
+Byte-mismatched objects are retained without attribution; communication errors
+remain failures, not false cleanup success. Receipts/UI distinguish affected
+mappings restored from complete original captured-state restoration. Repeated
+scoped undo is safe and does not resend completed deletes. Save admission now
+rejects active/stored differences in affected groups before writing.
+
+The default strict rollback/undo path is unchanged for acceptance runners,
+including the combined test currently awaiting user approval. New code was
+verified only with simulated devices/offscreen GUI tests; no hardware query,
+setting write, keyboard change, service activation or migration occurred.
+
+Validation: all 704 tests and 388 packaged-source checks pass, including later
+DPI/settings edits, shared/modified objects, missing original dependencies,
+independent active-bank edits, communication failures and repeatable undo.
+Staged Arch/wheel, CLI and isolated GUI checks pass. The earlier four-tap
+shared/HyperShift result is already captured and restored; a repeated human
+confirmation does not authorize or establish the newer combined chord/count
+experiment, which has not run.

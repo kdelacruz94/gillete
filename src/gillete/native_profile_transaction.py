@@ -23,6 +23,10 @@ KIND = 'native-macro-profile-transaction'
 MAX_JOURNAL_BYTES = 1024 * 1024  # Matches hardware.read_journal's bound.
 
 
+class AssetMismatch(ProtocolError):
+    pass
+
+
 def durable_json(path, document):
     if len(json.dumps(document, indent=2).encode('utf-8')) + 1 > MAX_JOURNAL_BYTES:
         raise ProtocolError('Native profile recovery journal exceeds the readable size limit')
@@ -85,6 +89,7 @@ def prepare(io, profile):
             'validation_pending': preview.validation_pending, 'warnings': preview.warnings,
             'original_state_restored': False, 'transport_health': dict(getattr(io, 'reply_health', {}))}
     require_recovery_space(document)
+    require_reversible(document, preview)
     return document
 
 
@@ -120,6 +125,15 @@ def recovery(document, preview):
                         for w in sorted(old) if (w.bank, w.control) in groups]}
 
 
+def require_reversible(document, preview):
+    before = originals(document['before'])
+    for entry in recovery(document, preview)['entries']:
+        stored = Location(entry['bank'], entry['control'], entry['layer'])
+        active = Location(0, entry['control'], entry['layer'])
+        if before[stored][3:] != before[active][3:]:
+            raise ProtocolError('Active and stored affected mappings differ; a reversible native save cannot be admitted')
+
+
 def ensure_recovery(path, expected):
     if path.exists():
         stored = read_journal(path)
@@ -133,7 +147,7 @@ def verify_asset(io, asset):
     if (memory.data_size(io, asset.identifier) != len(asset.data)
             or memory.read_name(io, asset.identifier) != asset.metadata
             or memory.read_data(io, asset.identifier, len(asset.data)) != asset.data):
-        raise ProtocolError(f'Native macro {asset.identifier} ownership/data readback mismatch')
+        raise AssetMismatch(f'Native macro {asset.identifier} ownership/data readback mismatch')
 
 
 def restore(io, document, path):
@@ -197,6 +211,7 @@ def apply(io, prepared, path, *, stopped=lambda: False):
     """
     preview = validate(prepared)
     require_recovery_space(prepared)
+    require_reversible(prepared, preview)
     if prepared.get('status') != 'prepared-read-only' or path.exists() or path.with_name('profile-bindings.json').exists():
         raise ProtocolError('Fresh profile preparation/journal required')
     if probe.normalized(probe.snapshot(state.ReadBudget(io, stopped))) != probe.normalized(prepared['before']):
@@ -266,13 +281,20 @@ def apply(io, prepared, path, *, stopped=lambda: False):
         raise
 
 
-def undo(io, path):
+def undo(io, path, *, preserve_unrelated=False):
     """Recover/undo a saved or interrupted profile from its durable originals."""
     document = read_journal(path)
     validate(document)
+    if type(preserve_unrelated) is not bool:
+        raise ProtocolError('Undo scope must be an explicit boolean')
     try:
-        restore(io, document, path)
-        document['status'] = 'restored-readback-verified'
+        if preserve_unrelated:
+            from .native_profile_undo import restore_affected
+            restore_affected(io, document, path)
+        else:
+            restore(io, document, path)
+        document['status'] = ('restored-readback-verified' if document['original_state_restored'] else
+                              'affected-bindings-restored')
         document.pop('recovery_error', None)
         document['transport_health'] = dict(getattr(io, 'reply_health', {}))
         durable_json(path, document)

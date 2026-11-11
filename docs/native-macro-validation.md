@@ -5,8 +5,12 @@ receiver has now physically accepted allocation, upload, counted-once F24
 playback (83.001-ms measured hold for 80-ms requested delay) and cleanup.
 The same macro and stored/active binding also survived the user's reported
 off/on cycle, with 81.001-ms observed playback and complete cleanup afterward.
-Battery-removal retention, HyperShift and repetition remain unverified.
-Production Save to Mouse capabilities remain unchanged.
+Shared once-only macro playback on normal/HyperShift sides11/12 has also been
+observed; originals and the empty catalog were verified after recovery from
+a malformed-reply cleanup error. Production native save is gated to the V3
+receiver firmware1.1 and once-only single-key keyboard macros. Multi-key
+sequences, repetition, physical F13–F23 desktop mapping, and battery-removal
+retention remain unverified. Later sections record these results and gates.
 
 ## First-party wire findings
 
@@ -391,3 +395,28 @@ input into the dedicated test window. The window is not opened by preparation.
 Production multi-key/count gates are not cleared merely by implementing this
 runner. Native infinite held/toggle behavior, mouse/movement macros, V2 storage
 and wired transport remain separate acceptance requirements.
+
+## Scoped desktop undo
+
+The desktop recovery chooser uses `undo(..., preserve_unrelated=True)`.
+It snapshots current state, verifies route/firmware/profile/control/storage
+geometry, and checks original dependencies before any inverse write. Only
+affected button groups may return to their recorded originals; any third-party
+edit to those mappings blocks overwrite. Unrelated current mappings/settings
+and unrelated catalog entries are preserved, including later DPI edits.
+
+Cleanup deletes only matching unreferenced objects created by this receipt.
+Objects shared by another current mapping, including unknown controls and
+sequence-family references on other banks, are retained. An object whose
+contents no longer match is retained rather than overwritten/deleted; the
+result reports the reason without assuming who changed it. Communication
+errors remain recovery-required, not successful object-retention outcomes.
+
+Receipts distinguish `affected_assignments_restored` and
+`unrelated_state_preserved` from `original_state_restored`. Whole captured
+original-state verification is recorded only when the complete stored snapshot,
+catalog and captured dependency evidence match. Otherwise a successful scoped
+undo reports `affected-bindings-restored` and lists retained objects. Strict
+automatic rollback and hardware acceptance retain their original full-snapshot
+contract by default. New save admission also rejects affected active/stored
+mapping differences that cannot be reversibly restored through bank1 writes.

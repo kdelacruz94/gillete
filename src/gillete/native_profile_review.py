@@ -66,4 +66,6 @@ def restore_review(device, path):
         raise ProtocolError('Selected device differs from the native macro recovery identity')
     # Recovery remains available even if a later release tightens save gates.
     with _transport(device) as io:
-        return tx.undo(io, path)
+        try: return tx.undo(io, path, preserve_unrelated=True)
+        except (OSError, ValueError) as error:
+            raise ProtocolError(f'Native undo failed: {error}. Recovery journal: {path}') from error
