@@ -1406,3 +1406,26 @@ verified restoration are recorded separately.
 Driver-test validation: all 553 tests and 232 packaged-source checks pass,
 including mode/DPI ACK loss, identity changes, mode-before-settings recovery,
 user feedback, deadlines and protected-setting drift.
+
+## V3 driver-mode DPI accepted — 2026-11-10
+
+The user authorized the temporary driver-mode DPI test and reported the V3
+awake. Fresh read-only preparation succeeded, then the run entered driver
+mode and changed selector zero from 6400 × 6400 to 1200 × 1200. Both immediate
+and final driver-mode readback were 1200; saved scalar DPI, stages and polling
+matched originals. The user reported that movement felt normal at their usual
+1200 DPI. No input grabbing, software remapping or generated keys were used.
+
+The run completed `driver-dpi-restored`. Its separate mode journal verified
+`normal-mode-restored`; the DPI journal verified `normal_mode_restored=true`,
+`original_state_restored=true`, selector-zero 6400 and full normalized original
+state equality. No experiment or recovery error was recorded. Private complete
+journals are in `evidence/v3-dpi-driver-1200-20261110-01.local/run/`.
+No hardware experiment is currently running.
+
+This physically establishes the selector-zero DPI write/readback and human
+sensor effect in the V3 receiver's driver mode, with independent saved
+settings and successful mode-first restoration. It does not validate the V2,
+wired V3, NVM implementation, automatic focus-switch lifecycle, or concurrent
+software-remapping/DPI integration. Production capability flags remain
+unchanged pending integration work and its acceptance checks.
