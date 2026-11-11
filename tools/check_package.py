@@ -30,7 +30,7 @@ def main():
             assert f'gillete/{module}.py' in archive.namelist()
         for module in ('applications', 'gui_launch', 'gui_standalone', 'macro_reads', 'macro_inspection', 'firmware_probe',
                        'validation_plan', 'guided_service', 'validation_pad', 'mapping_view', 'dpi_probe', 'dpi_sensor_probe',
-                       'dpi_replug_probe',
+                       'dpi_replug_probe', 'dpi_driver_probe',
                        'descriptors', 'wired_probe', 'diagnostics', 'gui_diagnostics',
                        'profile_transfer', 'gui_profile_transfer', 'profile_activation',
                        'persistence', 'gui_persistence', 'device_action_support'):

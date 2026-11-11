@@ -7,6 +7,7 @@ import pytest
 from gillete import dpi_probe as probe
 from gillete import dpi_sensor_probe as sensor
 from gillete import dpi_replug_probe as replug
+from gillete import dpi_driver_probe as driverdpi
 from gillete.compile_onboard import CONTROL_IDS
 from gillete.devices import PRODUCTS
 from gillete.protocol import DeviceStatusError, DeviceUnavailable, ProtocolError
@@ -666,3 +667,126 @@ def test_receiver_route_waits_for_current_hid_access_before_declaring_reconnect(
     monkeypatch.setattr(replug, 'os', SimpleNamespace(access=access, R_OK=4, W_OK=2), raising=False)
     assert replug.observe_route(expected) == (expected if accessible else {'pending': True})
     assert checked == [('/dev/hidraw12', 6)]
+
+
+class ModeMouse(Mouse):
+    def __init__(self):
+        super().__init__(0xE8)
+        self.mode_writes, self.mode_fail_at = [], set()
+    def _exchange(self, command):
+        if (command.category, command.operation) == (0, 4):
+            self.mode_writes.append(command.payload)
+            self.mode = command.payload
+            if len(self.mode_writes) in self.mode_fail_at:
+                raise DeviceUnavailable('Mode ACK lost after applying')
+            return command.payload
+        return super()._exchange(command)
+
+
+def driver_prepared(mouse):
+    document = probe.prepare_document(mouse, purpose=sensor.PURPOSE, requested_dpi=1200)
+    document['experiment'] = 'driver-dpi'
+    return document
+
+
+@pytest.mark.parametrize('usual', [True, False])
+def test_driver_dpi_observation_restores_mode_and_every_original_without_grabbing_input(tmp_path, usual):
+    mouse = ModeMouse()
+    prepared = driver_prepared(mouse)
+    ready = []
+    def feedback():
+        assert mouse.mode == b'\3\0'
+        assert probe.selector_zero(mouse.zero, mouse.product) == (1200, 1200)
+        return {'feels_usual': usual}
+    result = driverdpi.exercise(mouse, prepared, tmp_path / 'journal.json', tmp_path / 'mode.json', feedback,
+                                ready=lambda: ready.append(True))
+    assert result['status'] == 'driver-dpi-restored' and ready == [True]
+    assert result['normal_mode_restored'] and result['original_state_restored']
+    assert result['user_report'] == {'feels_usual': usual} and not result['temporary_dpi_supported']
+    assert result['driver_candidate']['settings'] == prepared['before']['settings']
+    assert mouse.mode_writes == [b'\3\0', bytes(2)]
+    assert [c.payload for c in mouse.writes] == [bytes.fromhex(prepared['target']), bytes.fromhex(prepared['before']['selector_zero'])]
+    assert probe.capture(mouse) == prepared['before']
+    assert json.loads((tmp_path / 'mode.json').read_text())['status'] == 'normal-mode-restored'
+
+
+@pytest.mark.parametrize('failure', ['timeout', 'cancel', 'invalid', 'lost-dpi-ack', 'lost-mode-ack', 'mode-restore-ack', 'alias'])
+def test_driver_dpi_failures_attempt_mode_then_setting_restoration(tmp_path, failure):
+    mouse = ModeMouse()
+    mouse.alias = failure == 'alias'
+    prepared = driver_prepared(mouse)
+    if failure == 'lost-dpi-ack': mouse.fail_at = {1}
+    if failure == 'lost-mode-ack': mouse.mode_fail_at = {1}
+    if failure == 'mode-restore-ack': mouse.mode_fail_at = {2}
+    clock = [0]
+    def wait(_): clock[0] = 181
+    def feedback():
+        if failure == 'timeout': return None
+        if failure == 'invalid': return {'feels_usual': 'yes'}
+        return {'feels_usual': True}
+    result = driverdpi.exercise(mouse, prepared, tmp_path / 'journal.json', tmp_path / 'mode.json', feedback,
+                                stopped=lambda: failure == 'cancel' and bool(mouse.writes), wait=wait, now=lambda: clock[0])
+    assert result['status'] in ('test-failed-restored', 'recovery-required')
+    if failure == 'mode-restore-ack':
+        assert result['status'] == 'recovery-required'  # Actual mode changed, but ACK remained uncertain.
+    else:
+        assert result['normal_mode_restored'] and result['original_state_restored']
+        assert probe.capture(mouse) == prepared['before']
+    assert mouse.mode == bytes(2) and not result['temporary_dpi_supported']
+
+
+def test_driver_dpi_recover_restores_mode_before_settings_and_keeps_wait_journals(tmp_path, monkeypatch):
+    mouse = ModeMouse()
+    prepared = driver_prepared(mouse)
+    root = tmp_path / 'run'
+    root.mkdir()
+    prepared.update(status='awaiting-driver-observation', original_state_restored=False, normal_mode_restored=False)
+    (root / 'journal.json').write_text(json.dumps(prepared))
+    (root / 'mode.json').write_text(json.dumps({'version': 1, 'kind': 'driver-mode', 'product': mouse.product,
+                                               'serial': mouse.serial, 'before': '0000', 'status': 'driver-mode-active'}))
+    mouse.mode, mouse.zero = b'\3\0', bytes.fromhex(prepared['target'])
+    monkeypatch.setattr(probe, 'connected', lambda _: mouse)
+    monkeypatch.setattr(probe, 'transport', lambda _: mouse)
+    monkeypatch.setattr(driverdpi, 'transport', lambda _: mouse)
+    result = driverdpi.recover(tmp_path)
+    assert result['normal_mode_restored'] and result['original_state_restored']
+    assert mouse.mode == bytes(2) and probe.capture(mouse) == prepared['before']
+
+
+def test_driver_dpi_rejects_unrelated_or_already_used_preparation_before_ownership(tmp_path):
+    mouse = ModeMouse()
+    prepared = driver_prepared(mouse)
+    prepared['experiment'] = 'receiver-replug'
+    with pytest.raises(ProtocolError):
+        driverdpi.exercise(mouse, prepared, tmp_path / 'journal.json', tmp_path / 'mode.json', lambda: None)
+    assert not mouse.writes and not mouse.mode_writes
+
+
+def test_driver_dpi_identity_change_blocks_cleanup_writes_until_original_mouse_returns(tmp_path, monkeypatch):
+    mouse = ModeMouse()
+    prepared = driver_prepared(mouse)
+    root = tmp_path / 'run'
+    root.mkdir()
+    def feedback():
+        mouse.serial = 'different-mouse'
+        return {'feels_usual': True}
+    result = driverdpi.exercise(mouse, prepared, root / 'journal.json', root / 'mode.json', feedback)
+    assert result['status'] == 'recovery-required' and not result['original_state_restored']
+    assert mouse.mode_writes == [b'\3\0'] and len(mouse.writes) == 1
+    mouse.serial = prepared['before']['serial']
+    monkeypatch.setattr(probe, 'connected', lambda _: mouse)
+    monkeypatch.setattr(probe, 'transport', lambda _: mouse)
+    monkeypatch.setattr(driverdpi, 'transport', lambda _: mouse)
+    assert driverdpi.recover(tmp_path)['original_state_restored']
+
+
+def test_driver_dpi_detects_saved_setting_drift_and_repairs_after_normal_mode(tmp_path):
+    mouse = ModeMouse()
+    prepared = driver_prepared(mouse)
+    def feedback():
+        mouse.values['polling'] = b'\2'
+        return {'feels_usual': True}
+    result = driverdpi.exercise(mouse, prepared, tmp_path / 'journal.json', tmp_path / 'mode.json', feedback)
+    assert result['status'] == 'test-failed-restored'
+    assert result['normal_mode_restored'] and result['original_state_restored']
+    assert mouse.mode == bytes(2) and probe.capture(mouse) == prepared['before']

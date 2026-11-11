@@ -343,6 +343,16 @@ setter failures never enter that retry loop.
 If the receiver remains absent at timeout, restoration is unverified and the
 journal is retained for `gillete.dpi_probe recover` after reconnecting it.
 
+`gillete.dpi_driver_probe` isolates DPI validation in temporary driver mode.
+Read-only preparation retains originals; explicit run journals both mode and
+settings, enters driver mode, applies the prepared lower DPI and waits up to
+three minutes for a movement-only observation. Use another mouse for clicks.
+It restores normal mode before repairing/verifying original settings and
+bindings. Recovery must use this module's `recover --directory` command so
+the mode journal is restored before the DPI journal. This test neither grabs
+input nor starts software remapping, and does not automatically enable DPI
+switching in the application.
+
 ```bash
 python -m gillete.dpi_probe prepare --product 00b4 --directory evidence/v2-dpi-selector1.local
 # Review the exact proposed DPI change and original saved settings first.

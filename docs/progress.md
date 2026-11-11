@@ -1375,3 +1375,34 @@ not reset this setting. It still does not prove flash/NVM use versus mouse-side
 powered memory, or full battery power-loss behavior. Do not infer safe
 high-frequency automatic writes or enable temporary-DPI support from this.
 Driver-mode behavior and safe per-program integration remain unverified.
+
+## Driver-mode DPI experiment preparation
+
+Added `dpi_driver_probe` for the user's authorized next V3 test. It reuses
+complete original snapshots and validated explicit lower-DPI targets. The
+normal-mode preflight journals DPI recovery before taking a separate ModeLease;
+only then does it enter driver mode, validate identity/firmware/profile state,
+apply selector-zero 1200, and verify independent saved-settings readback.
+The user-paced phase asks for movement only, with a three-minute deadline.
+It never starts remapping, records input or grabs devices; users should use
+the other mouse for clicks while this driver-mode-only test owns the V3.
+
+Cleanup restores normal mode through the mode journal before calling existing
+normal-mode DPI/settings restoration and complete original-state verification.
+Uncertain mode writes, DPI ACK loss, saved-settings drift, cancellation,
+timeout and malformed observations retain recovery evidence. A changed mouse
+identity blocks cleanup writes until the original mouse returns. Recovery must
+use this module's `recover --directory` command to restore mode before settings.
+No automatic DPI capability is enabled by success or by a user observation.
+
+The read-only preparation initially timed out, without a mode or DPI write.
+After the user woke the V3, fresh preparation succeeded for temporary driver
+mode and 1200 DPI, with planned restoration of the original normal mode,
+6400 DPI, saved settings and bindings afterward. Preparation file:
+`evidence/v3-dpi-driver-1200-20261110-01.local/prepared.json`.
+Live acceptance remains pending until READY, the user's observation and
+verified restoration are recorded separately.
+
+Driver-test validation: all 553 tests and 232 packaged-source checks pass,
+including mode/DPI ACK loss, identity changes, mode-before-settings recovery,
+user feedback, deadlines and protected-setting drift.
