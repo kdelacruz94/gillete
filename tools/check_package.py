@@ -41,6 +41,7 @@ def main():
                        'native_history', 'native_cleanup', 'gui_native_library',
                        'descriptors', 'wired_probe', 'diagnostics', 'gui_diagnostics',
                        'profile_transfer', 'gui_profile_transfer', 'profile_activation', 'profile_selection',
+                       'profile_from_mouse', 'gui_profile_from_mouse',
                        'control_trace', 'control_validation', 'control_pad',
                        'persistence', 'gui_persistence', 'device_action_support'):
             assert f'gillete/{module}.py' in archive.namelist()
@@ -81,7 +82,10 @@ def main():
              '"tests/test_native_sequence_probe.py", "tests/test_native_profile_undo.py", "tests/test_stored_native.py", '
              '"tests/test_function_keymap.py", "tests/test_keyboard_map.py", "tests/test_memory_access.py", '
              '"tests/test_native_cleanup.py", "tests/test_native_cleanup_review.py", '
-             '"tests/test_profile_selection.py", '
+             '"tests/test_profile_selection.py", "tests/test_profile_from_mouse.py", '
+             '"tests/test_gui.py::test_mouse_profile_review_keeps_unknowns_until_rows_are_explicitly_disabled", '
+             '"tests/test_gui.py::test_mouse_profile_review_explains_unavailable_device_actions_and_keeps_trigger_layers_consistent", '
+             '"tests/test_gui.py::test_create_profile_from_mouse_is_local_only_and_preserves_selection_rules_and_originals", '
              '"tests/test_control_validation.py", "tests/test_control_trace.py", '
              '"tests/test_control_pad.py", "tests/test_control_runner.py", '
              '"tests/test_focus.py", "tests/test_focus_watcher.py", "tests/test_input_cancellation.py", '

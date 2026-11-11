@@ -216,6 +216,18 @@ Synapse customizations. Unknown firmware actions stay intact in onboard previews
 and recovery data. Software activation is blocked if a selectable profile inherits
 an action whose software behavior is not implemented; it is never replaced with a guessed
 factory mapping. Several existing V2 firmware actions still need this work.
+
+After **Read mouse**, select **Create Linux profile from this read…** to review
+both layers of the selected stored slot. Recognized actions become editable
+overrides for that mouse in a new local profile; other mice keep their stored
+assignments. Unresolved rows default to **Keep stored**. You can explicitly
+disable individual rows in the Linux profile, including device actions that
+cannot run through the service. The review shows HyperShift triggers and known
+device prerequisites. Creating the profile does not activate it, change defaults,
+pins or program rules, start remapping, or write the mouse. It copies the last
+read, including an inactive assigned slot, rather than making a complete onboard
+backup. DPI/polling settings and opaque native data are not imported.
+
 The mouse-memory view now identifies stored turbo parameters and macro
 references, while marking unverified timing and unavailable macro content.
 On the V3 receiver with firmware1.1, **Read mouse** also retrieves supported
@@ -419,6 +431,11 @@ These observations cannot prove Synapse's conditional route, actual report
 cadence or setter/retention support. Wired querying stays separate; the settings
 editor still offers only 125, 500 and 1000 Hz. No polling experiment was run
 to prepare this diagnostic. See [protocol findings](docs/remaining-native-protocols.md).
+The [feature-parameter trace](docs/synapse-polling-feature-flags.md) resolves the
+retained model startup's named high-speed flags as absent, while retaining a
+separate dual-link path. Cached Linux USB metadata describes a 1 ms interrupt
+interval for these connected receivers; neither observation measures actual
+motion cadence or admits additional polling rates.
 
 `--include-macro-data` captures bounded
 raw bytes plus an inert interpretation of recognized key, mouse, wheel, delay and

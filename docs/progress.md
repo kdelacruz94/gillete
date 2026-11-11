@@ -2209,3 +2209,64 @@ shift ordering, trigger rotation, missing/extra/wrong evidence, stale/dropped/
 rewound data, epoch/time/route mismatch, partial close/retry, disk/size failures,
 controller cleanup and unchanged legacy example behavior. Staged Arch/wheel,
 CLI and isolated GUI checks pass. No host package was installed.
+
+## Synapse polling feature parameters resolved — 2026-11-11
+
+Completed the bounded retained-build trace in
+`synapse-polling-feature-flags.md`. Model231 registers a frozen empty object for
+`highSpeedPollingRate.yes`; the named wired/wireless flags are absent/undefined,
+not explicit false declarations. The first-party injector does not merge hidden
+default parameters into that object. The independent E8 dual-link/master branch
+can still select high-speed polling without either property. Its real logical
+PID/cache/master state was not observed. The result narrows source uncertainty
+without admitting another polling rate or rejecting firmware capabilities.
+
+Reviewed the pinned injector/startup and consumer ranges against original-byte
+hashes. REA static coverage remains bounded and partial; exported zero-unknown
+counts are not treated as completeness. No shipped code or Windows runtime was
+executed. The delegated investigation changed only its research document and
+ignored private evidence. The parent separately recorded cached Linux sysfs USB
+enumeration: both attached receivers expose 1ms interrupt-IN endpoint intervals.
+No hidraw/input node, feature query, mouse wake or setter was used. This cache is
+not a measured motion cadence, firmware maximum or Synapse session route.
+
+Updated the earlier protocol report and README to distinguish those findings.
+A matching Windows session would attribute Synapse routing; separately authorized
+Linux command-effect, cadence and restoration acceptance can independently prove
+support on an exact transport. Physical tests and production gates stay deferred.
+
+## Reviewed mouse-read to Linux-profile copying — 2026-11-11
+
+Added **Create Linux profile from this read…** to the mouse-memory panel. It
+copies the last inspected assigned slot into a new inactive local profile, using
+explicit per-mouse overrides for both layers. Shared mappings, the other mouse,
+defaults, pins, rules and startup selections are preserved. Inactive assigned
+slots can be copied without pretending they are active. No fresh hardware query,
+service command or mouse write occurs during review/creation.
+
+The draft freezes its source and validates receiver/model, slot inventory and
+complete assignment records. Recognized stored actions become editable host
+actions, including already-supported native single-key once-only bodies; portable
+profiles contain no unit identity or native macro IDs. Unknown functions retain
+Keep stored until the user explicitly disables that row locally. Recognized rows
+can also be disabled, allowing unavailable native device actions to be replaced
+later. Originals on the mouse remain intact. This is not a complete firmware
+backup and does not import DPI, polling or opaque native data.
+
+The review shows actual HyperShift triggers and known device prerequisites. A
+normal held trigger remains effective on both layers; its shifted choice cannot
+contradict the retained normal trigger. Removing that normal trigger makes the
+shifted choice editable. Creating an unfinished profile is allowed, while existing
+activation checks continue to block unresolved actions when the profile becomes
+selectable. Creation opens the new profile in this mouse's overrides for editing.
+Conflicting external edits and failed saves abort without overwriting the existing
+configuration or activating the new profile.
+
+Validation: all1012 tests and726 packaged-source checks pass. New coverage includes
+both models/layers, missing/mismatched reads, effective inherited triggers,
+explicit row choices, native-body conversion, inactive slots, immutable review,
+cancellation, disk failure and concurrent edits. Staged Arch/wheel, CLI and
+isolated offscreen GUI checks pass. No host package, live service, generated
+input, remapper migration or hardware experiment occurred. The owner's physical
+test deferral remains in effect; the earlier combined V3 native experiment and
+complete receiver-control suites remain prepared, not passed.

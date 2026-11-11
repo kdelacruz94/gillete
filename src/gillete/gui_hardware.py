@@ -93,6 +93,7 @@ class SavePreview(QDialog):
 
 class HardwarePanel(QWidget):
     snapshot_changed = Signal(object)
+    create_profile_requested = Signal(object)
 
     def __init__(self, current_profile, parent=None):
         super().__init__(parent)
@@ -137,6 +138,10 @@ class HardwarePanel(QWidget):
         restore.clicked.connect(self.restore_mouse)
         actions.addWidget(restore)
         layout.addLayout(actions)
+        self.create_profile_button = QPushButton('Create Linux profile from this read…')
+        self.create_profile_button.setEnabled(False)
+        self.create_profile_button.clicked.connect(lambda: self.create_profile_requested.emit(self.snapshot) if self.snapshot is not None else None)
+        layout.addWidget(self.create_profile_button)
         self.verify_button = QPushButton('Verify a saved binding journal after restart…')
         self.verify_button.clicked.connect(self.verify_persistence)
         layout.addWidget(self.verify_button)
@@ -163,6 +168,7 @@ class HardwarePanel(QWidget):
         self.snapshot = None
         self.preview.setEnabled(False)
         self.backup_button.setEnabled(False)
+        self.create_profile_button.setEnabled(False)
         self.settings_button.setEnabled(False)
         self.native_review_button.setEnabled(False)
         self.native_library_button.setEnabled(False)
@@ -220,6 +226,7 @@ class HardwarePanel(QWidget):
         self.snapshot = snapshot
         self.preview.setEnabled(True)
         self.backup_button.setEnabled(True)
+        self.create_profile_button.setEnabled(True)
         self.settings_button.setEnabled(snapshot.bank == snapshot.active)
         from .native_profile_review import eligible
         self.native_review_button.setEnabled(eligible(snapshot))

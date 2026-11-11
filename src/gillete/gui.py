@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
 from .gui_diagnostics import DiagnosticsPanel
 from .device_action_support import support as device_action_support
 from .gui_profile_transfer import ImportPreview
+from .gui_profile_from_mouse import MouseProfileReview
+from .profile_from_mouse import MouseProfileDraft
 from .profile_transfer import duplicate as duplicate_profile, export_document, plan_import, read_bundle, write_export
 from .examples import example_profiles
 from .gui_recording import RecordingDialog
@@ -399,7 +401,7 @@ class MainWindow(QMainWindow):
         self.mode_label = QLabel()
         selection.addWidget(self.mode_label, 1)
         layout.addLayout(selection)
-        tabs = QTabWidget()
+        self.tabs = tabs = QTabWidget()
         layout.addWidget(tabs, 1)
         self.mapping = QTableWidget(0, 3)
         self.mapping_rows = []
@@ -449,6 +451,7 @@ class MainWindow(QMainWindow):
         tabs.addTab(self.diagnostics, "Devices & diagnostics")
         self.hardware = HardwarePanel(self.current, self)
         self.hardware.snapshot_changed.connect(lambda _snapshot: self.refresh())
+        self.hardware.create_profile_requested.connect(self.create_profile_from_mouse)
         tabs.addTab(self.hardware, "Mouse memory & settings")
         self.service = ServicePanel(self.store, self)
         self.service.updated.connect(self.service_status)
@@ -757,6 +760,31 @@ class MainWindow(QMainWindow):
             self.config.profiles[p.id] = p
             self.save_config()
             self.load_profiles(p.id)
+
+    def create_profile_from_mouse(self, snapshot):
+        if snapshot is None or self.hardware.busy:
+            return
+        try:
+            from .profile_transfer import available_name, fresh_id
+            before = deepcopy(self.config)
+            draft = MouseProfileDraft(snapshot)
+            identifier = fresh_id(set(before.profiles))
+            name = available_name(f'{MODEL_NAMES[draft.model]} slot {draft.bank}', ' copy',
+                                  {profile.name for profile in before.profiles.values()})
+            review = MouseProfileReview(draft, identifier, name, self)
+            if review.exec() != QDialog.DialogCode.Accepted:
+                return
+            before.profiles[identifier] = review.profile
+            self.config = before
+            if not self.save_config():
+                return
+            self.model.setCurrentIndex(self.model.findData(draft.model))
+            self.scope.setCurrentIndex(self.scope.findData('device'))
+            self.load_profiles(identifier)
+            self.tabs.setCurrentIndex(0)
+            self.status.setText('Created a local profile from the mouse read. It has not been selected for remapping; defaults, pins and program rules are unchanged.')
+        except (ValueError, OSError) as error:
+            QMessageBox.warning(self, 'Cannot create profile from mouse', str(error))
 
     def duplicate(self):
         try:

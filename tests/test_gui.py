@@ -46,6 +46,127 @@ def test_scroll_and_dpi_editors_preserve_assignments(app):
         shiboken6.delete(dialog)
 
 
+def test_mouse_profile_review_keeps_unknowns_until_rows_are_explicitly_disabled(app):
+    from gillete.gui_profile_from_mouse import MouseProfileReview
+    from gillete.profile_from_mouse import MouseProfileDraft
+    from test_guided_service import snapshot
+    source = snapshot(MODELS[0])
+    before = deepcopy(source)
+    draft = MouseProfileDraft(source)
+    dialog = MouseProfileReview(draft, 'copy', 'My mouse profile')
+    try:
+        assert dialog.table.rowCount() == 42 and dialog.choices
+        assert all(choice.currentData() is False for choice in dialog.choices.values())
+        where = next(iter(draft.unknown))
+        choice = dialog.choices[where]
+        assert dialog.selected_profile().resolve(source.model, *where).kind == 'passthrough'
+        choice.setCurrentIndex(1)
+        assert dialog.selected_profile().resolve(source.model, *where).kind == 'disabled'
+        assert '1 will be disabled' in dialog.note.text()
+        dialog.name.setText(' ')
+        assert not dialog.create_button.isEnabled()
+        dialog.name.setText('My mouse profile')
+        dialog.accept()
+        assert dialog.result() == dialog.DialogCode.Accepted and dialog.profile.name == 'My mouse profile'
+        assert source == before
+    finally:
+        dialog.close()
+        shiboken6.delete(dialog)
+
+
+def test_mouse_profile_review_explains_unavailable_device_actions_and_keeps_trigger_layers_consistent(app):
+    from gillete.compile_onboard import CONTROL_IDS, encode_action
+    from gillete.gui_profile_from_mouse import MouseProfileReview
+    from gillete.onboard import Location
+    from gillete.profile_from_mouse import MouseProfileDraft
+    from test_guided_service import snapshot
+    source = snapshot(MODELS[1])
+    source.assigned = (1, 2)
+    where = Location(1, CONTROL_IDS[MODELS[1]]['profile_button'], 0)
+    source.records[where] = bytes((1, where.control, 0)) + encode_action(Action('device', target='onboard_profile_cycle'), source.model)
+    draft = MouseProfileDraft(source)
+    dialog = MouseProfileReview(draft, 'copy', 'Copied')
+    try:
+        assert 'onboard' in dialog.readiness.toPlainText().lower()
+        assert not dialog.choices['ring_finger', True].isEnabled()
+        dialog.choices['profile_button', False].setCurrentIndex(1)
+        assert dialog.selected_profile().resolve(MODELS[1], 'profile_button').kind == 'disabled'
+        dialog.choices['ring_finger', False].setCurrentIndex(1)
+        assert dialog.choices['ring_finger', True].isEnabled()
+        dialog.choices['ring_finger', True].setCurrentIndex(1)
+        profile = dialog.selected_profile()
+        assert all(profile.resolve(MODELS[1], 'ring_finger', shifted).kind == 'disabled' for shifted in (False, True))
+    finally:
+        dialog.close()
+        shiboken6.delete(dialog)
+
+
+@pytest.mark.parametrize('outcome', ['accept', 'cancel', 'disk', 'conflict'])
+def test_create_profile_from_mouse_is_local_only_and_preserves_selection_rules_and_originals(app, tmp_path, monkeypatch, outcome):
+    import gillete.gui as gui
+    import gillete.gui_hardware as hardware_ui
+    from gillete.profiles import Rule
+    from test_guided_service import snapshot
+    monkeypatch.setattr(hardware_ui, 'discover', lambda: [])
+    store = ProfileStore(tmp_path / 'profiles.json')
+    config = store.read()
+    config.profiles['game'] = Profile('game', 'Existing game')
+    config.pinned[MODELS[0]] = 'game'
+    config.rules = [Rule('game', app_class='game')]
+    config.startup_models = [MODELS[0]]
+    store.save(config, expected_revision=0)
+    before_bytes, before = store.path.read_bytes(), store.read()
+    window = MainWindow(store)
+    source = snapshot(MODELS[1])
+    original = deepcopy(source)
+    opened, warnings, commands = [], [], []
+    class Review:
+        def __init__(self, draft, identifier, name, parent):
+            opened.append((draft, identifier, name))
+            self.profile = draft.profile(identifier, name)
+        def exec(self):
+            if outcome == 'conflict':
+                external = store.read()
+                external.profiles['game'].name = 'Renamed elsewhere'
+                store.save(external, expected_revision=external.revision)
+            return gui.QDialog.DialogCode.Rejected if outcome == 'cancel' else gui.QDialog.DialogCode.Accepted
+    monkeypatch.setattr(gui, 'MouseProfileReview', Review)
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args: warnings.append(args[-1]))
+    monkeypatch.setattr(window.service, 'send', lambda *args, **kwargs: commands.append((args, kwargs)))
+    if outcome == 'disk':
+        def fail(*args, **kwargs): raise OSError('Disk full')
+        monkeypatch.setattr(store, 'save', fail)
+    try:
+        assert not window.hardware.create_profile_button.isEnabled()
+        window.hardware.loaded(source)
+        assert window.hardware.create_profile_button.isEnabled()
+        window.hardware.create_profile_button.click()
+        assert opened and not commands and source == original and window.hardware.job is None
+        saved = store.read()
+        assert saved.defaults == before.defaults and saved.pinned == before.pinned
+        assert saved.rules == before.rules and saved.startup_models == before.startup_models
+        if outcome == 'accept':
+            identifier = opened[0][1]
+            assert set(saved.profiles) == {'default', 'game', identifier}
+            assert set(saved.profiles[identifier].overrides) == {MODELS[1]}
+            assert window.current().id == identifier and window.model.currentData() == MODELS[1]
+            assert window.scope.currentData() == 'device' and window.tabs.currentIndex() == 0
+            assert 'private-test-identity' not in store.path.read_text()
+            assert not warnings
+        elif outcome == 'conflict':
+            assert set(saved.profiles) == {'default', 'game'}
+            assert saved.profiles['game'].name == 'Renamed elsewhere' and warnings
+        else:
+            assert store.path.read_bytes() == before_bytes
+            assert bool(warnings) == (outcome == 'disk')
+        window.hardware.invalidate()
+        assert not window.hardware.create_profile_button.isEnabled()
+    finally:
+        window.service.shutdown_ui()
+        if window.tray: window.tray.hide()
+        shiboken6.delete(window)
+
+
 def test_native_macro_review_has_mapping_rows_but_no_save_action_or_writes(app):
     from gillete.gui_native_profile import NativeProfileReview
     from test_native_profile_probe import prepared_mouse
