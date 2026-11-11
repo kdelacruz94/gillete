@@ -40,7 +40,7 @@ def main():
                        'native_profile_undo', 'stored_native', 'memory_access',
                        'native_history', 'native_cleanup', 'gui_native_library',
                        'descriptors', 'wired_probe', 'diagnostics', 'gui_diagnostics',
-                       'profile_transfer', 'gui_profile_transfer', 'profile_activation',
+                       'profile_transfer', 'gui_profile_transfer', 'profile_activation', 'profile_selection',
                        'persistence', 'gui_persistence', 'device_action_support'):
             assert f'gillete/{module}.py' in archive.namelist()
     with TemporaryDirectory(prefix='gillete-package-check-') as temporary:
@@ -80,6 +80,9 @@ def main():
              '"tests/test_native_sequence_probe.py", "tests/test_native_profile_undo.py", "tests/test_stored_native.py", '
              '"tests/test_function_keymap.py", "tests/test_keyboard_map.py", "tests/test_memory_access.py", '
              '"tests/test_native_cleanup.py", "tests/test_native_cleanup_review.py", '
+             '"tests/test_profile_selection.py", '
+             '"tests/test_gui.py::test_tray_profile_selection_is_per_mouse_durable_and_preserves_external_edits", '
+             '"tests/test_gui.py::test_missing_cached_service_status_still_routes_pin_through_worker", '
              '"tests/test_gui.py::test_native_library_review_requires_explicit_unused_selection_and_undo_acknowledgement", '
              '"tests/test_gui.py::test_native_storage_write_waits_for_reader_and_passes_exact_selection", '
              '"tests/test_gui.py::test_discarding_native_storage_dialog_never_schedules_deletion", '

@@ -336,7 +336,12 @@ def test_unread_dpi_is_not_replaced_with_displayed_defaults_when_editing_polling
     shiboken6.delete(dialog)
 
 
-def test_tray_profile_selection_is_per_mouse_durable_and_preserves_external_edits(app, tmp_path):
+def test_tray_profile_selection_is_per_mouse_durable_and_preserves_external_edits(app, tmp_path, monkeypatch):
+    from gillete import profile_selection
+    from PySide6.QtTest import QTest
+    async def absent(*args, **kwargs): raise FileNotFoundError()
+    monkeypatch.setattr(profile_selection, 'request', absent)
+    monkeypatch.setattr(profile_selection, 'socket_path', lambda: tmp_path / 'runtime/control.sock')
     store = ProfileStore(tmp_path / 'profiles.json')
     config = store.read()
     config.profiles['work'] = Profile('work', 'Work')
@@ -349,6 +354,10 @@ def test_tray_profile_selection_is_per_mouse_durable_and_preserves_external_edit
     window.populate_tray_menu()
     submenu = next(a.menu() for a in window.tray_menu.actions() if a.menu() and a.text().startswith('Naga V2'))
     next(a for a in submenu.actions() if a.data() == 'work').trigger()
+    for _ in range(100):
+        QTest.qWait(5)
+        if window.service.job is None: break
+    assert window.service.job is None
     saved = store.read()
     assert saved.pinned == {MODELS[0]: 'work'}
     assert saved.profiles['work'].name == 'Work renamed elsewhere'
@@ -356,6 +365,10 @@ def test_tray_profile_selection_is_per_mouse_durable_and_preserves_external_edit
     submenu = next(a.menu() for a in window.tray_menu.actions() if a.menu() and a.text().startswith('Naga V2'))
     assert next(a for a in submenu.actions() if a.data() == 'work').isChecked()
     next(a for a in submenu.actions() if a.data() == 'automatic').trigger()
+    for _ in range(100):
+        QTest.qWait(5)
+        if window.service.job is None: break
+    assert window.service.job is None
     assert store.read().pinned == {}
     window.close()
     shiboken6.delete(window)
@@ -376,6 +389,20 @@ def test_live_profile_selection_waits_for_the_service_and_close_hides_to_tray(ap
     window.close()
     assert not window.isVisible()
     window.tray = None
+    shiboken6.delete(window)
+
+
+def test_missing_cached_service_status_still_routes_pin_through_worker(app, tmp_path, monkeypatch):
+    store = ProfileStore(tmp_path / 'profiles.json')
+    window = MainWindow(store)
+    window.service.timer.stop()
+    window.service.last = None
+    calls = []
+    monkeypatch.setattr(window.service, 'send', lambda *args, **kwargs: calls.append((args, kwargs)))
+    window.select_pin(MODELS[1], 'default')
+    window.select_pin(MODELS[1], None)
+    assert calls == [(('pin', MODELS[1]), {'profile': 'default'}), (('pin', MODELS[1]), {'profile': None})]
+    assert not store.path.exists()
     shiboken6.delete(window)
 
 

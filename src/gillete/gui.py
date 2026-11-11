@@ -518,23 +518,9 @@ class MainWindow(QMainWindow):
         menu.addAction('Quit editor', self.request_quit)
 
     def select_pin(self, model, identifier):
-        if self.service.last is not None:
-            # The running service validates inherited bindings before saving
-            # and activating the pin. Do not claim success from a local edit.
-            self.service.send('pin', model, profile=identifier or 'automatic')
-            return
-        try:
-            config = self.store.read()
-            if identifier is None:
-                config.pinned.pop(model, None)
-            else:
-                config.pinned[model] = identifier
-            self.store.save(config, expected_revision=config.revision)
-            self.config = config
-            self.saved_config = deepcopy(config)
-            self.load_profiles()
-        except (ValueError, OSError) as error:
-            QMessageBox.warning(self, 'Cannot select profile', str(error))
+        # A missing cached status is not proof the daemon is absent. The worker
+        # requests live validation or interlocks a genuinely offline save.
+        self.service.send('pin', model, profile=identifier)
 
     def service_command_finished(self, command, _data):
         if command == 'pin':

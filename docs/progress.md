@@ -2048,3 +2048,24 @@ selection forgery, lost replies, cancellation during durable intent and between
 objects, disk-write failures, bounds, dialog acknowledgement/cancellation,
 reader-before-writer sequencing and idle-model desktop entry points. Staged
 Arch/wheel, CLI and isolated GUI checks pass. No real object was deleted.
+
+## Authoritative manual profile selection — 2026-11-10
+
+The editor previously treated a missing cached service status as proof that the
+service was offline. Selecting a pin could then write preferences locally while
+an unreachable live service still owned the mouse. Selection now always asks
+the live service to validate and apply the profile first. Only an absent/refused
+listener permits an offline preference save, held under the daemon's lifetime
+lock through a revision-checked write. Startup, shutdown, timeout, permission,
+configuration and malformed-acknowledgement failures do not permit fallback.
+
+Literal profile IDs are separate from Automatic in the new selection command;
+a profile whose ID is `automatic` can now be pinned. The existing CLI selector
+remains compatible. Offline selection never starts a service or enables a mouse.
+Per-mouse preferences and unrelated concurrent profile edits remain preserved.
+
+Validation: all875 tests and566 packaged-source checks pass, including a real private Unix socket with the
+daemon command handler, lifetime-lock contention, lost/invalid acknowledgements,
+live preflight rejection and GUI worker routing with no cached status. No live
+service, hardware, compositor or input-remapper settings changed. Staged
+Arch/wheel, CLI and isolated GUI checks also pass; no host package was installed.

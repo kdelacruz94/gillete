@@ -137,7 +137,10 @@ as a shell script. Failed launches appear in Software control without disabling
 mouse remapping. Launch actions require the Linux service.
 
 The shortcut examples are optional imports. Pin/Automatic selections persist
-locally. The Software control tab starts the background service and explicitly
+locally. A running service validates the selection before saving and applying it.
+When the service is confirmed offline, selection only saves the preference;
+an unavailable or timed-out service never triggers an unvalidated local switch.
+The Software control tab starts the background service and explicitly
 enables each mouse. Both mice start disabled by default. The Startup tab lets
 you explicitly select which mice to enable on future service starts. It waits
 for focus and suspend monitoring, then checks the emergency shortcut and input

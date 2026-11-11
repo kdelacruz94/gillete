@@ -52,7 +52,7 @@ class Daemon:
 
     async def pin(self, model, identifier):
         config = self.store.read()
-        if identifier == 'automatic':
+        if identifier is None:
             config.pinned.pop(model, None)
         else:
             if identifier not in config.profiles:
@@ -99,7 +99,7 @@ class Daemon:
             return self.status()
         if self.shutdown.is_set() and command != 'shutdown':
             raise ValueError('The service is shutting down')
-        if command in {'enable', 'disable', 'pin'} and model not in MODELS:
+        if command in {'enable', 'disable', 'pin', 'select-profile'} and model not in MODELS:
             raise ValueError('Unknown mouse model')
         if command == 'enable':
             self.startup_pending.discard(model)
@@ -125,8 +125,12 @@ class Daemon:
             if model in self.sessions:
                 self.sessions[model].stop_requested.set()
                 await self.tasks[model]
-        elif command == 'pin':
-            await self.pin(model, data.get('profile'))
+        elif command in {'pin', 'select-profile'}:
+            if command == 'pin' and not isinstance(data.get('profile'), str):
+                raise ValueError('Choose a profile or the legacy automatic selector')
+            identifier = data.get('profile')
+            if command == 'pin' and identifier == 'automatic': identifier = None
+            await self.pin(model, identifier)
         elif command == 'stop-actions':
             self.startup_pending.clear()
             async with self.coordinator.lock:

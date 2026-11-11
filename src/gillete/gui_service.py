@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QTextEdit, QVBox
 from .gui_hardware import HardwareJob
 from .model import MODELS
 from .service import request
+from .profile_selection import Selection, select as select_profile
 
 
 class ServicePanel(QWidget):
@@ -78,6 +79,8 @@ class ServicePanel(QWidget):
                 self.pending.append((command, model, quiet, profile))
             return
         async def run():
+            if command == 'pin':
+                return await select_profile(self.store, model, None if profile is None else profile)
             try:
                 return await request('status' if command == 'ensure-service' else command,
                                      model=model, profile=profile, config_path=self.store.path)
@@ -101,6 +104,21 @@ class ServicePanel(QWidget):
     def succeeded(self, command, data):
         if command == 'ensure-service' and data is None:
             self.spawn_service()
+            return
+        if command == 'pin' and isinstance(data, Selection):
+            if data.status is not None:
+                self.status(data.status)
+            else:
+                self.last = None
+                self.last_error = ''
+                self.start_button.setEnabled(True)
+                for model in MODELS:
+                    self.enable[model].setEnabled(False)
+                    self.disable[model].setEnabled(False)
+                    self.labels[model].setText(model.replace('_', ' ').title() + ' — service not running')
+                self.updated.emit(None)
+                self.info.setPlainText('Profile preference saved locally. The background service is not running; software control was not activated.')
+            self.command_finished.emit(command, data.status)
             return
         self.status(data)
         self.command_finished.emit(command, data)
