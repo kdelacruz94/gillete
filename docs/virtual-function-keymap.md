@@ -1,7 +1,9 @@
 # Modifier-stable virtual function keys
 
 2026-11-10. Implemented and verified offline, without configuring the running
-desktop or starting a service. Desktop delivery acceptance remains pending.
+desktop or starting a service. On2026-11-11 the V3 receiver's complete50-tap
+test additionally accepted actual Qt delivery for F13–F24 with base, Shift, Alt
+and Shift+Alt, plus Ctrl/Ctrl+Alt on F13. Other live scenarios remain pending.
 This supersedes the standard-option implementation for Gillete's virtual
 output; it does not correct the physical mice's onboard output.
 
@@ -71,7 +73,7 @@ limited to outputs Gillete creates. It supplies no permission or implementation
 for changing a physical Naga keyboard. See
 [the physical-device research](native-keyboard-compatibility-research.md).
 
-Remaining live acceptance: base and modified Fn delivery in Qt and actual
-applications, compositor shortcut behavior, layout switching, reload handling,
+Remaining live acceptance: other modifier combinations and actual applications,
+compositor shortcut behavior, layout switching, reload handling,
 custom-file replacement and shutdown cleanup with the real virtual output.
 Earlier F23 live results exercised the old standard-option path.

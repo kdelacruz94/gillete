@@ -139,8 +139,12 @@ def feature_validation(product):
                         'Normal application activation and writes remain gated until wired testing passes.')]
     count = 21 if product == 0xB4 else 25
     return [Finding('Physical controls', 'Captured on device',
-                    f'All {count} controls were identified on the development receiver. Full mapping acceptance is still pending.'),
-            Finding('Every-control software mapping', 'Guided test prepared',
+                    f'All {count} controls were identified on the development receiver. '
+                    'Software mapping and saved-mapping acceptance are reported separately below.'),
+            Finding('Every-control software mapping', 'Live test passed' if product == 0xE8 else 'Guided test prepared',
+                    'All50 normal/HyperShift control pairs passed with routed mouse edges and desktop key pairs, '
+                    'including the trigger through an alternate trigger. Original state restoration verified. '
+                    'Native saves and wider lifecycle acceptance remain separate.' if product == 0xE8 else
                     f'A separate {count * 2}-tap receiver test checks every normal/HyperShift assignment, '
                     'including the trigger through an alternate trigger. Mouse edges and desktop keys must both match. '
                     'The complete physical run is pending.'),

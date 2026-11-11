@@ -2473,3 +2473,46 @@ on both layers, rotating the held HyperShift trigger so it is tested too. The
 proposal retains all50 original descriptors and current1600 DPI. It has no run
 and requires separate approval for temporary driver mode, input ownership and
 virtual-keyboard output; the native macro approval does not cover that scope.
+
+## V3 complete receiver control/layer software acceptance — 2026-11-11
+
+The owner approved the prepared50-tap V3 software test, including temporary
+driver mode, selected-mouse input ownership and virtual output. The controller
+finished with exit0 and `CONTROL COVERAGE VERIFIED`. Its50 passing receipts
+cover all25 electronic controls normally and under HyperShift, rotating the
+trigger to test ring-finger normally/shifted as well. Coverage is in
+`evidence/v3-controls-20261111-01.local/run/coverage.json`.
+
+Independently replayed the receipts against the exact prepared recipe, readiness
+nonce and captured service epoch; every source edge and Qt key pair validates.
+Four failed attempts remain recorded: normal left-click had an unexpected Meta
+event; shifted sides8/9 crossed the arming/cancellation boundary; shifted
+top-rear received F23. Their subsequent attempts passed. They are not erased or
+counted as passes, and no cause beyond the recorded errors is asserted.
+
+Restoration reports normal mode, unchanged stored state and all50 original
+descriptors, with zero errors. The owned mode journal is normal-mode-restored;
+service shutdown has no notes. The verified saved baseline was1600×1600 DPI.
+The owned daemon/window exited, leaving no running remapping test. No permanent
+mapping, setting, macro, input-remapper configuration or startup change occurred.
+
+This is also live Qt evidence for the new compiled virtual keymap's F13–F24 base,
+Shift, Alt and Shift+Alt combinations, plus Ctrl/Ctrl+Alt on F13. All256 modifier
+masks remain offline evidence; physical onboard keymaps and other applications,
+layouts, reloads, suspend/replug and full macro/profile lifecycle remain separate.
+Diagnostics and acceptance/keymap documentation now distinguish the passed V3
+suite from the pending V2 and wired suites. Saved/onboard every-button persistence
+is not inferred from software input coverage.
+
+The first V2 read-only preparation timed out before mode read succeeded, with
+no setting changes. After the owner explicitly woke it by moving, preparation
+completed at `evidence/v2-controls-20261111-01.local/prepared.json`. It retains
+all42 original descriptors and the actual current DPI, and proposes42 guided
+taps with rotated index-button triggers. No V2 live run, input grab or mode
+change has started; that separate scope still requires approval. V2's existing
+Synapse assignments remain its originals, not factory defaults.
+
+Validation:78 relevant diagnostics/GUI checks and783 packaged-source checks pass;
+the final diagnostic wording check also passes. Arch/wheel, CLI and isolated GUI
+checks pass. V2 preparation preserved its current1800×1800 DPI and has no run
+directory. No host package was installed and no remapper migration occurred.

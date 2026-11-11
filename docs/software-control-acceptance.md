@@ -1,7 +1,8 @@
 # Complete receiver control/layer software acceptance
 
-Status: implemented and verified offline. Neither complete physical suite has
-run; the owner's current hardware-test deferral remains in effect. Source:
+Status: the V3 receiver completed all50 physical control/layer pairs on2026-11-11,
+with restored normal mode and unchanged saved state. The V2 suite remains pending.
+Source:
 `control_validation.py`, `control_pad.py`, `control_trace.py`, `guided_service.py`,
 `runtime.py` and `validation_plan.py`.
 
@@ -120,3 +121,25 @@ profile flows, native storage, wired operation and migration retain their own
 acceptance requirements. The existing shortcut/turbo plan stays separate.
 Virtual F-key results do not establish the physical mouse's standalone keymap.
 No hardware capability is promoted automatically from any receipt.
+
+## V3 receiver result — 2026-11-11
+
+`evidence/v3-controls-20261111-01.local/run/coverage.json` is complete with50
+passing receipts. Independent replay against the prepared recipe, readiness
+nonce and captured service epoch passes. Four failed attempts remain recorded:
+normal left-click received an unexpected Meta key, shifted sides8/9 crossed
+the arming/cancellation boundary, and shifted top-rear received F23. Retries
+passed; the first attempts are not counted as successful observations or erased.
+No cause is attributed beyond the recorded errors.
+
+The live controller exited0 after validating the source/Qt evidence within its
+captured run interval. `restoration.json` verifies normal mode, unchanged stored
+state and all50 original descriptors with no errors. Its owned mode lease is
+`normal-mode-restored`; there are no shutdown notes. Saved DPI was1600×1600 in
+the verified unchanged baseline. No permanent binding, setting or native object
+write was required. The test's daemon and window exited.
+
+This also exercises real virtual-keyboard F13–F24 delivery for the recipe's
+base/Shift/Alt/Shift+Alt combinations plus Ctrl and Ctrl+Alt on F13. It does not
+test all256 modifier masks live, physical onboard F-key mapping, every application,
+layout/reload handling or the other lifecycle requirements above.

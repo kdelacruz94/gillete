@@ -218,7 +218,9 @@ private file, without changing global or physical-keyboard settings.
 An inherited custom `kb_file` must use an absolute path (a leading `~` is
 supported); invalid or unsupported maps block activation instead of falling
 back to US. The integration and complete modifier matrix pass offline tests;
-desktop acceptance of this new path remains pending. See
+the V3 all-controls test now verifies its base/Shift/Alt/Shift+Alt F13–F24 delivery
+in Qt plus Ctrl/Ctrl+Alt on F13. Other application/layout/reload scenarios remain
+pending. See
 [virtual function-key maps](docs/virtual-function-keymap.md).
 Onboard F-key assignments still depend on the receiving computer's keyboard
 configuration; the [physical-keyboard research](docs/native-keyboard-compatibility-research.md)
@@ -404,7 +406,9 @@ A separate **all-controls** plan is prepared for complete receiver mapping
 acceptance. It guides 42 V2 or 50 V3 control/layer taps, including the HyperShift
 trigger itself through a second trigger assignment. Each pass needs a routed
 mouse press/release and the corresponding key pair in the window; typing a
-marker on the keyboard alone cannot pass. It uses an isolated service and
+marker on the keyboard alone cannot pass. The V3 receiver has passed all50 pairs
+with verified normal-mode restoration and unchanged saved state; V2 remains
+pending. It uses an isolated service and
 bounded control tracing, leaves saved bindings/settings unchanged, and restores
 normal mode on exit. This larger live test has not run yet.
 
