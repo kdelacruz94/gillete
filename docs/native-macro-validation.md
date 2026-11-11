@@ -420,3 +420,35 @@ undo reports `affected-bindings-restored` and lists retained objects. Strict
 automatic rollback and hardware acceptance retain their original full-snapshot
 contract by default. New save admission also rejects affected active/stored
 mapping differences that cannot be reversibly restored through bank1 writes.
+
+## Keep stored in software mode
+
+`stored_native` supplies the narrow execution bridge missing after a native
+save. V3 E8/firmware0101 inspection recognizes only exact function03/size3,
+nonzero15-bit ID, count1, zero padding. It enumerates the bounded catalog before
+dereferencing an ID, reads complete event data, admits only one balanced known
+keyboard press with bounded delays and no parser warnings, then independently
+reads that body's size/data again. Referring binding records must still match.
+No unknown opcode, mouse/cursor event, multi-key body or repetition is executed.
+
+The adapter accepts only identity-validating `MacroRead` getters. Normal
+transport execute allowlists remain unchanged. The pass is bounded to384 queries,
+40seconds, 4096bytes per object and 8192total bytes. Unsupported bodies remain
+unresolved; communication/consistency errors publish no partial body collection
+and remain visible in the mouse read. V2/wired/other firmware and snapshots
+without eligible references make no macro queries.
+
+Private inspection snapshots can include the validated raw-body extension;
+legacy snapshots remain readable. `stored_actions` uses those bodies to resolve
+Keep stored through the ordinary cancellable Linux macro runner, preserving
+press/release order and delays. Before input ownership, the newly opened service
+transport independently rechecks bodies required by reachable Keep stored
+actions. Explicit host overrides do not acquire dependencies on unused objects.
+Software acceptance restoration also compares captured native bodies.
+
+This does not change native save gates, recover the old V2 zero references,
+create a full native library backup or claim new physical integration acceptance.
+Offline tests cover simulated getters, normal/shifted shared references, exact
+delays, ordinary output cancellation, service preflight, missing/changed objects,
+unsupported streams, failed reads and old/new snapshot round trips. No real
+mouse query/write or service activation was performed for this implementation.

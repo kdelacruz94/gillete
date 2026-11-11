@@ -81,6 +81,7 @@ class Snapshot:
     records: dict[Location, bytes]
     settings: dict[str, str]
     metadata: dict[str, str] = field(default_factory=dict)
+    native_macros: dict[int, str] = field(default_factory=dict)
 
     @property
     def baseline(self):
@@ -94,14 +95,18 @@ def snapshot_document(snapshot):
     return {'product': snapshot.product, 'model': snapshot.model, 'serial': snapshot.serial,
             'bank': snapshot.bank, 'assigned': list(snapshot.assigned), 'active': snapshot.active,
             'controls': sorted(snapshot.controls), 'settings': snapshot.settings, 'metadata': snapshot.metadata,
-            'records': [{**where.json(), 'raw': raw.hex()} for where, raw in sorted(snapshot.records.items())]}
+            'records': [{**where.json(), 'raw': raw.hex()} for where, raw in sorted(snapshot.records.items())],
+            **({'native_macros': {str(i): raw for i, raw in snapshot.native_macros.items()}}
+               if snapshot.native_macros else {})}
 
 
 def load_snapshot(document):
+    from .stored_native import load_bodies
     return Snapshot(document['product'], document['model'], document['serial'], document['bank'],
                     tuple(document['assigned']), document['active'], set(document['controls']),
                     {Location(r['bank'], r['control'], r['layer']): bytes.fromhex(r['raw']) for r in document['records']},
-                    document['settings'], document.get('metadata', {}))
+                    document['settings'], document.get('metadata', {}),
+                    load_bodies(document.get('native_macros', {})))
 
 
 def read_records(io, model, bank):
@@ -143,7 +148,15 @@ def inspect(device: Device, bank: int | None = None) -> Snapshot:
                 metadata[name] = io.execute(command).hex()
             except (OSError, ProtocolError) as error:
                 metadata[name + '_error'] = str(error)
-        return Snapshot(io.product, device.model, serial, bank, assigned, active, controls, records, settings, metadata)
+        snapshot = Snapshot(io.product, device.model, serial, bank, assigned, active, controls, records, settings, metadata)
+        from . import stored_native
+        try:
+            snapshot.native_macros = stored_native.read(io, snapshot)
+        except (OSError, ValueError) as error:
+            # Missing bodies never become executable defaults. Explicit host
+            # overrides remain possible even when this optional read fails.
+            metadata['native_macro_error'] = str(error)
+        return snapshot
 
 
 def apply(device: Device, snapshot: Snapshot, profile: Profile, journal: Path) -> dict:

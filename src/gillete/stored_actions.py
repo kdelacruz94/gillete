@@ -1,7 +1,8 @@
 """Interpret only exact known firmware functions for software execution.
 
-Unknown firmware macros/turbo encodings remain recoverable raw bytes in the
-snapshot. They are never guessed or replaced with factory defaults.
+Only a separately read, verified V3 once-only single-key macro body can resolve
+a macro reference. Other firmware macros/turbo encodings remain recoverable
+raw bytes. They are never guessed or replaced with factory defaults.
 """
 
 from .compile_onboard import CONTROL_IDS, MEDIA, MODIFIERS, MOUSE, USAGES, encode_action
@@ -41,6 +42,9 @@ def from_snapshot(snapshot):
         for shifted in (False, True):
             function = snapshot.baseline[Location(snapshot.bank, identifier, int(shifted))]
             action = decode(function, snapshot.model)
+            if action is None:
+                from .stored_native import action as native_action
+                action = native_action(snapshot, function)
             if action is None:
                 unknown[control, shifted] = function
             else:

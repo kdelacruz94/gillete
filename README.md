@@ -182,13 +182,17 @@ development; enable them only at the agreed migration. Desktop launch arguments
 follow the [Desktop Entry Exec rules](https://specifications.freedesktop.org/desktop-entry/latest/exec-variables.html).
 
 On Hyprland, Gillete applies `fkeys:basic_13-24` and symbol-based shortcut
-resolution only to its virtual output keyboard. This prevents standard XKB
-media/touchpad aliases from changing F13–F24 mappings. It requires
+resolution only to its virtual output keyboard. This corrects the base F13–F23
+symbols that standard XKB maps to media/touchpad actions. It requires
 `xkeyboard-config >= 2.43`, preserves other keyboard options, and restores its
 option change when disabled. A compositor configuration change that removes the
 correction stops the affected session; enable it again to recheck the setup.
 This is a Linux software-output correction. Onboard F-key assignments still
 depend on the receiving computer's keyboard configuration.
+Some modifier combinations retain higher-level aliases under this standard
+option, including Shift+Super+F23 and Control+Super+F24; broader correction is
+still unfinished. The [physical-keyboard research](docs/native-keyboard-compatibility-research.md)
+records the verified behavior and the limits of automatic physical-device setup.
 
 "Stored mouse assignment" refers to the actual saved binding, including existing
 Synapse customizations. Unknown firmware actions stay intact in onboard previews
@@ -197,6 +201,17 @@ an action whose software behavior is not implemented; it is never replaced with 
 factory mapping. Several existing V2 firmware actions still need this work.
 The mouse-memory view now identifies stored turbo parameters and macro
 references, while marking unverified timing and unavailable macro content.
+On the V3 receiver with firmware1.1, **Read mouse** also retrieves supported
+once-only, single-key keyboard macro bodies. It requires the reference to be in
+the catalog, reads the complete bytes twice and rechecks the referring bindings.
+**Keep stored** can then reproduce that exact key/delay sequence through the
+Linux service; the virtual keyboard handles its base function-key mapping.
+Activation rechecks bodies required by selectable profiles before input ownership.
+Explicit host overrides do not depend on unused native bodies. Missing, changed,
+multi-key, mouse, held/toggle and repeated native macros remain unresolved.
+This integration is tested in simulation; its combined live acceptance is pending.
+It does not upload, alter or delete any macro, and an inspection snapshot remains
+insufficient for a complete native macro backup.
 The [remaining protocol research](docs/remaining-protocol-research.md) records
 the REA capture analysis and the evidence still needed for those actions and
 the V3 wired transport.

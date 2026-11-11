@@ -1919,3 +1919,36 @@ unit, and diagnostics performs no new mouse/input operations.
 
 Validation: all64 diagnostic/GUI checks pass. No capability gate, device setting,
 service, keyboard configuration or remapper was changed by this text update.
+
+## Native Keep stored bridge and keymap research — 2026-11-10
+
+Fixed an integration gap: native macros saved by Gillete previously became
+unresolved firmware references in software mode. V3 receiver/firmware0101
+inspection now reads the bounded catalog and complete supported counted-once,
+single-key event bodies twice, then rechecks their referring bindings. Actual
+bytes and delays resolve through the existing cancellable Linux macro runner.
+No reference alone is treated as executable. Unsupported/changed/missing objects,
+other routes/firmware, zero references, repeated/multi-key/mouse streams remain
+unresolved. Optional read errors are visible without publishing partial bodies.
+
+Service startup rechecks required native bodies on its newly opened transport
+before input ownership; explicit host overrides do not depend on unused objects.
+Private snapshot serialization preserves supported bytes with size/ID validation
+and remains compatible with older snapshots. Software acceptance comparisons
+include captured bodies. No setter, upload, delete, grab or live service action
+was performed; physical cross-mode acceptance remains pending.
+
+The completed first-party Hyprland/XKB research is in
+`native-keyboard-compatibility-research.md` (commit1fafddf). It establishes that
+physical device-name suffixes are not USB identity, no public address selector or
+exact field-unset/query exists, runtime rules outlive disconnects, and restoring
+effective options does not restore inheritance. The standard option also leaves
+modified F23/F24 aliases at higher levels. README claims now distinguish the
+accepted base-symbol correction from those unfinished combinations. No physical
+keyboard rule or global option was changed, and the virtual-only guard remains.
+
+Validation: all754 tests and438 packaged-source checks pass, including complete
+readback, changed dependencies, zero/missing references, getter-only admission,
+snapshot compatibility, software preflight and cancellation. Staged Arch/wheel,
+CLI and isolated GUI checks pass. The combined hardware test remains prepared,
+not run, while awaiting the user's readiness response.

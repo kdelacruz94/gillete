@@ -293,6 +293,10 @@ class DeviceSession:
             self.io.__enter__()
             if await self.hardware_call(self.io.device_serial) != self.snapshot.serial:
                 raise ProtocolError('Mouse identity changed after inspection')
+            from .stored_native import required_ids, verify as verify_native_macros
+            required = required_ids(self.snapshot, reachable_profiles(
+                self.coordinator.config, self.device.model, self.engine.stored))
+            await self.hardware_call(verify_native_macros, self.io, self.snapshot, required)
             if self.stop_requested.is_set():
                 return
             self.open_inputs()

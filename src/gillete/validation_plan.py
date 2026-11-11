@@ -101,7 +101,7 @@ def bind_window(config, model, app_class, title):
 
 
 def assert_unchanged(before, after):
-    for field in ('product', 'model', 'serial', 'bank', 'assigned', 'active', 'controls', 'records', 'settings'):
+    for field in ('product', 'model', 'serial', 'bank', 'assigned', 'active', 'controls', 'records', 'settings', 'native_macros'):
         if getattr(before, field) != getattr(after, field):
             raise RuntimeError(f'Mouse {field} changed since the saved snapshot')
 
