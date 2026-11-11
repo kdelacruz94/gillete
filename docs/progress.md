@@ -1563,3 +1563,37 @@ removal/flash implementation, native HyperShift macros, multiple-object/profile
 management, repeat/toggle cancellation, V2 native storage or wired transport.
 Continue independent production integration; request physical cooperation only
 for the next concrete acceptance case.
+
+## Host reboot recovery and profile planning — 2026-11-10
+
+The user reported a frozen CachyOS display and forced reboot. The completed
+native macro journal was durably saved at 20:59:51 EST, before the previous
+boot's final log entry at 21:02:20. Both native macro primary journals record
+successful restoration and deletion. No Gillete/test process survived, and
+the production user service is inactive. Targeted previous-boot kernel checks
+found no logged GPU/Xid/lockup/OOM/watchdog fault; coredumpctl found no dump in
+the relevant interval. Repeated razermouse battery-query timeouts are logged,
+but they do not establish the cause of the display freeze. No service/driver
+change was made on that evidence.
+
+Fresh read-only V3 verification succeeded after reboot: normal mode, all button
+functions matching the last restored snapshot, and an empty macro catalog.
+Saved scalar/stage and selector-zero DPI are now 1600 rather than 3200. The
+check made no writes and preserves that current state; the origin of the DPI
+change is not established. Private report:
+`evidence/post-reboot-20261110-01.local.json`. No recovery setter was needed.
+
+Recovered the interrupted `compile_profile` encoder seam and empty planner
+file. Completed `native_macro_plan`: pure profile dependency previews deduplicate
+event streams, retain each binding's own playback count, choose fresh IDs
+outside catalog/dangling references, estimate all allocation blocks and enforce
+free-space/slot limits. It preserves normal/HyperShift/standalone resolution,
+unknown passthrough bytes and UTF-8 names. Unsupported actions, remaining
+hardware acceptance and repeated-playback timing differences are explicit.
+No production macro-write capability has been enabled; the preview has no
+apply API. The next integration step is an asset-aware production transaction.
+
+Validation after recovery: all 614 tests and 293 packaged-source checks pass.
+Fresh Arch/wheel staging, isolated GUI smoke and CLI validation pass without
+host installation or remapping. The unfinished source is recovered and the
+working tree is checkpointed before proceeding with the production transaction.

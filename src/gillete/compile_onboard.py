@@ -134,7 +134,10 @@ class OnboardPlan:
 
 
 def compile_profile(profile: Profile, model: str, bank: int,
-                    baseline: dict[Location, bytes]) -> OnboardPlan:
+                    baseline: dict[Location, bytes], *, encoder=None) -> OnboardPlan:
+    # Experimental asset planning can resolve macro references without changing
+    # the production encoder or admitting upload-less Save to Mouse operations.
+    encode = encoder or encode_action
     if model not in MODELS or bank not in ((1,) if model == MODELS[0] else (1, 2, 3, 4, 5)):
         raise ProtocolError("Unknown model or stored bank")
     alternatives = profile.standalone.get(model)
@@ -151,7 +154,7 @@ def compile_profile(profile: Profile, model: str, bank: int,
             normal[where] = baseline[where]
         else:
             try:
-                normal[where] = encode_action(action, model)
+                normal[where] = encode(action, model)
                 if control in PULSE_CONTROLS and action.kind == 'hypershift':
                     issues.append(f'{control}: held HyperShift needs a button that can be held; '
                                   'scroll-toggle HyperShift requires the Linux service')
@@ -183,7 +186,7 @@ def compile_profile(profile: Profile, model: str, bank: int,
             shifted[shifted_where] = baseline[shifted_where]
         else:
             try:
-                shifted[shifted_where] = encode_action(action, model)
+                shifted[shifted_where] = encode(action, model)
             except SoftwareOnly as error:
                 issues.append(f"{control} (HyperShift): {error}")
     if not has_shift and shifted_controls(profile, model):

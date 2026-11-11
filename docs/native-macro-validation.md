@@ -156,3 +156,26 @@ must not be presented as satisfying the user's stop-on-focus-loss requirement.
 The Linux Runner's cancellation applies to its own generated events; it cannot
 be assumed to control autonomous firmware playback. Neither these new candidate
 commands nor mode/profile changes are introduced as cancellation fallbacks.
+
+## Profile dependency previews
+
+`native_macro_plan.preview_profile` is a pure preview for the V3 receiver.
+It consumes the current stored bindings, catalog IDs, references from all
+banks, already-free bytes and slot capacity. Identical event streams share
+one new asset, while each assignment retains its own playback/count binding.
+Fresh IDs avoid both catalog entries and dangling references, including those
+on unknown controls or unassigned banks. Existing objects are never overwritten.
+The preview includes exact event/metadata bytes and a per-object block estimate.
+
+Planning reuses the ordinary normal/HyperShift resolution and standalone
+alternatives, preserving opaque passthrough assignments. It reports unsupported
+actions and capacity/free-space failures without formatting or silently
+substituting software actions. Names truncate at valid UTF-8 character
+boundaries. Repeated playback's trailing-gap difference is explicit.
+
+The preview separately lists remaining physical acceptance and production
+integration requirements: HyperShift macros, multiple assets, multi-key
+sequences, repetition/cancellation and an asset-aware upload/recovery backend.
+It has no writable/apply API. The production compiler and Save to Mouse keep
+their existing macro restrictions; this module is not yet connected to those
+write paths. V2 and wired V3 are rejected by this experimental native planner.
