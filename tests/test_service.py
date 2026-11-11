@@ -143,7 +143,7 @@ def test_stop_during_keyboard_setup_never_takes_mouse_ownership(tmp_path, monkey
         session.stop_requested.set()
         finish.set()
         await asyncio.wait_for(task, 1)
-        assert released == ['keyboard restored', 'closed']
+        assert released == ['closed', 'keyboard restored']
         assert not session.ready and not session.error and not list(tmp_path.iterdir())
     asyncio.run(check())
 

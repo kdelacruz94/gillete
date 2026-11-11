@@ -14,7 +14,8 @@ input-remapper configuration for rollback.
 
 ## Run the editor
 
-Requires Python 3.11+, PySide6, python-evdev, python-gobject and GLib 2.84+
+Requires Python 3.11+, PySide6, python-evdev, python-gobject, libxkbcommon1.11+
+and GLib 2.84+
 (already present on the target CachyOS machine). From this checkout:
 
 ```bash
@@ -181,18 +182,25 @@ Neither desktop startup nor mouse startup choices have been enabled during
 development; enable them only at the agreed migration. Desktop launch arguments
 follow the [Desktop Entry Exec rules](https://specifications.freedesktop.org/desktop-entry/latest/exec-variables.html).
 
-On Hyprland, Gillete applies `fkeys:basic_13-24` and symbol-based shortcut
-resolution only to its virtual output keyboard. This corrects the base F13–F23
-symbols that standard XKB maps to media/touchpad actions. It requires
-`xkeyboard-config >= 2.43`, preserves other keyboard options, and restores its
-option change when disabled. A compositor configuration change that removes the
-correction stops the affected session; enable it again to recheck the setup.
-This is a Linux software-output correction. Onboard F-key assignments still
-depend on the receiving computer's keyboard configuration.
-Some modifier combinations retain higher-level aliases under this standard
-option, including Shift+Super+F23 and Control+Super+F24; broader correction is
-still unfinished. The [physical-keyboard research](docs/native-keyboard-compatibility-research.md)
-records the verified behavior and the limits of automatic physical-device setup.
+On Hyprland, Gillete compiles a complete keymap for its uniquely named virtual
+output. F13–F24 keep their function-key symbols with all256 core modifier states;
+modifiers remain available to application shortcuts. This also fixes the higher
+level Shift+Super+F23 and Control+Super+F24 aliases left by the standard option.
+Layouts, variants, other options and regular keys are preserved. The private
+file is loaded only for Gillete's output, with symbol-based compositor shortcuts.
+Input ownership waits until Hyprland reports the compiled map's unique layout
+marker. Reloads, layout/option changes, replaced outputs or changed files stop
+the affected software session. Disabling closes the output before removing its
+private file, without changing global or physical-keyboard settings.
+
+An inherited custom `kb_file` must use an absolute path (a leading `~` is
+supported); invalid or unsupported maps block activation instead of falling
+back to US. The integration and complete modifier matrix pass offline tests;
+desktop acceptance of this new path remains pending. See
+[virtual function-key maps](docs/virtual-function-keymap.md).
+Onboard F-key assignments still depend on the receiving computer's keyboard
+configuration; the [physical-keyboard research](docs/native-keyboard-compatibility-research.md)
+records the limits of automatic setup for the real mice.
 
 "Stored mouse assignment" refers to the actual saved binding, including existing
 Synapse customizations. Unknown firmware actions stay intact in onboard previews

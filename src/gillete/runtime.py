@@ -1,6 +1,7 @@
 """Route decoded physical controls into the engine without event feedback."""
 
 from evdev import ecodes, UInput
+from uuid import uuid4
 
 from .engine import Engine
 from .reports import Frame
@@ -10,7 +11,7 @@ from .keyboard_map import KeyboardMap
 class UInputOutput:
     """Only constructed when software remapping is explicitly enabled."""
     def __init__(self, suffix=''):
-        name = 'Gillete virtual input' + (' ' + suffix if suffix else '')
+        name = 'Gillete virtual input' + (' ' + suffix if suffix else '') + ' ' + uuid4().hex
         keys = sorted({value for name, value in ecodes.ecodes.items()
                        if name.startswith(('KEY_', 'BTN_')) and isinstance(value, int)
                        and 0 < value < ecodes.KEY_MAX and name not in ('KEY_CNT',)})
@@ -36,8 +37,8 @@ class UInputOutput:
 
     def close(self):
         if not self.closed:
-            self.closed = True
             self.device.close()
+            self.closed = True
 
 
 class Router:

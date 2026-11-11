@@ -359,13 +359,13 @@ class DeviceSession:
                     self.cleanup_error('Output release failed', error)
                 finally:
                     try:
-                        await self.output.restore_keyboard()
-                    except Exception as error:
-                        self.cleanup_error('Keyboard options restore failed', error)
-                    try:
                         self.output.close()
                     except Exception as error:
                         self.cleanup_error('Output close failed', error)
+                    try:
+                        await self.output.restore_keyboard()
+                    except Exception as error:
+                        self.cleanup_error('Keyboard map cleanup failed', error)
             if self.lease is not None and self.lease.document is not None:
                 try:
                     await self.hardware_call(self.lease.restore)

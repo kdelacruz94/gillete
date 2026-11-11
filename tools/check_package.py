@@ -26,7 +26,7 @@ def main():
     with zipfile.ZipFile(wheel) as archive:
         assert not any('evidence/' in name or '.local' in name for name in archive.namelist())
         for module in ('settings', 'gui_settings', 'gui_controls', 'gui_applications', 'keyboard_map',
-                       'startup', 'gui_startup', 'gui_instance'):
+                       'startup', 'gui_startup', 'gui_instance', 'function_keymap'):
             assert f'gillete/{module}.py' in archive.namelist()
         for module in ('applications', 'gui_launch', 'gui_standalone', 'macro_reads', 'macro_inspection', 'firmware_probe',
                        'validation_plan', 'guided_service', 'validation_pad', 'mapping_view', 'dpi_probe', 'dpi_sensor_probe',
@@ -77,6 +77,7 @@ def main():
              '"tests/test_native_profile_probe.py", "tests/test_native_profile_review.py", "tests/test_hid_replies.py", '
              '"tests/test_native_profile_support.py", "tests/test_hardware.py", "tests/test_native_macro_reuse.py", '
              '"tests/test_native_sequence_probe.py", "tests/test_native_profile_undo.py", "tests/test_stored_native.py", '
+             '"tests/test_function_keymap.py", "tests/test_keyboard_map.py", '
              '"tests/test_gui.py::test_native_macro_review_has_mapping_rows_but_no_save_action_or_writes", '
              '"tests/test_gui.py::test_explicit_native_save_preview_checks_firmware_and_preserves_cancelled_plan", '
              '"tests/test_gui.py::test_native_save_waits_for_read_worker_then_runs_once", '

@@ -1952,3 +1952,35 @@ readback, changed dependencies, zero/missing references, getter-only admission,
 snapshot compatibility, software preflight and cancellation. Staged Arch/wheel,
 CLI and isolated GUI checks pass. The combined hardware test remains prepared,
 not run, while awaiting the user's readiness response.
+
+## Complete virtual function-key maps — 2026-11-10
+
+The user deferred the combined V3 experiment and requested continued building.
+No mouse experiment was started. Implemented an offline libxkbcommon compiler
+and connected it to the uniquely owned virtual output, replacing the incomplete
+standard-option correction. It explicitly replaces F13–F24 symbols/types/actions
+in every compiled layout, preserves repeat policy, and verifies all256 core
+modifier masks per key/layout with no consumed modifiers or altered key state.
+Tests reproduce and fix the prior Shift+Super+F23/Control+Super+F24 aliases.
+Ignored RMLVO errors/layout loss and non-evdev Fn keycodes are rejected.
+
+Each output has a fresh UUID. A private compiled-file marker in Hyprland's
+actual active layout establishes loading before physical input ownership;
+RMLVO strings alone cannot do that. The watcher covers identity, rules,
+marker and file/source fingerprints. Closing precedes private-file retirement;
+cleanup does not guess old inherited settings or issue inverse setters. The
+runtime rule remains scoped to a name that is never reused. The physical-name
+guard is retained and tightened to the new owned format. Custom absolute
+keyboard files are preserved; unsupported/relative inputs block activation.
+
+Implementation, sources, lifecycle limits and remaining live acceptance are in
+`virtual-function-keymap.md`. Tests use the real library plus a simulated
+compositor; no live keymap rule, physical setting, service or remapper changed.
+
+Validation: all790 tests and480 packaged-source checks pass. The real-library
+matrix includes modifiers, multiple layouts, custom maps and keycode mismatch;
+the simulated compositor covers actual-file marker loading, rejected/fallback
+loads, ownership/configuration changes, file replacement and cleanup without
+inverse setters. Non-regular files are rejected without blocking. Staged
+Arch/wheel, CLI and isolated GUI checks pass. Live virtual-output delivery and
+the previously prepared native mouse experiment remain deferred.

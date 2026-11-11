@@ -150,7 +150,7 @@ def test_startup_allows_unused_draft_before_output_setup_without_mouse_ownership
         monkeypatch.setattr(sessions, 'UInputOutput', Output)
         monkeypatch.setattr(session, 'open_inputs', forbidden)
         await session.run()
-        assert observed == ['created', 'prepared', 'restored', 'closed']
+        assert observed == ['created', 'prepared', 'closed', 'restored']
         assert not session.error and not session.ready and not list(tmp_path.iterdir())
     asyncio.run(check())
 
