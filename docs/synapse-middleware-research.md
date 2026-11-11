@@ -111,6 +111,40 @@ assigned slot content and relevant metadata before any create/select/delete
 experiment, then verify active and stored banks independently. The current
 single-slot readback is insufficient to enable multi-slot switching.
 
+### Profile metadata lifecycle follow-up — 2026-11-10
+
+Focused inspection of the retained V3 factory `51294` resolves the metadata
+writer's dependency order. `setProfileNameStructure` normally calls
+`createNewProfile(id)` **before** writing any metadata. Its final boolean
+parameter skips that call; `_writeKeyMappingHash` explicitly passes true.
+Therefore copying the default name-writer path for a rename or recovery would
+also submit a profile-create command. That behavior must be separated in a
+future transactional implementation; source alone does not prove recreation
+is harmless or idempotent on these mice.
+
+The structure is 250 bytes: mixed-endian GUID16, UTF-8 name100, a 128-byte
+owner/padding area and mapping hash6. The non-rzDevice30 path writes chunks
+of at most 64 bytes with a five-byte header (profile ID, offset:u16be,
+total size:u16be), overriding declared command size to `5+n`. Reads request
+the same chunk sizes with their size field zero. Its reader extracts only 64
+owner bytes despite the 128-byte write area, so round-tripping decoded fields
+would not preserve every original metadata byte. Keep complete raw metadata
+for any future restoration. This differs from macro metadata's item count
+and reserved/timestamp/hash layout; the structures are not interchangeable.
+
+`addProfileNameStructure` skips ID1, while the generic `setProfileName`
+wrapper does not enforce that skip. Neither wrapper establishes that Naga
+slot1 supports name metadata. The shared `getProfileIDList` parser calls its
+leading byte a total and slices that many IDs; this user's Naga instead
+physically reports capacity5 with one assigned ID and a separate count1.
+Continue using the observed Naga inventory contract, rather than copying the
+shared parser's capacity/count assumption.
+
+No create/delete/select/name/hash command was submitted for this follow-up.
+All slot lifecycle operations remain unverified. A later experiment must
+preserve even readable unassigned-bank content, in addition to assigned slots,
+and must not reconstruct opaque metadata from these partial decoded fields.
+
 ## Macro capability: model-specific warning in the source
 
 The V2 main module's `DeviceInfo.OBMSpecs.supportedFeature` explicitly sets
