@@ -137,6 +137,18 @@ E231's constructor defaults `pollingRate=false` and `highSpeedPollingRate=false`
 
 Required evidence before higher-rate admission: retained effective feature parameters and first-party Windows traffic for labeled125/500/1000/2000/4000/8000 selections on E7 and E8 separately, including physical vs logical PID routing, profile selector, dual-link/master status and firmware versions. Confirm which values the UI actually offers, exact setter/getter replies and fallback/clamping. Later physical acceptance must measure output cadence, persistence, independent profile behavior and restoration; configuration readback alone does not prove8000 reports/s. Wired descriptor/transport uncertainty from prior notes still applies.
 
+**Follow-up, 2026-11-11:** [the feature-parameter trace](synapse-polling-feature-flags.md)
+now resolves normal startup's two named parameters as absent/falsy: the model
+registers a frozen empty `yes` object. E8's separate dual-link/master branch can
+still select high-speed polling. Its live logical PID/cache state is unobserved.
+The earlier parameter gap above is therefore narrowed, not a reason to infer
+unconditional 8k support or wired firmware rejection. A Windows trace would
+attribute Synapse routing; direct Linux command-effect/cadence/restoration
+acceptance on an exact transport can independently establish Linux support.
+Cached Linux enumeration currently shows 1ms endpoint intervals on the attached
+B4/E8 receivers; it is not a motion-cadence measurement. Production gates stay
+unchanged pending actual acceptance.
+
 ## Admission matrix and delta
 
 | Capability | Concrete new source fact | Present admission / missing evidence |
