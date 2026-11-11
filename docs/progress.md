@@ -1984,3 +1984,36 @@ loads, ownership/configuration changes, file replacement and cleanup without
 inverse setters. Non-regular files are rejected without blocking. Staged
 Arch/wheel, CLI and isolated GUI checks pass. Live virtual-output delivery and
 the previously prepared native mouse experiment remain deferred.
+
+## Selected-mouse native memory preflight — 2026-11-10
+
+While tracing managed-storage work, found a production usability gap: native
+review/save/undo rejected any existing daemon socket, even after the selected
+mouse was disabled. Replaced that existence check with a bounded, read-only
+status request. The selected model must report requested=false, active=false,
+no remaining transport/session and no pending startup preference. An idle
+daemon or another enabled model no longer blocks direct memory work.
+
+Old/malformed status, permission errors and timeouts do not prove release.
+Absent/refused listeners are not started, removed or otherwise repaired; the
+subsequent exclusive HID lock and normal-mode/identity guards remain required.
+No configuration identity is sent in the status-only request, so another
+configuration's live ownership is still checked. No control command is issued.
+
+Tests cover every ownership phase, incomplete/old status, a real private Unix
+socket, other-model activity, and review/save/restore refusal before opening
+hardware followed by success after selected-model release. No hardware or
+live service action was performed. Managed native-library review/reclamation
+remains the next implementation task; physical tests stay deferred.
+
+Validation: all816 tests and506 packaged-source checks pass. Staged Arch/wheel,
+CLI and isolated GUI checks pass. The status-only private socket test and all
+three desktop native entry points preserve the other model's requested state.
+
+Managed reclamation must review complete current bank/control/layer references,
+match metadata and full event bytes to validated local save artifacts, retain
+foreign/changed objects, and identify affected undo receipts before deletion.
+Any loss of old undo dependencies needs explicit acknowledgement in the final
+review; no history is silently discarded. Admission and every deletion need
+fresh identity/reference checks and durable intent. Uncertain delete results
+are resolved by new catalog reads, never a blind repeated setter.

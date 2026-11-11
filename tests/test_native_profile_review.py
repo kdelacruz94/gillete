@@ -57,8 +57,46 @@ def test_unverified_route_or_running_service_cannot_open_hardware(tmp_path, monk
     assert not review.eligible(snapshot)
     with pytest.raises(ProtocolError): review.prepare_review(device, snapshot, review.tx.Profile.parse(prepared['profile']))
     snapshot.product = 0xE8
-    running = tmp_path / 'service.sock'
-    running.touch()
-    monkeypatch.setattr(review, 'socket_path', lambda: running)
+    def active(*args, **kwargs): raise ProtocolError('Disable software control for this mouse')
+    monkeypatch.setattr(review, 'require_idle', active)
+    monkeypatch.setattr(review, '_transport', lambda _: (_ for _ in ()).throw(AssertionError('Transport opened')))
     with pytest.raises(ProtocolError, match='Disable'): review.prepare_review(device, snapshot, review.tx.Profile.parse(prepared['profile']))
     assert not mouse.reads or not mouse.writes
+
+
+@pytest.mark.parametrize('operation', ['prepare', 'save', 'restore'])
+def test_selected_service_ownership_is_checked_before_all_desktop_native_operations(tmp_path, monkeypatch, operation):
+    from gillete import memory_access
+    from gillete.profiles import ProfileStore
+    from gillete.service import Daemon
+    from test_native_profile_support import fixture
+    mouse, prepared, device = fixture()
+    _, _, snapshot, _ = inputs()
+    snapshot.metadata['firmware'] = prepared['before']['firmware']
+    daemon = Daemon(ProfileStore(tmp_path / 'profiles.json'))
+    daemon.requested.add(MODELS[0])  # Other mouse stays enabled throughout.
+    replies = []
+    async def status(command, **kwargs):
+        replies.append(command)
+        return daemon.status()
+    monkeypatch.setattr(memory_access, 'request', status)
+    monkeypatch.setattr(review, '_transport', lambda _: mouse)
+    path = tmp_path / 'native/profile.json'
+    if operation == 'restore': review.tx.apply(mouse, prepared, path)
+    daemon.requested.add(MODELS[1])
+    writes = len(mouse.writes)
+    opened = []
+    def transport(selected):
+        opened.append(selected)
+        return mouse
+    monkeypatch.setattr(review, '_transport', transport)
+    def execute():
+        if operation == 'prepare': return review.prepare_review(device, snapshot, review.tx.Profile.parse(prepared['profile']))
+        if operation == 'save': return review.save_review(device, prepared, path)
+        return review.restore_review(device, path)
+    with pytest.raises(ProtocolError, match='Disable software control'): execute()
+    assert not opened and len(mouse.writes) == writes and replies == ['status']
+    daemon.requested.discard(MODELS[1])
+    result = execute()
+    assert result and len(opened) == 1 and replies == ['status', 'status']
+    assert MODELS[0] in daemon.requested

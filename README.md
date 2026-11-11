@@ -263,7 +263,14 @@ macro references because they cannot restore the referenced data; retain the
 full native recovery journal and exported Linux profile instead.
 Recovery journals live under
 `$XDG_STATE_HOME/gillete/onboard` (normally `~/.local/state/gillete/onboard`).
-Disable software control before direct mouse-memory operations. **Edit DPI and
+Disable software control for the selected mouse before direct mouse-memory
+operations. Native macro review/save/undo queries the service's actual ownership
+state: the selected model must have no requested, active, stopping or pending
+startup session. An idle background service and software control of the other
+mouse can remain running. Unknown or unavailable service status blocks the
+operation; the app never disables a mouse or stops a service automatically.
+Transport exclusivity and normal-mode checks still guard the subsequent access.
+**Edit DPI and
 polling…** opens the native settings editor after reading the active slot. It
 supports 1–5 stages, a selected stage, separate or linked X/Y DPI, and receiver
 rates of 125/500/1000 Hz. Review the before/after values before saving. Current

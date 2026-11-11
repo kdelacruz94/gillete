@@ -3,6 +3,7 @@
 from . import hardware
 from . import native_profile_transaction as tx
 from .model import MODELS
+from .memory_access import require_idle
 from .native_macro_probe import MacroHID
 from .onboard import Location
 from .protocol import ProtocolError
@@ -23,8 +24,7 @@ def eligible(snapshot):
 def prepare_review(device, snapshot, profile):
     if not eligible(snapshot) or device.product_id != snapshot.product or device.model != snapshot.model:
         raise ProtocolError('Native macro review currently requires the V3 receiver with only active slot 1 assigned')
-    if socket_path().exists():
-        raise ProtocolError('Disable Gillete software control before reading native macro memory')
+    require_idle(device.model, path=socket_path())
     # Rediscover this exact physical transport; never use a cached hidraw path.
     with _transport(device) as io:
         document = tx.prepare(io, profile)
@@ -46,9 +46,9 @@ def save_review(device, prepared, path):
     issues = save_issues(prepared)
     if issues:
         raise ProtocolError('Native macro save blocked: ' + '; '.join(issues))
-    if socket_path().exists(): raise ProtocolError('Disable Gillete software control before saving mouse memory')
     if device.product_id != prepared['before']['product'] or device.model != MODELS[1]:
         raise ProtocolError('Selected device differs from the native macro preview')
+    require_idle(device.model, path=socket_path())
     with _transport(device) as io:
         try:
             return tx.apply(io, prepared, path)
@@ -61,9 +61,9 @@ def save_review(device, prepared, path):
 def restore_review(device, path):
     document = hardware.read_journal(path)
     tx.validate(document)
-    if socket_path().exists(): raise ProtocolError('Disable Gillete software control before restoring mouse memory')
     if device.product_id != document['before']['product'] or device.model != MODELS[1]:
         raise ProtocolError('Selected device differs from the native macro recovery identity')
+    require_idle(device.model, path=socket_path())
     # Recovery remains available even if a later release tightens save gates.
     with _transport(device) as io:
         try: return tx.undo(io, path, preserve_unrelated=True)
