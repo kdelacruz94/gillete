@@ -2314,3 +2314,34 @@ submap conflicts, lost replies, failed journals/removal, shared and replaced
 bindings, local-only GUI saves, active/pending display and service reload/restart
 semantics. Staged Arch/wheel, CLI and isolated GUI checks pass. No host package
 was installed and no live shortcut or physical test was run.
+
+## Compact native control editor — 2026-11-11
+
+An offscreen layout audit found the main window's minimum size was893×778:
+the visual control selector forced a taller window than a768-pixel desktop,
+even before decorations. Wrapped that selector in a resizable scroll area.
+The mapping table keeps its own viewport, and the selector reveals a control
+when selected from the table or focused with the keyboard. Profile controls
+and the normal/HyperShift editor remain reachable without hiding controls.
+
+Repeated the audit with a1024×640 offscreen window: minimum size is893×580,
+all six tabs retain the requested height, and all21 V2 plus25 V3 control positions
+can be selected and fully revealed. Keyboard Tab/focus navigation also reveals
+its target. Action/macro/settings dialogs were inspected for minimum-size issues;
+their existing minimum heights fit this check. This is Qt layout evidence for
+the tested font/platform, not live Wayland rendering or physical input acceptance.
+The audit uses temporary profiles, disabled service polling and stubbed device
+discovery; it reads no mouse or desktop input and sends no service commands.
+
+The same audit with a valid256-character pinned profile found a second constraint:
+the minimum width grew to2511 pixels. The profile picker now uses a bounded
+contents hint, and the pin/status labels wrap as plain text within available
+width. Spaced and unbroken256-character names, literal markup and the longer
+profile-copy status now fit the1024×640 window; full pin text has sufficient
+wrapped height. No profile data or selection behavior is changed.
+
+Validation:73 relevant GUI/mapping/HyperShift checks and775 packaged-source checks
+pass. Staged Arch/wheel, CLI and isolated GUI checks pass. The two layout audits
+also exercised actual offscreen Qt geometry and keyboard focus. No tests were
+added just to mirror this layout change. Full physical acceptance and migration
+remain deferred, and no host package or live remapper was changed.

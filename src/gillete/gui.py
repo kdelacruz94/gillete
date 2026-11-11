@@ -14,7 +14,7 @@ from PySide6.QtGui import QAction, QActionGroup, QIcon
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit, QMainWindow, QMenu,
-    QMessageBox, QPushButton, QSpinBox, QSystemTrayIcon, QTabWidget, QTableWidget,
+    QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSpinBox, QSystemTrayIcon, QTabWidget, QTableWidget,
     QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
 )
 
@@ -374,6 +374,8 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(root)
         self.status = QLabel("Profile editor • Local profiles and mouse memory are saved separately")
         self.status.setWordWrap(True)
+        self.status.setTextFormat(Qt.TextFormat.PlainText)
+        self.status.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         layout.addWidget(self.status)
         selectors = QHBoxLayout()
         self.model = QComboBox()
@@ -381,6 +383,8 @@ class MainWindow(QMainWindow):
         self.model.addItem("Naga V3 Pro · 12-button plate", MODELS[1])
         selectors.addWidget(self.model)
         self.profile = QComboBox()
+        self.profile.setMinimumContentsLength(18)
+        self.profile.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         selectors.addWidget(self.profile, 1)
         self.scope = QComboBox()
         self.scope.addItem("Shared mappings", "common")
@@ -399,6 +403,9 @@ class MainWindow(QMainWindow):
         button("Automatic", self.automatic, selection)
         button("Set as default", self.set_default, selection)
         self.mode_label = QLabel()
+        self.mode_label.setWordWrap(True)
+        self.mode_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.mode_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         selection.addWidget(self.mode_label, 1)
         layout.addLayout(selection)
         self.tabs = tabs = QTabWidget()
@@ -429,7 +436,14 @@ class MainWindow(QMainWindow):
         self.control_selector = ControlSelector(self)
         self.control_selector.edit_requested.connect(self.edit_selected_control)
         self.mapping.currentCellChanged.connect(self.mapping_selected)
-        mapping_layout.addWidget(self.control_selector)
+        self.control_scroll = QScrollArea()
+        self.control_scroll.setWidgetResizable(True)
+        self.control_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.control_scroll.setMinimumWidth(280)
+        self.control_scroll.setMaximumWidth(370)
+        self.control_scroll.setWidget(self.control_selector)
+        self.control_selector.reveal_requested.connect(self.control_scroll.ensureWidgetVisible)
+        mapping_layout.addWidget(self.control_scroll)
         mapping_layout.addWidget(self.mapping, 1)
         tabs.addTab(mapping_page, "Buttons & macros")
         rules_page = QWidget()

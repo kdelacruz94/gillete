@@ -1,6 +1,6 @@
 """Native control selector for the shared 12-button Naga layouts."""
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QEvent, Signal
 from PySide6.QtWidgets import (QButtonGroup, QComboBox, QGridLayout, QGroupBox,
                               QLabel, QPushButton, QVBoxLayout, QWidget)
 
@@ -10,6 +10,7 @@ from .mapping_view import view
 
 class ControlSelector(QWidget):
     edit_requested = Signal(str, bool)
+    reveal_requested = Signal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -24,6 +25,7 @@ class ControlSelector(QWidget):
         self.layer = QComboBox()
         self.layer.addItem('Edit normal layer', False)
         self.layer.addItem('Edit HyperShift layer', True)
+        self.layer.installEventFilter(self)
         layout.addWidget(self.layer)
         top = QGroupBox('Top, wheel and extra controls')
         grid = QGridLayout(top)
@@ -65,10 +67,16 @@ class ControlSelector(QWidget):
         button.setMinimumHeight(32)
         button.setCheckable(True)
         button.setAccessibleName(control.replace('_', ' '))
+        button.installEventFilter(self)
         self.group.addButton(button)
         self.buttons[control] = button
         button.clicked.connect(lambda _checked=False, c=control: self.activate(c))
         return button
+
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Type.FocusIn:
+            self.reveal_requested.emit(watched)
+        return super().eventFilter(watched, event)
 
     def activate(self, control):
         self.select(control)
@@ -79,6 +87,7 @@ class ControlSelector(QWidget):
             self.selected = control
             self.buttons[control].setChecked(True)
             self.update_assignment()
+            self.reveal_requested.emit(self.buttons[control])
 
     def show_unavailable(self, text):
         self.selected = None
