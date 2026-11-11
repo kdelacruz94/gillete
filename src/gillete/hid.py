@@ -48,6 +48,9 @@ class ReadOnlyHID:
         self.path = path
         self.product = expected_product
         self.fd: int | None = None
+        self.reply_health = {'exchanges': 0, 'get_reports': 0, 'malformed_reports': 0,
+                             'exchanges_with_malformed_reports': 0}
+        self.last_reply = None
 
     def __enter__(self):
         if self.product not in (0x00B4, 0x00E7, 0x00E8):
@@ -84,6 +87,9 @@ class ReadOnlyHID:
     def _exchange(self, command: Command) -> bytes:
         if self.fd is None:
             raise RuntimeError("Transport is closed")
+        self.reply_health['exchanges'] += 1
+        self.last_reply = diagnostics = {'category': command.category, 'operation': command.operation,
+                                        'get_reports': 0, 'malformed_reports': 0, 'completed': False}
         outgoing = bytearray(b"\0" + command.encode())
         with device_io():
             result = fcntl.ioctl(self.fd, feature_ioctl(6), outgoing, True)
@@ -95,13 +101,30 @@ class ReadOnlyHID:
             incoming = bytearray(91)
             with device_io():
                 count = fcntl.ioctl(self.fd, feature_ioctl(7), incoming, True)
+            diagnostics['get_reports'] += 1
+            self.reply_health['get_reports'] += 1
             if count != 91:
                 raise ProtocolError(f"Expected 91 bytes including report ID, got {count}")
             report = bytes(incoming[1:])
-            command.validate_frame(report)
+            try:
+                command.validate_frame(report)
+            except ProtocolError as error:
+                diagnostics['malformed_reports'] += 1
+                self.reply_health['malformed_reports'] += 1
+                if diagnostics['malformed_reports'] == 1:
+                    self.reply_health['exchanges_with_malformed_reports'] += 1
+                # A GET can retrieve a malformed/stale sample. Never decode it
+                # or resend the submitted command, especially a setting SET.
+                if diagnostics['malformed_reports'] >= 3 or time.monotonic() >= deadline:
+                    raise ProtocolError('No valid HID reply within the malformed-report limit; request was not resent') from error
+                continue
             if command.matches(report) and report[0] != 1:
-                return command.decode(report)
+                decoded = command.decode(report)
+                diagnostics['completed'] = True
+                return decoded
             if time.monotonic() >= deadline:
+                if diagnostics['malformed_reports']:
+                    raise ProtocolError('No valid matching completed reply after malformed reports; request was not resent')
                 raise DeviceUnavailable("No matching completed reply; request was not resent")
 
 

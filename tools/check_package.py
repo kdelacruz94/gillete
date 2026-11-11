@@ -70,7 +70,7 @@ def main():
              '"tests/test_macro_reads.py", "tests/test_firmware_probe.py", "tests/test_dpi_probe.py", '
              '"tests/test_native_macro.py", "tests/test_native_macro_probe.py", "tests/test_native_macro_observer.py", '
              '"tests/test_native_macro_plan.py", "tests/test_native_profile_transaction.py", '
-             '"tests/test_native_profile_probe.py", "tests/test_native_profile_review.py", '
+             '"tests/test_native_profile_probe.py", "tests/test_native_profile_review.py", "tests/test_hid_replies.py", '
              '"tests/test_gui.py::test_native_macro_review_has_mapping_rows_but_no_save_action_or_writes"]))'],
             cwd=source_root, env=environment)
         run([str(executable), '--config', str(stage / 'profiles.json'), 'validate'], env=environment)

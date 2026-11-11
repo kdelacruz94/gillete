@@ -111,3 +111,14 @@ def test_disk_full_after_binding_restores_buttons_and_retains_unbound_assets(tmp
     with pytest.raises(OSError): tx.apply(mouse, prepared, mouse.journal)
     assert len(mouse.macros) == 2
     assert tx.probe.normalized(tx.probe.snapshot(mouse)) == tx.probe.normalized(prepared['before'])
+
+
+def test_transport_counters_are_copied_into_durable_save_and_undo_receipts(tmp_path):
+    mouse, prepared = setup(tmp_path)
+    mouse.reply_health = {'malformed_reports': 1, 'exchanges_with_malformed_reports': 1}
+    saved = tx.apply(mouse, prepared, mouse.journal)
+    mouse.reply_health['malformed_reports'] = 2
+    assert saved['transport_health']['malformed_reports'] == 1
+    assert json.loads(mouse.journal.read_text())['transport_health']['malformed_reports'] == 1
+    restored = tx.undo(mouse, mouse.journal)
+    assert restored['transport_health']['malformed_reports'] == 2

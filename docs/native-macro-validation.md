@@ -266,3 +266,21 @@ and catalog data before showing proposed mappings, shared objects, storage
 admission and pending requirements. The dialog cannot save or activate anything.
 Software control must be disabled, and stale inspection requires another mouse
 read. Ordinary Save to Mouse compilation remains unchanged.
+
+## Malformed replies and diagnostic receipts
+
+The HID transport can discard a malformed reply sample and collect another
+GET reply to the single submitted request. Checksum/reserved-field checks
+remain strict; malformed data never reaches decoders. Three malformed samples
+or the existing response deadline stop collection. Rejections, wrong payload
+sizes and short ioctl transfers are not retried. No query or setting command
+is resubmitted by this mechanism. Existing transaction readback still determines
+whether the intended stored value exists.
+
+Native profile receipts retain payload-free transport counters. A live V3
+read-only local fault-injection check confirmed that a mode query can reject
+one locally corrupted sample and complete on a second actual GET, with one
+query submission. A separate full read matched restored state with zero
+malformed frames. Neither result identifies the original USB corruption cause
+or physically validates another native profile save under naturally occurring
+corruption; continued production integration must retain those evidence limits.

@@ -1698,3 +1698,40 @@ Tests cover immutability, stale inspection, service/route gates and the actual
 offscreen dialog. All 641 tests and 320 packaged-source checks pass; staged
 Arch/wheel/GUI/CLI checks pass. Next: investigate bounded malformed-report
 handling before connecting native macro writes to the production UI.
+
+## Bounded malformed-reply handling — 2026-11-10
+
+A deterministic ioctl regression reproduced the transport's immediate abort
+when one checksum-invalid reply precedes a valid matching reply. The test went
+red for both a query and a setter envelope before the change. The transport
+now rejects the malformed sample and may collect another GET_REPORT without
+resubmitting the command. Three malformed samples or the existing 0.8-second
+response deadline terminate the exchange. Invalid CRC/reserved fields are
+never decoded; valid rejection statuses, wrong payload sizes and short ioctl
+transfers still fail immediately. Persistent stale/busy replies remain bounded.
+Corruption followed by timeout retains ProtocolError rather than being
+misclassified as ordinary device unavailability.
+
+Transport counters and last-exchange diagnostics contain only command class/op,
+GET counts, malformed counts and completion state, never payload/identity data.
+Native profile prepare/save/failure/undo receipts copy cumulative counters to
+durable evidence. Unknown failure causes are not attributed to OpenRazer or
+other clients from this change.
+
+A fresh read-only V3 snapshot/catalog completed 522 exchanges with 522 GETs,
+zero malformed samples and exact equality to the last restored state. Then a
+separate read-only test modified one returned mode-query sample's CRC only in
+the Python process: the real receiver supplied a valid second GET reply to
+the same single submitted query. It recorded malformed1/GET2/completed=true
+and independently verified normal mode afterward. This is local fault injection,
+not captured hardware-originated corruption or proof of the original cause.
+No settings, bindings, native objects, services or drivers were changed.
+Private evidence: `evidence/bounded-reply-health-20261110-01.local.json` and
+`evidence/bounded-reply-injection-20261110-01.local.json`.
+
+Validation: all 648 tests and 327 packaged-source checks pass, including
+persistent corruption, wrong-command/busy replies, unchanged rejection and
+short-transfer handling, single-submission setter envelopes and durable health
+counter snapshots. Staged Arch/wheel, CLI and isolated GUI checks pass.
+No experiment is running. Next: integrate supported native save/undo with
+explicit capability gates, retaining unknown-cause diagnostics and recovery.

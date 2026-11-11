@@ -50,7 +50,7 @@ def prepare(io, profile):
     return {'version': 1, 'kind': KIND, 'status': 'prepared-read-only', 'before': before,
             'catalog_before': inventory, 'profile': profile.json(), 'artifacts': artifacts(preview),
             'validation_pending': preview.validation_pending, 'warnings': preview.warnings,
-            'original_state_restored': False}
+            'original_state_restored': False, 'transport_health': dict(getattr(io, 'reply_health', {}))}
 
 
 def validate(document):
@@ -195,7 +195,8 @@ def apply(io, prepared, path, *, stopped=lambda: False):
                     entry['raw'] = entry['raw'][:6] + preview.bindings[where].hex()
         if probe.normalized(after) != probe.normalized(expected):
             raise ProtocolError('Profile save changed unrelated protected state')
-        document.update(status='saved-readback-verified', saved_state=after)
+        document.update(status='saved-readback-verified', saved_state=after,
+                        transport_health=dict(getattr(io, 'reply_health', {})))
         durable_json(path, document)
         return document
     except BaseException as failure:
@@ -205,6 +206,7 @@ def apply(io, prepared, path, *, stopped=lambda: False):
             document['status'] = 'failed-restored'
         except BaseException as recovery_error:
             document.update(status='recovery-required', recovery_error=str(recovery_error))
+        document['transport_health'] = dict(getattr(io, 'reply_health', {}))
         try: durable_json(path, document)
         except OSError: pass  # Initial originals/recovery are already durable.
         raise
@@ -218,10 +220,12 @@ def undo(io, path):
         restore(io, document, path)
         document['status'] = 'restored-readback-verified'
         document.pop('recovery_error', None)
+        document['transport_health'] = dict(getattr(io, 'reply_health', {}))
         durable_json(path, document)
         return document
     except BaseException as error:
         document.update(status='recovery-required', recovery_error=str(error))
+        document['transport_health'] = dict(getattr(io, 'reply_health', {}))
         try: durable_json(path, document)
         except OSError: pass
         raise
