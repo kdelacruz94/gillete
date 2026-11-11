@@ -47,6 +47,14 @@ observation evidence, but volatility is not established: the candidate survived
 that reported cycle with the receiver continuously connected. Investigate
 receiver replug and actual power loss separately before automatic switching.
 
+**2026-11-10 observed receiver replug:** the corrected user-paced experiment
+observed USB removal and a changed enumeration address on the original port.
+After two transient getter timeouts, readback succeeded and selector zero
+still held 1200 × 1200. Saved settings and binding functions were unchanged.
+Cleanup verified restoration to 6400 and the full normalized original state.
+Receiver retention is now established on this V3; flash/NVM behavior versus
+mouse-side powered memory and driver-mode acceptance remain unresolved.
+
 ## 1. V2 stored functions
 
 ### Class `05` is a macro family, not a disabled/default marker
