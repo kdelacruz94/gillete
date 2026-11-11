@@ -41,6 +41,7 @@ def main():
                        'native_history', 'native_cleanup', 'gui_native_library',
                        'descriptors', 'wired_probe', 'diagnostics', 'gui_diagnostics',
                        'profile_transfer', 'gui_profile_transfer', 'profile_activation', 'profile_selection',
+                       'control_trace', 'control_validation', 'control_pad',
                        'persistence', 'gui_persistence', 'device_action_support'):
             assert f'gillete/{module}.py' in archive.namelist()
     with TemporaryDirectory(prefix='gillete-package-check-') as temporary:
@@ -81,6 +82,8 @@ def main():
              '"tests/test_function_keymap.py", "tests/test_keyboard_map.py", "tests/test_memory_access.py", '
              '"tests/test_native_cleanup.py", "tests/test_native_cleanup_review.py", '
              '"tests/test_profile_selection.py", '
+             '"tests/test_control_validation.py", "tests/test_control_trace.py", '
+             '"tests/test_control_pad.py", "tests/test_control_runner.py", '
              '"tests/test_focus.py", "tests/test_focus_watcher.py", "tests/test_input_cancellation.py", '
              '"tests/test_service.py::test_pending_focus_blocks_enable_and_saved_startup_until_details_settle", '
              '"tests/test_diagnostics.py::test_connected_monitor_with_pending_focus_is_not_reported_ready", '
@@ -126,6 +129,8 @@ raise SystemExit(start(ProfileStore(Path(sys.argv[2]))))
         run([str(interpreter), '-I', '-m', 'gillete.firmware_probe', '--help'],
             env=environment, stdout=subprocess.PIPE)
         run([str(interpreter), '-I', '-m', 'gillete.guided_service', '--help'],
+            env=environment, stdout=subprocess.PIPE)
+        run([str(interpreter), '-I', '-m', 'gillete.control_pad', '--help'],
             env=environment, stdout=subprocess.PIPE)
         run([str(interpreter), '-I', '-m', 'gillete.dpi_probe', '--help'],
             env=environment, stdout=subprocess.PIPE)

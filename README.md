@@ -371,6 +371,27 @@ Ctrl+Alt+Pause stops generated actions. Cleanup verifies normal mode, saved
 bindings, profile selection and saved settings. Recovery journals remain under
 the test directory's `run/state/gillete/onboard/` if verification fails.
 
+A separate **all-controls** plan is prepared for complete receiver mapping
+acceptance. It guides 42 V2 or 50 V3 control/layer taps, including the HyperShift
+trigger itself through a second trigger assignment. Each pass needs a routed
+mouse press/release and the corresponding key pair in the window; typing a
+marker on the keyboard alone cannot pass. It uses an isolated service and
+bounded control tracing, leaves saved bindings/settings unchanged, and restores
+normal mode on exit. This larger live test has not run yet.
+
+```bash
+python -m gillete.guided_service prepare --product 00e8 --suite controls --directory evidence/v3-all-controls1.local
+# Review every temporary binding before authorizing this separate test.
+python -m gillete.guided_service run --directory evidence/v3-all-controls1.local --seconds 600
+```
+
+Use `00b4` and a new directory for V2. The window advances after a verified tap;
+release the HyperShift trigger when instructed. **R** retries a failed attempt
+without deleting its evidence; **Escape** ends the test and restores mode.
+See [software control acceptance](docs/software-control-acceptance.md) for scope,
+markers, receipts and interrupted-run recovery. The existing shortcut/turbo
+test remains a separate plan; wired acceptance remains gated.
+
 An opt-in firmware diagnostic prepares private evidence for unresolved macro
 storage and DPI selectors, without changing mappings or settings:
 

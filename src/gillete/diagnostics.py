@@ -138,6 +138,10 @@ def feature_validation(product):
     count = 21 if product == 0xB4 else 25
     return [Finding('Physical controls', 'Captured on device',
                     f'All {count} controls were identified on the development receiver. Full mapping acceptance is still pending.'),
+            Finding('Every-control software mapping', 'Guided test prepared',
+                    f'A separate {count * 2}-tap receiver test checks every normal/HyperShift assignment, '
+                    'including the trigger through an alternate trigger. Mouse edges and desktop keys must both match. '
+                    'The complete physical run is pending.'),
             Finding('Saved mappings and held HyperShift', 'Partially verified',
                     'Side 12 F24/F23 tests survived a mouse power cycle. Receiver replug and broader assignment tests remain pending.'),
             Finding('Program profiles, macros and turbo', 'Live examples passed' if product == 0xE8 else 'Live test pending',

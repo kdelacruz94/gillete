@@ -18,6 +18,13 @@ from .profiles import ProfileStore
 from .service import request, socket_path
 from .settings import SPECS
 from .validation_plan import PRODUCT_MODELS, assert_unchanged, bind_window, build, describe
+from . import control_validation
+
+
+def plan(snapshot, suite):
+    if suite == 'examples': return build(snapshot)
+    if suite == 'controls': return control_validation.build(snapshot)
+    raise ValueError('Unknown software acceptance suite')
 
 
 def connected(product):
@@ -27,7 +34,9 @@ def connected(product):
     return matches[0]
 
 
-def prepare(product, directory):
+def prepare(product, directory, *, suite='examples'):
+    if suite not in ('examples', 'controls'):
+        raise ValueError('Unknown software acceptance suite')
     if directory.exists():
         raise ValueError('Choose a new acceptance-test directory')
     if socket_path().exists():
@@ -35,13 +44,20 @@ def prepare(product, directory):
     before = inspect(connected(product))
     if any(name not in before.settings for name in SPECS):
         raise RuntimeError('Could not read all saved settings; wake the mouse and prepare again')
-    config, overrides = build(before)
+    config, overrides = plan(before, suite)
     directory.mkdir(parents=True, mode=0o700)
     durable_json(directory / 'prepared.json', {'version': 1, 'kind': 'software-acceptance',
-                 'snapshot': snapshot_document(before), 'configuration': config.json(), 'overrides': overrides})
+                 'snapshot': snapshot_document(before), 'configuration': config.json(), 'overrides': overrides,
+                 'suite': suite, **({'coverage': control_validation.recipe(before.model)} if suite == 'controls' else {})})
     print('PREPARED — read only. Review these temporary software overrides before running:', flush=True)
-    for line in describe(overrides):
+    for line in (control_validation.describe(overrides) if suite == 'controls' else describe(overrides)):
         print(line, flush=True)
+    if suite == 'controls':
+        print(f'{len(control_validation.recipe(before.model)["steps"])} control/layer taps; '
+              'a second software HyperShift trigger allows testing the first trigger itself. '
+              'F13–F24 plus Shift/Ctrl/Alt are temporary markers; compositor shortcuts may receive them. '
+              'The isolated service exposes bounded mouse-control edges, not keyboard input or pointer coordinates. '
+              'Escape closes the pad and restores mode; no live test has started.', flush=True)
     print(f'Original {len(before.records)} saved descriptors retained privately in {directory}.', flush=True)
 
 
@@ -92,6 +108,23 @@ def check_running(stop, pad, daemon=None):
         raise TestStopped('Software test stopped')
     if daemon is not None and daemon.returncode is not None:
         raise RuntimeError('Acceptance service exited')
+
+
+def control_packet(status, model, device, nonce, address):
+    state = status['devices'][model]
+    trace = state.get('input_trace')
+    if not isinstance(trace, dict):
+        raise RuntimeError('The acceptance service did not supply mouse-control evidence')
+    if state.get('transport') != {'product': device.product_id, 'usb_path': device.usb_path,
+                                  'transport': device.transport}:
+        raise RuntimeError('The acceptance service selected another mouse transport')
+    if trace.get('profile') != state['profile']:
+        raise RuntimeError('The acceptance service returned conflicting mapping context')
+    packet = {'version': 1, 'model': model, 'nonce': nonce, 't': trace.get('t'),
+        'active': state['active'], 'focused': status['focus']['address'] == address,
+        'focus_pending': bool(status.get('focus_pending')), 'trace': trace}
+    control_validation.validate_packet(packet)
+    return packet
 
 
 def recover_mode(device, before, state):
@@ -152,9 +185,12 @@ async def run(directory, seconds):
     if prepared.get('kind') != 'software-acceptance':
         raise ValueError('Not a prepared software acceptance test')
     before = load_snapshot(prepared['snapshot'])
-    config, overrides = build(before)
+    suite = prepared.get('suite', 'examples')
+    config, overrides = plan(before, suite)
     if config.json() != prepared['configuration'] or overrides != prepared['overrides']:
         raise ValueError('Validation plan changed; prepare and review a new test')
+    if suite == 'controls' and prepared.get('coverage') != control_validation.recipe(before.model):
+        raise ValueError('Control coverage recipe changed; prepare and review a new test')
     if any(name not in before.settings for name in SPECS):
         raise ValueError('Prepared test lacks original saved settings')
     if socket_path().exists():
@@ -169,16 +205,23 @@ async def run(directory, seconds):
     config_path = directory / 'profiles.json'
     ready_path = directory / 'ready.json'
     title = 'Gillete input test ' + uuid4().hex[:12]
+    nonce = uuid4().hex
     pad = daemon = None
     samples = []
+    coverage_complete = False
+    coverage_epoch = None
+    coverage_started_at = None
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     previous_handlers = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
     for sig in previous_handlers:
         loop.add_signal_handler(sig, stop.set)
     try:
-        pad = await asyncio.create_subprocess_exec(sys.executable, '-m', 'gillete.validation_pad',
-                  '--output', str(directory / 'input.json'), '--seconds', str(seconds),
+        pad_args = ([sys.executable, '-m', 'gillete.control_pad',
+                     '--output', str(directory / 'coverage.json'), '--state', str(directory / 'control-state.json'),
+                     '--nonce', nonce] if suite == 'controls' else
+                    [sys.executable, '-m', 'gillete.validation_pad', '--output', str(directory / 'input.json')])
+        pad = await asyncio.create_subprocess_exec(*pad_args, '--seconds', str(seconds),
                   '--model', before.model, '--title', title, '--ready', str(ready_path))
         deadline = time.monotonic() + 15
         window = None
@@ -192,11 +235,13 @@ async def run(directory, seconds):
         if not window:
             raise RuntimeError('Could not identify the test window in Hyprland')
         check_running(stop, pad)
-        bind_window(config, before.model, window['class'], title)
+        (control_validation.bind_window if suite == 'controls' else bind_window)(
+            config, before.model, window['class'], title)
         ProfileStore(config_path).save(config, expected_revision=0)
         env = {**os.environ, 'XDG_STATE_HOME': str(directory / 'state')}
         daemon = await asyncio.create_subprocess_exec(sys.executable, '-m', 'gillete.cli',
-                         '--config', str(config_path), 'daemon', env=env)
+                         '--config', str(config_path), 'daemon',
+                         *(['--trace-controls'] if suite == 'controls' else []), env=env)
 
         async def command(name, **kwargs):
             check_running(stop, pad, daemon)
@@ -206,7 +251,8 @@ async def run(directory, seconds):
         while time.monotonic() < deadline:
             try:
                 status = await command('status')
-                if status['focus_available'] and status['suspend_monitor'] and not status['suspended']:
+                if (status['focus_available'] and not status.get('focus_pending')
+                        and status['suspend_monitor'] and not status['suspended']):
                     break
             except OSError:
                 pass
@@ -219,7 +265,7 @@ async def run(directory, seconds):
             status = await command('status')
             state = status['devices'][before.model]
             if (state['active'] and state['profile'] == 'validation'
-                    and status['focus']['address'] == window['address']):
+                    and not status.get('focus_pending') and status['focus']['address'] == window['address']):
                 break
             if not state['requested']:
                 raise RuntimeError(state['error'] or 'Mouse activation stopped')
@@ -227,7 +273,13 @@ async def run(directory, seconds):
         else:
             raise RuntimeError('Mouse activation or test-window focus timed out')
         check_running(stop, pad, daemon)
-        durable_json(ready_path, {'version': 1, 'model': before.model, 'title': title, 'seconds': seconds})
+        if suite == 'controls':
+            packet = control_packet(status, before.model, device, nonce, window['address'])
+            coverage_epoch = packet['trace']['epoch']
+            durable_json(directory / 'control-state.json', packet)
+            coverage_started_at = time.monotonic()
+        durable_json(ready_path, {'version': 1, 'model': before.model, 'title': title, 'seconds': seconds,
+                                  **({'nonce': nonce} if suite == 'controls' else {})})
         print('READY: software control active in the focused test window. '
               'Emergency stop: Ctrl+Alt+Pause.', flush=True)
         deadline = time.monotonic() + seconds
@@ -238,6 +290,20 @@ async def run(directory, seconds):
                             'active_macros': state['active_macros'], 'error': state['error']})
             if not state['active']:
                 raise RuntimeError(state['error'] or 'Service stopped')
+            if suite == 'controls':
+                packet = control_packet(status, before.model, device, nonce, window['address'])
+                if packet['trace']['epoch'] != coverage_epoch:
+                    raise RuntimeError('The acceptance mouse session restarted; retain this incomplete test')
+                durable_json(directory / 'control-state.json', packet)
+                try:
+                    result = read_journal(directory / 'coverage.json')
+                except FileNotFoundError:
+                    result = None
+                if result is not None and result.get('status') == 'complete':
+                    control_validation.validate_results(result, before.model, nonce, epoch=coverage_epoch,
+                        started_at=coverage_started_at, finished_by=time.monotonic())
+                    coverage_complete = True
+                    break
             await asyncio.sleep(.25)
     except TestStopped:
         pass
@@ -248,22 +314,39 @@ async def run(directory, seconds):
             for sig, handler in previous_handlers.items():
                 loop.remove_signal_handler(sig)
                 signal.signal(sig, handler)
+    if suite == 'controls':
+        if not coverage_complete:
+            try:
+                result = read_journal(directory / 'coverage.json')
+            except FileNotFoundError:
+                result = None
+            if result is not None and result.get('status') == 'complete':
+                control_validation.validate_results(result, before.model, nonce, epoch=coverage_epoch,
+                    started_at=coverage_started_at, finished_by=time.monotonic())
+                coverage_complete = True
+        if not coverage_complete:
+            raise RuntimeError(f'Control coverage is incomplete; retain observations and restoration receipts in {directory}')
+        print(f'CONTROL COVERAGE VERIFIED: {len(control_validation.recipe(before.model)["steps"])} '
+              'control/layer pairs with mouse edges and desktop key pairs. Native saves and wider lifecycle acceptance remain separate.', flush=True)
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=('prepare', 'run'))
     parser.add_argument('--product', type=lambda x: int(x, 16), choices=tuple(PRODUCT_MODELS))
     parser.add_argument('--directory', type=Path, required=True)
     parser.add_argument('--seconds', type=int, default=300)
-    args = parser.parse_args()
+    parser.add_argument('--suite', choices=('examples', 'controls'), help='Select the plan when preparing; default examples')
+    args = parser.parse_args(argv)
     if not 30 <= args.seconds <= 600:
         parser.error('Duration must be 30..600 seconds')
     if args.operation == 'prepare':
         if args.product is None:
             parser.error('--product is required to prepare a check')
-        prepare(args.product, args.directory)
+        prepare(args.product, args.directory, suite=args.suite or 'examples')
     else:
+        if args.suite is not None:
+            parser.error('Choose --suite during prepare; run uses the reviewed saved plan')
         asyncio.run(run(args.directory, args.seconds))
 
 

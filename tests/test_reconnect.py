@@ -192,7 +192,8 @@ def test_supervisor_retry_uses_outcome_and_waits_for_backoff_and_unambiguous_tra
         created = []
         class Session:
             ready, error = False, ''
-            def __init__(self, *_args):
+            def __init__(self, *_args, trace_controls=False):
+                assert not trace_controls
                 self.stop_requested = asyncio.Event()
                 created.append(self)
             async def run(self): await self.stop_requested.wait()

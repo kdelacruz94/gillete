@@ -14,11 +14,11 @@ from gillete.focus import ProfileCoordinator
 from gillete.hardware import Snapshot
 from gillete.hypershift import resolve_action
 from gillete.macros import KeyLedger, RecordingOutput
-from gillete.model import Action, MODEL_CONTROLS, MODELS, Profile
+from gillete.model import Action, MODEL_CONTROLS, MODELS, Profile, Step
 from gillete.onboard import Location, durable_json
 from gillete.profiles import ProfileStore, Window
 from gillete.stored_actions import decode, from_snapshot, unresolved
-from gillete.validation_plan import RETIRED_V2_MACROS, assert_unchanged, bind_window, build, controls
+from gillete.validation_plan import RETIRED_V2_MACROS, action_label, assert_unchanged, bind_window, build, controls
 
 
 def snapshot(model):
@@ -136,6 +136,25 @@ def test_snapshot_comparison_detects_external_changes(field):
     after = deepcopy(before)
     after.metadata['battery'] = 'changed normally'
     assert_unchanged(before, after)
+
+
+@pytest.mark.parametrize('field', ['firmware', 'wheel_mode'])
+def test_known_firmware_and_wheel_state_are_preserved_but_battery_changes_are_not_failures(field):
+    before = snapshot(MODELS[1])
+    before.metadata[field] = '0100'
+    after = deepcopy(before)
+    after.metadata['battery'] = 'changed normally'
+    assert_unchanged(before, after)
+    after.metadata.pop(field)
+    with pytest.raises(RuntimeError, match=field): assert_unchanged(before, after)
+    after.metadata[field] = '0101'
+    with pytest.raises(RuntimeError, match=field): assert_unchanged(before, after)
+
+
+def test_macro_review_describes_actual_keys_and_timing_instead_of_assuming_the_shortcut_example():
+    action = Action('macro', steps=(Step('down', key='KEY_F24'), Step('wait', milliseconds=80), Step('up', key='KEY_F24')))
+    label = action_label(action.json())
+    assert 'F24' in label and '80 ms' in label and 'Ctrl' not in label
 
 
 def prepare_fake(tmp_path, monkeypatch, model=MODELS[0]):

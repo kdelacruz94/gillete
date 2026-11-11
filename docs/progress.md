@@ -2158,3 +2158,54 @@ blocked query, unchanged title refreshes, malformed query fields, subprocess
 cleanup, disconnect/reset recovery, pending input/commands, drag releases and
 fresh-press recovery. Staged Arch/wheel, CLI and isolated GUI checks pass; no
 host package or service startup preference was installed or enabled.
+
+## Complete control/layer software acceptance prepared — 2026-11-11
+
+The existing live software examples cover a few bindings, not every required
+control. Implemented `control_validation`, `control_trace` and `control_pad`,
+integrated as `guided_service prepare --suite controls`. The reviewed recipe
+requires42 V2 or50 V3 taps: every electronic12-button control in both layers.
+A second holdable trigger allows testing the first HyperShift trigger itself;
+the second trigger was already tested normally/shifted in phase1. Each marker
+is a unique F13–F24/Shift/Ctrl/Alt combination, displayed in preparation.
+
+The optional daemon flag `--trace-controls` supplies at most512 routed mouse
+edges per selected session, with an independent epoch, layer, generation and
+source. It records no raw report, keyboard-device input, pointer coordinate or
+action argument. Ordinary launches construct no trace. The pad opens no input
+or service socket: it receives controller snapshots and foreground Qt events.
+Typing a marker without mouse edges cannot count. Duplicate held reports and
+suppressed/disarmed inputs cannot fabricate fresh taps; wheel pulses produce
+paired evidence through the real router path.
+
+The pad guides one tap at a time, waits for release/quiet and automatically
+changes its title to select the alternate profile after phase1. R retries while
+retaining failures; Escape ends the test. Exact rules apply only to its class/
+titles, with the reviewed fallback outside. Session/route changes, focus loss,
+wrong layers/controls/modifiers, extra keys and missing evidence fail rather
+than filling a tally. Quiet verification uses service observation time, not
+delayed reply arrival. Receipts are re-evaluated against the full recipe, live
+trace epoch, nonce and run interval. Evidence size/write failures retain the
+last partial file and never publish a verified completion.
+
+The controller still claims an isolated configuration/state directory, reaps
+only its own children and verifies normal mode plus unchanged captured stored
+state before reporting success. Known firmware/wheel metadata is now included
+in that check while battery changes remain harmless. Macro preview labels also
+describe the actual sequence instead of assuming every macro is Ctrl+K then M.
+Older example plans remain supported. Detailed scope, limitations and recovery
+are in `software-control-acceptance.md`; diagnostics call the new suite prepared,
+not physically passed. Native/onboard and wired admission gates stay unchanged.
+
+No hardware preparation/run, live service, generated input, keyboard setting,
+input-remapper or system package change occurred. Tests use synthetic frames,
+recorded outputs, in-memory service mocks and offscreen Qt. The owner's physical
+test deferral and the earlier prepared combined native experiment remain intact.
+
+Validation: all993 tests and707 packaged-source checks pass. Simulated runs drive
+all42/50 pairs through real Engine/Router logic, then feed actual Qt key-event
+objects into the offscreen pad. Coverage includes pulse wheels, cross-interface
+shift ordering, trigger rotation, missing/extra/wrong evidence, stale/dropped/
+rewound data, epoch/time/route mismatch, partial close/retry, disk/size failures,
+controller cleanup and unchanged legacy example behavior. Staged Arch/wheel,
+CLI and isolated GUI checks pass. No host package was installed.

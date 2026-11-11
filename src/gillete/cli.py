@@ -27,7 +27,8 @@ def main(argv=None):
     gui = sub.add_parser("gui", help="Open the native profile editor")
     gui.add_argument('--background', action='store_true', help='Start in the tray when available')
     gui.add_argument('--start-service', action='store_true', help='Also start the service, using saved startup mouse choices')
-    sub.add_parser('daemon', help='Run the user service; startup mouse choices are off by default')
+    daemon = sub.add_parser('daemon', help='Run the user service; startup mouse choices are off by default')
+    daemon.add_argument('--trace-controls', action='store_true', help='Expose bounded mouse-control edges in status for an isolated acceptance test')
     control = sub.add_parser('control', help='Control the user service')
     control.add_argument('action', choices=('status', 'enable', 'disable', 'pin', 'stop-actions', 'shutdown'))
     control.add_argument('--model', choices=('v2', 'v3'))
@@ -40,7 +41,7 @@ def main(argv=None):
             print(json.dumps([d.json() for d in discover()], indent=2))
         elif args.command == 'daemon':
             from .service import Daemon
-            asyncio.run(Daemon(store).run())
+            asyncio.run(Daemon(store, trace_controls=args.trace_controls).run())
         elif args.command == 'control':
             from .service import request
             model = MODELS[0 if args.model == 'v2' else 1] if args.model else None

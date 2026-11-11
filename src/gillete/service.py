@@ -29,8 +29,9 @@ def socket_path():
 
 
 class Daemon:
-    def __init__(self, store):
+    def __init__(self, store, *, trace_controls=False):
         self.store = store
+        self.trace_controls = trace_controls
         self.coordinator = ProfileCoordinator(store.read())
         self.focus = HyprlandWatcher(self.coordinator)
         self.emergency = EmergencyShortcut(self.focus)
@@ -83,7 +84,11 @@ class Daemon:
                                                     if model in self.requested and model not in self.sessions else 0),
                                     'action_error': getattr(self.sessions.get(model), 'action_error', ''),
                                     'active_macros': sum(not job.done() for job in self.sessions[model].engine.macros.jobs.values()) if self.sessions.get(model) and self.sessions[model].engine else 0,
-                                    'mode': 'pinned' if model in self.coordinator.config.pinned else 'automatic'} for model in MODELS}}
+                                    'mode': 'pinned' if model in self.coordinator.config.pinned else 'automatic',
+                                    **({'input_trace': self.sessions[model].input_trace.document(self.sessions[model].engine)}
+                                       if self.trace_controls and model in self.sessions
+                                       and self.sessions[model].engine is not None
+                                       and self.sessions[model].input_trace is not None else {})} for model in MODELS}}
 
     async def command(self, data):
         # Serialize enable/disable and shortcut ownership across local clients.
@@ -221,7 +226,8 @@ class Daemon:
             if len(matches) != 1:
                 self.errors[model] = 'Connect exactly one transport for this mouse' if matches else 'Mouse not connected'
                 continue
-            session = DeviceSession(matches[0], self.coordinator, journal_directory(), self.pin)
+            session = DeviceSession(matches[0], self.coordinator, journal_directory(), self.pin,
+                                    trace_controls=self.trace_controls)
             self.sessions[model] = session
             self.tasks[model] = asyncio.create_task(session.run())
 

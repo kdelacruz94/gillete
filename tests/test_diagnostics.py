@@ -120,6 +120,8 @@ def test_development_validation_remains_distinct_from_implemented_or_pending_wor
     assert v2['Program profiles, macros and turbo'].status == 'Live test pending'
     assert v3['Program profiles, macros and turbo'].status == 'Live examples passed'
     for rows in (v2, v3):
+        assert rows['Every-control software mapping'].status == 'Guided test prepared'
+        assert 'physical run is pending' in rows['Every-control software mapping'].detail
         assert rows['Saved mappings and held HyperShift'].status == 'Partially verified'
         assert 'replug' in rows['Saved mappings and held HyperShift'].detail
         assert rows['Per-program hardware DPI'].status == 'Unavailable'

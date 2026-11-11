@@ -39,7 +39,7 @@ def retryable_session_error(error):
 
 
 class DeviceSession:
-    def __init__(self, device, coordinator, state, pin_profile):
+    def __init__(self, device, coordinator, state, pin_profile, *, trace_controls=False):
         self.device, self.coordinator = device, coordinator
         self.state, self.pin_profile = state, pin_profile
         self.stop_requested = asyncio.Event()
@@ -57,6 +57,8 @@ class DeviceSession:
         self.failure = None
         self.launch_waiters = set()
         self.needs_mode_check = False
+        from .control_trace import ControlTrace
+        self.input_trace = ControlTrace() if trace_controls else None
 
     def current_input(self, generation):
         return (self.engine is not None and generation == self.engine.generation
@@ -307,7 +309,7 @@ class DeviceSession:
             if self.stop_requested.is_set():
                 return
             controls = Controls(self.io, self.snapshot, self.state)
-            router = Router(self.engine)
+            router = Router(self.engine, trace=self.input_trace)
             await self.coordinator.attach(self.device.identity, self.engine)
             attached = True
             if self.failure.done():

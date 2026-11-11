@@ -395,7 +395,8 @@ def test_real_service_socket_startup_config_identity_and_orderly_shutdown(tmp_pa
         ready = asyncio.Event()
         restored = []
         class Session:
-            def __init__(self, device, *_args):
+            def __init__(self, device, *_args, trace_controls=False):
+                assert not trace_controls
                 self.ready = False
                 self.engine = None
                 self.error = ''

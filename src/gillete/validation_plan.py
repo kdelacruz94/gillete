@@ -6,6 +6,7 @@ from .model import Action, Layers, MODEL_CONTROLS, MODELS, Profile, sequence
 from .onboard import Location
 from .profiles import Configuration, Rule, literal_pattern
 from .stored_actions import from_snapshot, unresolved
+from .shortcuts import friendly_key
 
 
 RETIRED_V2_MACROS = frozenset({'side_1', 'side_2', 'side_4', 'side_10'})
@@ -104,15 +105,22 @@ def assert_unchanged(before, after):
     for field in ('product', 'model', 'serial', 'bank', 'assigned', 'active', 'controls', 'records', 'settings', 'native_macros'):
         if getattr(before, field) != getattr(after, field):
             raise RuntimeError(f'Mouse {field} changed since the saved snapshot')
+    for name in ('firmware', 'wheel_mode'):
+        if name in before.metadata and after.metadata.get(name) != before.metadata[name]:
+            raise RuntimeError(f'Mouse {name} changed or could not be verified after the test')
 
 
 def action_label(value):
     action = Action.parse(value)
     if action.kind in {'keys', 'turbo'}:
-        label = '+'.join(k.removeprefix('KEY_') for k in action.keys)
+        label = '+'.join(friendly_key(k) for k in action.keys)
         return label if action.kind == 'keys' else f'Toggle {label}, {action.interval_ms} ms interval'
     if action.kind == 'macro':
-        return 'Ctrl+K, then M'
+        events = [f'{step.kind} {friendly_key(step.key)}' if step.kind in ('down', 'up') else
+                  f'wait {step.milliseconds} ms' if step.kind == 'wait' else f'{step.axis} {step.value}'
+                  for step in action.steps[:12]]
+        suffix = f'; {len(action.steps) - 12} more steps in prepared.json' if len(action.steps) > 12 else ''
+        return f'Macro {action.playback}: ' + ', '.join(events) + suffix
     if action.kind == 'hypershift':
         return 'Hold HyperShift'
     return action.kind + (f' ({action.target})' if action.target else '')
