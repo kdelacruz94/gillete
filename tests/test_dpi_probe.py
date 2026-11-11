@@ -651,3 +651,18 @@ def test_receiver_readiness_bounds_retries_even_when_clock_does_not_advance(tmp_
                                          stopped=lambda: False, wait=lambda _: None, now=lambda: 0):
             pytest.fail('Should not yield')
     assert len(calls) == len(document['readiness_retries']) == 16 and not mouse.writes
+
+
+@pytest.mark.parametrize('accessible', [False, True])
+def test_receiver_route_waits_for_current_hid_access_before_declaring_reconnect(monkeypatch, accessible):
+    expected = {'product': 0xE8, 'usb_path': '/sys/devices/usb1/1-2', 'busnum': '1', 'devnum': '5', 'node': '/dev/hidraw12'}
+    mouse = SimpleNamespace(product_id=0xE8, usb_path=expected['usb_path'])
+    monkeypatch.setattr(replug, 'discover', lambda: [mouse])
+    monkeypatch.setattr(replug, 'route', lambda _: expected)
+    checked = []
+    def access(path, flags):
+        checked.append((path, flags))
+        return accessible
+    monkeypatch.setattr(replug, 'os', SimpleNamespace(access=access, R_OK=4, W_OK=2), raising=False)
+    assert replug.observe_route(expected) == (expected if accessible else {'pending': True})
+    assert checked == [('/dev/hidraw12', 6)]

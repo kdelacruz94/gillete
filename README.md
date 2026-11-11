@@ -332,6 +332,10 @@ prepared lower DPI, closes the descriptor and waits up to three minutes for
 observed USB removal and a new enumeration address on that same port. It then
 opens a fresh transport, reads protected state and restores the original values.
 USB enumeration alone does not mean the mouse radio can answer yet. Reconnect
+also waits for current read/write access to the new configuration HID node,
+allowing udev/seat permissions to finish before opening it. This wait does not
+change permissions or treat an inaccessible existing node as USB removal.
+Reconnect
 and restoration preflight retry only transient getter failures using fresh
 transports, with a per-phase 2048-read allowance shared across attempts, at most 16 attempts and a
 45-second limit checked between attempts. Identity/state errors stop the test;

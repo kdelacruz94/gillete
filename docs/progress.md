@@ -1324,3 +1324,29 @@ GUI-instance acknowledgement timing failure; that test passed independently
 and subsequent full suites passed. No GUI behavior was changed in this fix.
 Physical acceptance of the new readiness loop still needs the next live trial.
 No hardware experiment is currently running; original V3 state is verified.
+
+## V3 replug node-access race — 2026-11-10
+
+The next physical run again detected actual receiver removal and changed
+USB enumeration, but opening the new configuration node failed with EACCES.
+The bounded cleanup readiness loop then handled one device-timeout response
+and completed restoration successfully. Verified `test-failed-restored`,
+`original_state_restored=true`, selector-zero 6400 × 6400 and full normalized
+original-state equality. There is no post-replug DPI readout, so retention
+remains unresolved. No hardware experiment is running.
+
+Private complete journal:
+`evidence/v3-dpi-replug-1200-20261110-02.local/run/journal.json`.
+
+The new node was readable/writable when inspected after cleanup. This is
+consistent with udev/seat permissions becoming ready after interface discovery;
+the exact permission-manager event was not captured. A red/green regression
+showed that route discovery returned a completed replug even while current
+node access was unavailable. `observe_route` now requires read/write access
+to the exact configuration node returned by the validated route before
+reporting readiness. It polls within the existing bounded wait and does not
+change ACLs/rules or treat missing access as receiver removal. EACCES thrown
+by an actual open is still a hard failure, not a broad retry permission.
+
+All 540 tests and 219 packaged-source checks pass. Physical acceptance of
+both readiness gates together awaits a fresh user-paced replug trial.

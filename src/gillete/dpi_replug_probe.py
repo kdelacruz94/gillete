@@ -4,6 +4,7 @@ import argparse
 from contextlib import contextmanager, ExitStack
 from copy import deepcopy
 import errno
+import os
 from pathlib import Path
 import time
 
@@ -160,7 +161,10 @@ def observe_route(expected):
     if len(matches) != 1:
         raise ProtocolError('Receiver route is ambiguous')
     try:
-        return route(matches[0])
+        current = route(matches[0])
+        if not os.access(current['node'], os.R_OK | os.W_OK):
+            return {'pending': True}
+        return current
     except (OSError, ProtocolError):
         return {'pending': True}  # Incomplete interfaces do not prove removal.
 
