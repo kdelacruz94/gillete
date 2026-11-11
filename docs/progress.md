@@ -1350,3 +1350,28 @@ by an actual open is still a hard failure, not a broad retry permission.
 
 All 540 tests and 219 packaged-source checks pass. Physical acceptance of
 both readiness gates together awaits a fresh user-paced replug trial.
+
+## V3 receiver-replug retention accepted — 2026-11-10
+
+The next user-paced run completed as `receiver-replug-restored`. It observed
+receiver USB removal and changed bus/device enumeration after reconnect to
+the original port. Two post-replug getter attempts returned status 4; the
+bounded readiness loop opened fresh transports and then captured the original
+mouse successfully without resending the candidate setter.
+
+Selector-zero DPI was 1200 × 1200 immediately after the candidate write and
+remained 1200 × 1200 after the observed receiver replug. Saved scalar DPI,
+stages and polling were unchanged throughout. Cleanup verified selector zero
+back at 6400 × 6400 and full normalized original-state equality (including
+all original binding functions), with no experiment or recovery error.
+Private complete journal:
+`evidence/v3-dpi-replug-1200-20261110-03.local/run/journal.json`.
+The user separately confirmed replugging. No experiment is currently running.
+
+This physically accepts the access/readiness fixes and establishes retention
+of the candidate across receiver removal on this V3. Together with the earlier
+human sensitivity/power-cycle observation, it shows that receiver replug does
+not reset this setting. It still does not prove flash/NVM use versus mouse-side
+powered memory, or full battery power-loss behavior. Do not infer safe
+high-frequency automatic writes or enable temporary-DPI support from this.
+Driver-mode behavior and safe per-program integration remain unverified.
