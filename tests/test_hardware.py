@@ -107,6 +107,17 @@ def test_slot_backup_retains_unrecognized_functions_and_reply_flags(monkeypatch,
     assert mouse.values[where] == custom and mouse.flags[0x34] == 1
 
 
+@pytest.mark.parametrize('kind', [3, 4, 5, 15])
+def test_assignment_only_backup_cannot_promise_to_restore_native_macro_data(monkeypatch, tmp_path, kind):
+    mouse, device, _ = setup(monkeypatch)
+    mouse.values[Location(1, 0x4B, 0)] = bytes((kind, 3 if kind == 3 else 2, 0, 7, 1 if kind == 3 else 0, 0, 0))
+    snapshot = hardware.inspect(device)
+    path = tmp_path / 'incomplete-backup.json'
+    with pytest.raises(ProtocolError, match='Assignment-only backups'):
+        hardware.backup(snapshot, path)
+    assert not path.exists() and not mouse.writes
+
+
 def test_standalone_alternative_saves_and_restores_without_replacing_linux_actions(monkeypatch, tmp_path):
     from copy import deepcopy
     from gillete.model import sequence

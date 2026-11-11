@@ -185,6 +185,10 @@ def read_journal(path: Path) -> dict:
 
 def backup(snapshot: Snapshot, path: Path):
     """Save both layers of the inspected slot, including undecoded functions."""
+    if any(raw[3] in (3, 4, 5, 15) and raw[4] in (2, 3) and int.from_bytes(raw[5:7], 'big')
+           for raw in snapshot.records.values()):
+        raise ProtocolError('This slot references native macro data. Assignment-only backups cannot restore '
+                            'that data; keep the full native profile recovery journal and exported Linux profile.')
     durable_json(path, {'version': 1, 'product': snapshot.product, 'serial': snapshot.serial,
                        'status': 'slot-backup', 'power_cycle_verified': False,
                        'entries': [{**where.json(), 'before': raw[3:].hex(), 'after': raw[3:].hex(),
@@ -193,6 +197,9 @@ def backup(snapshot: Snapshot, path: Path):
 
 def restore(device: Device, journal: Path) -> dict:
     document = read_journal(journal)
+    if document.get('kind') == 'native-macro-profile-transaction':
+        from .native_profile_review import restore_review
+        return restore_review(device, journal)
     with transport(device) as io:
         serial = io.device_serial()
         if document.get("product") != io.product or document.get("serial") != serial:

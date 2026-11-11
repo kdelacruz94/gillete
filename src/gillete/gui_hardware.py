@@ -98,6 +98,7 @@ class HardwarePanel(QWidget):
         self.snapshot = None
         self.job = None
         self.verification = None
+        self.native_save_pending = False
         layout = QVBoxLayout(self)
         description = QLabel("Read the mouse before preparing an onboard save. Only assigned onboard slots are listed.\n"
                              "Local profiles, macros and automatic program switching are separate from mouse memory.")
@@ -150,7 +151,7 @@ class HardwarePanel(QWidget):
 
     @property
     def busy(self):
-        return self.job is not None or self.verification is not None
+        return self.job is not None or self.verification is not None or self.native_save_pending
 
     def invalidate(self):
         self.snapshot = None
@@ -280,11 +281,34 @@ class HardwarePanel(QWidget):
         if self.snapshot is None or self.busy:
             return
         from .native_profile_review import prepare_review
-        from .gui_native_profile import NativeProfileReview
         device, snapshot, profile = self.devices.currentData(), self.snapshot, deepcopy(self.current_profile())
         self.run_job('Reading native macro catalog and profile dependencies… No settings are being changed.',
                      lambda: prepare_review(device, snapshot, profile),
-                     lambda prepared: NativeProfileReview(prepared, self).exec())
+                     lambda prepared: self.native_reviewed(device, prepared))
+
+    def native_reviewed(self, device, prepared):
+        from .gui_native_profile import NativeProfileReview
+        from .native_profile_review import save_review
+        # The read worker must finish before starting the separate write job.
+        dialog = NativeProfileReview(prepared, self, allow_save=True)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            self.status.setText('Native macro preview closed. No settings were changed.')
+            return
+        from PySide6.QtCore import QTimer
+        path = hardware.journal_directory() / ('native-' + uuid4().hex) / 'profile.json'
+        self.native_save_pending = True
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        def save():
+            if self.job is not None or self.verification is not None:
+                timer.start(10)
+                return
+            self.native_save_pending = False
+            timer.deleteLater()
+            self.run_job(f'Saving native macro profile… Recovery journal: {path}',
+                         lambda: save_review(device, prepared, path), lambda result: self.saved(result, path))
+        timer.timeout.connect(save)
+        timer.start(0)
 
     def saved(self, result, path):
         self.invalidate()
@@ -346,6 +370,11 @@ class HardwarePanel(QWidget):
                 summary = 'Restore the normal input mode from this interrupted service session?'
             elif document.get('kind') in ('device-setting', 'device-settings'):
                 summary = 'Restore the original device settings from this journal?'
+            elif document.get('kind') == 'native-macro-profile-transaction':
+                from .native_profile_transaction import validate, recovery
+                preview = validate(document)
+                summary = (f'Restore {len(recovery(document, preview)["entries"])} original button layers '
+                           'and remove only verified, unreferenced macros created by this save?')
             else:
                 entries = document.get("entries")
                 if not isinstance(entries, list):

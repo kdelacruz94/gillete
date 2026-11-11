@@ -284,3 +284,28 @@ query submission. A separate full read matched restored state with zero
 malformed frames. Neither result identifies the original USB corruption cause
 or physically validates another native profile save under naturally occurring
 corruption; continued production integration must retain those evidence limits.
+
+## Initial desktop save/undo gate
+
+The native review now offers an explicit Save to Mouse action when the
+production capability gate accepts the prepared profile. It is limited to
+the verified E8 receiver, firmware `0101`, only active slot1 assigned, and
+single-key keyboard macros played once. Native multi-key sequences, mouse or
+movement events, repetition/turbo and other firmware remain blocked pending
+their acceptance. Linux service actions and ordinary save alternatives are
+preserved. The broad experimental compiler is not itself production authority.
+
+Save rechecks capability/source artifacts and opens a rediscovered exact
+transport. It uses the existing asset-aware transaction and full-state stale
+checks. The read worker must finish before a separate save worker begins; the
+deferred callback is owned by the panel so closing it cancels a pending write.
+Recovery routes the native journal kind to asset-aware undo without applying
+new-save gates, while retaining original identity/firmware checks.
+
+Native journal writes cannot replace readable originals with a document larger
+than the recovery reader's 1-MiB bound. Preparation reserves space for saved
+and restored snapshots plus status/error data before allowing hardware writes.
+Assignment-only backups reject nonzero native macro references rather than
+promise restoration without macro content. Full native receipts and portable
+Linux profiles remain the recovery sources. Existing objects are retained for
+undo, so managed asset reuse/pruning is still needed for efficient repeated saves.

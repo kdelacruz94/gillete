@@ -61,6 +61,64 @@ def test_native_macro_review_has_mapping_rows_but_no_save_action_or_writes(app):
     shiboken6.delete(dialog)
 
 
+def test_explicit_native_save_preview_checks_firmware_and_preserves_cancelled_plan(app):
+    from gillete.gui_native_profile import NativeProfileReview
+    from test_native_profile_support import fixture
+    mouse, prepared, _ = fixture()
+    previous = deepcopy(prepared)
+    dialog = NativeProfileReview(prepared, allow_save=True)
+    assert dialog.save_button.isEnabled()
+    dialog.reject()
+    assert prepared == previous and not mouse.writes
+    shiboken6.delete(dialog)
+    prepared['before']['firmware'] = '0102'
+    dialog = NativeProfileReview(prepared, allow_save=True)
+    assert not dialog.save_button.isEnabled() and 'firmware 1.1' in dialog.notes.toPlainText()
+    shiboken6.delete(dialog)
+
+
+def test_native_save_waits_for_read_worker_then_runs_once(app, tmp_path, monkeypatch):
+    from gillete import gui_hardware, gui_native_profile, native_profile_review
+    from PySide6.QtTest import QTest
+    from test_native_profile_support import fixture
+    _, prepared, device = fixture()
+    monkeypatch.setattr(gui_hardware, 'discover', lambda: [])
+    monkeypatch.setattr(gui_hardware.hardware, 'journal_directory', lambda: tmp_path)
+    monkeypatch.setattr(gui_native_profile, 'NativeProfileReview', lambda *args, **kwargs:
+                        SimpleNamespace(exec=lambda: gui_hardware.QDialog.DialogCode.Accepted))
+    calls = []
+    monkeypatch.setattr(native_profile_review, 'save_review', lambda *args: calls.append(args) or {})
+    panel = gui_hardware.HardwarePanel(lambda: Profile.parse(prepared['profile']))
+    panel.run_job = lambda message, operation, success: operation()
+    panel.job = object()
+    panel.native_reviewed(device, prepared)
+    QTest.qWait(20)
+    assert not calls and panel.busy
+    panel.job = None
+    QTest.qWait(30)
+    assert len(calls) == 1 and not panel.native_save_pending
+    assert calls[0][2].parent.parent == tmp_path and calls[0][2].name == 'profile.json'
+    shiboken6.delete(panel)
+
+
+def test_closing_pending_native_save_panel_cancels_deferred_write(app, tmp_path, monkeypatch):
+    from gillete import gui_hardware, gui_native_profile, native_profile_review
+    from PySide6.QtTest import QTest
+    from test_native_profile_support import fixture
+    _, prepared, device = fixture()
+    monkeypatch.setattr(gui_hardware, 'discover', lambda: [])
+    monkeypatch.setattr(gui_hardware.hardware, 'journal_directory', lambda: tmp_path)
+    monkeypatch.setattr(gui_native_profile, 'NativeProfileReview', lambda *args, **kwargs:
+                        SimpleNamespace(exec=lambda: gui_hardware.QDialog.DialogCode.Accepted))
+    monkeypatch.setattr(native_profile_review, 'save_review', lambda *args:
+                        (_ for _ in ()).throw(AssertionError('Deferred write ran after close')))
+    panel = gui_hardware.HardwarePanel(lambda: Profile.parse(prepared['profile']))
+    panel.job = object()
+    panel.native_reviewed(device, prepared)
+    shiboken6.delete(panel)
+    QTest.qWait(30)
+
+
 def test_failed_save_restores_ui_and_does_not_query_hardware(app, tmp_path, monkeypatch):
     from gillete import hardware
     monkeypatch.setattr(hardware, 'transport', lambda _: (_ for _ in ()).throw(AssertionError('Implicit hardware access')))

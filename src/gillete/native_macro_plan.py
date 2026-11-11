@@ -1,4 +1,4 @@
-"""Pure native macro asset previews; not connected to production programming.
+"""Pure native macro asset previews; writes belong to the transaction layer.
 
 The caller supplies a complete catalog and references from all mouse banks.
 Every planned object is new; no existing ID is overwritten or reclaimed.

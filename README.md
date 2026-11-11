@@ -214,8 +214,24 @@ The Mouse memory tab reads assigned slots and previews every button layer with
 the Linux action, current mouse assignment and proposed saved assignment side by
 side. Only **Save to Mouse** writes those assignments. Software-only actions still
 block saving until you choose supported alternatives. The Linux service continues
-using the original profile actions; this does not add native firmware macro/turbo
-support, which remains under investigation. Recovery journals live under
+using the original profile actions. For supported native macros, read the V3
+receiver and select **Review native macro profile…**, then explicitly choose
+**Save to Mouse**. The current acceptance gate covers firmware 1.1, active
+slot1 as the sole assigned slot, and single-key timed macros played once on
+normal/HyperShift layers. Multiple buttons can share their macro data.
+Native multi-key sequences, repetition/turbo, mouse macros, V2 macro storage
+and wired V3 remain gated; those actions continue to work through the Linux
+service. These are remaining implementation/acceptance requirements.
+
+Native saves verify macro data before assigning references and preserve full
+transaction originals. **Restore from recovery journal…** accepts the native
+save's `profile.json`, restores original mappings and removes only verified
+unreferenced new objects. Existing objects are retained for undo; saves allocate
+fresh objects and preview free-space/slot limits. Reuse/pruning of managed
+objects remains pending. Assignment-only slot backups refuse nonzero native
+macro references because they cannot restore the referenced data; retain the
+full native recovery journal and exported Linux profile instead.
+Recovery journals live under
 `$XDG_STATE_HOME/gillete/onboard` (normally `~/.local/state/gillete/onboard`).
 Disable software control before direct mouse-memory operations. **Edit DPI and
 polling…** opens the native settings editor after reading the active slot. It

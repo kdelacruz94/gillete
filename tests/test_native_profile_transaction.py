@@ -122,3 +122,14 @@ def test_transport_counters_are_copied_into_durable_save_and_undo_receipts(tmp_p
     assert json.loads(mouse.journal.read_text())['transport_health']['malformed_reports'] == 1
     restored = tx.undo(mouse, mouse.journal)
     assert restored['transport_health']['malformed_reports'] == 2
+
+
+def test_oversized_receipt_cannot_replace_readable_originals_or_submit_setters(tmp_path):
+    mouse, prepared = setup(tmp_path)
+    prepared['oversized_context'] = 'x' * tx.MAX_JOURNAL_BYTES
+    with pytest.raises(ProtocolError, match='too large'): tx.apply(mouse, prepared, mouse.journal)
+    assert not mouse.writes and not mouse.journal.exists()
+    tx.durable_json(mouse.journal, {'version': 1, 'originals': 'preserved'})
+    original = mouse.journal.read_bytes()
+    with pytest.raises(ProtocolError, match='readable size limit'): tx.durable_json(mouse.journal, prepared)
+    assert mouse.journal.read_bytes() == original

@@ -1,10 +1,11 @@
-"""Experimental asset-aware profile saves; production UI remains gated.
+"""Asset-aware profile saves; desktop callers gate unsupported playback modes.
 
 Caller owns the exclusive HID transport. All new objects precede binding
 writes. Restore never deletes existing catalog entries or unverified objects.
 """
 
 from copy import deepcopy
+import json
 
 from . import dpi_probe as state
 from . import macro_memory as memory
@@ -13,11 +14,25 @@ from .hardware import read_journal
 from .macro_reads import catalog
 from .model import Profile
 from .native_macro_plan import preview_profile
-from .onboard import Location, Programmer, durable_json
+from .onboard import Location, Programmer, durable_json as _durable_json
 from .protocol import ProtocolError
 
 
 KIND = 'native-macro-profile-transaction'
+MAX_JOURNAL_BYTES = 1024 * 1024  # Matches hardware.read_journal's bound.
+
+
+def durable_json(path, document):
+    if len(json.dumps(document, indent=2).encode('utf-8')) + 1 > MAX_JOURNAL_BYTES:
+        raise ProtocolError('Native profile recovery journal exceeds the readable size limit')
+    _durable_json(path, document)
+
+
+def require_recovery_space(document):
+    worst = dict(document)
+    worst.update(saved_state=document['before'], after=document['before'], catalog_after=document['catalog_before'])
+    if len(json.dumps(worst, indent=2).encode('utf-8')) + 1 > MAX_JOURNAL_BYTES - 65536:
+        raise ProtocolError('Native profile is too large for complete recovery data; reduce the profile before saving')
 
 
 def referenced_ids(before):
@@ -47,10 +62,12 @@ def prepare(io, profile):
     preview = plan(profile, before, inventory)
     if preview.issues:
         raise ProtocolError('; '.join(preview.issues))
-    return {'version': 1, 'kind': KIND, 'status': 'prepared-read-only', 'before': before,
+    document = {'version': 1, 'kind': KIND, 'status': 'prepared-read-only', 'before': before,
             'catalog_before': inventory, 'profile': profile.json(), 'artifacts': artifacts(preview),
             'validation_pending': preview.validation_pending, 'warnings': preview.warnings,
             'original_state_restored': False, 'transport_health': dict(getattr(io, 'reply_health', {}))}
+    require_recovery_space(document)
+    return document
 
 
 def validate(document):
@@ -141,10 +158,11 @@ def restore(io, document, path):
 def apply(io, prepared, path, *, stopped=lambda: False):
     """Leave a verified saved profile in place, retaining explicit undo data.
 
-    This experimental entry point does not clear physical validation gates or
-    enable production Save to Mouse. No command-line/hardware runner uses it.
+    This entry point does not clear physical validation gates. The desktop
+    applies native_profile_support; the acceptance runner is explicitly opt-in.
     """
     preview = validate(prepared)
+    require_recovery_space(prepared)
     if prepared.get('status') != 'prepared-read-only' or path.exists() or path.with_name('profile-bindings.json').exists():
         raise ProtocolError('Fresh profile preparation/journal required')
     if probe.normalized(probe.snapshot(state.ReadBudget(io, stopped))) != probe.normalized(prepared['before']):
@@ -208,7 +226,7 @@ def apply(io, prepared, path, *, stopped=lambda: False):
             document.update(status='recovery-required', recovery_error=str(recovery_error))
         document['transport_health'] = dict(getattr(io, 'reply_health', {}))
         try: durable_json(path, document)
-        except OSError: pass  # Initial originals/recovery are already durable.
+        except (OSError, ProtocolError): pass  # Initial originals/recovery are already durable.
         raise
 
 
@@ -227,5 +245,5 @@ def undo(io, path):
         document.update(status='recovery-required', recovery_error=str(error))
         document['transport_health'] = dict(getattr(io, 'reply_health', {}))
         try: durable_json(path, document)
-        except OSError: pass
+        except (OSError, ProtocolError): pass
         raise

@@ -1,4 +1,4 @@
-"""Read-only native profile review; no save button or hardware calls."""
+"""Native profile review and gated save confirmation; no direct hardware I/O."""
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QHeaderView, QLabel,
@@ -12,10 +12,10 @@ from .shortcuts import describe
 
 
 class NativeProfileReview(QDialog):
-    def __init__(self, prepared, parent=None):
+    def __init__(self, prepared, parent=None, *, allow_save=False):
         super().__init__(parent)
         preview = validate(prepared)
-        self.setWindowTitle('Native macro profile — read-only review')
+        self.setWindowTitle('Native macro profile — ' + ('review changes' if allow_save else 'read-only review'))
         self.resize(1100, 700)
         layout = QVBoxLayout(self)
         old = originals(prepared['before'])
@@ -25,7 +25,8 @@ class NativeProfileReview(QDialog):
                          f'{len(changes)} changed assignments; {len(preview.assets)} shared native macros.\n'
                          f'Estimated storage: {preview.required_bytes} bytes; '
                          f'already free: {prepared["catalog_before"]["available_bytes"]} bytes.\n'
-                         'This is a read-only review. Nothing has been uploaded or saved.')
+                         + ('Only Save to Mouse writes these persistent mappings. Original values are journaled for undo.'
+                          if allow_save else 'This is a read-only review. Nothing has been uploaded or saved.'))
         heading.setTextFormat(Qt.TextFormat.PlainText)
         heading.setWordWrap(True)
         layout.addWidget(heading)
@@ -49,9 +50,19 @@ class NativeProfileReview(QDialog):
         layout.addWidget(table)
         self.notes = QTextEdit()
         self.notes.setReadOnly(True)
-        self.notes.setPlainText('\n'.join(['Native macro saving is not enabled in this screen.']
-                                         + preview.issues + preview.warnings + preview.validation_pending))
+        from .native_profile_support import save_issues
+        issues = save_issues(prepared)
+        self.notes.setPlainText('\n'.join((['Save blocked:'] + issues if issues else
+                                          ['Native macro data is uploaded and verified before button references are saved.'])
+                                         + ([] if allow_save else ['Native macro saving is not enabled in this screen.'])
+                                         + ['Existing native objects are retained for undo; this save allocates new objects.']
+                                         + preview.warnings))
         layout.addWidget(self.notes)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        self.save_button = None
+        if allow_save:
+            self.save_button = buttons.addButton('Save to Mouse', QDialogButtonBox.ButtonRole.AcceptRole)
+            self.save_button.setEnabled(not issues and bool(changes))
+            buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)

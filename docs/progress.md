@@ -1735,3 +1735,39 @@ short-transfer handling, single-submission setter envelopes and durable health
 counter snapshots. Staged Arch/wheel, CLI and isolated GUI checks pass.
 No experiment is running. Next: integrate supported native save/undo with
 explicit capability gates, retaining unknown-cause diagnostics and recovery.
+
+## Explicit native desktop save and undo — 2026-11-10
+
+Connected the native review to explicit Save to Mouse via the asset-aware
+backend, with a new production gate: E8 receiver, observed firmware0101,
+active/sole assigned bank1, single-key once-only keyboard macros. Unsupported
+multi-key/repeat/turbo/mouse/movement modes remain in Linux profiles and block
+native save until their acceptance. These remain full-goal requirements.
+
+Save revalidates immutable prepared artifacts/capabilities and current hardware
+state before writing. It waits for the read worker to finish; a panel-owned
+timer holds pending writes and is cancelled if the panel is destroyed. Undo
+through the existing recovery chooser recognizes native profile receipts and
+restores mappings plus safely removes new assets. Save gates cannot disable
+recovery, which retains identity/firmware checks. Existing objects stay for
+undo, and the preview explains fresh allocations/free space; reuse/pruning
+remains pending.
+
+Added journal admission/size guards: preparation accounts for saved/restored
+snapshots before any SET, and an oversized update cannot replace readable
+originals. Assignment-only slot backup now refuses nonzero native macro
+references because it lacks their data. Native families display references
+instead of generic device-defined labels. Full receipts and exported Linux
+profiles remain the recovery sources.
+
+All new hardware writes in this turn were simulated fixtures. No mouse-setting
+write, input grab, service activation, driver change or preset migration occurred.
+Next: native multi-key/chord acceptance and managed object reuse, followed by
+broader device/service/startup acceptance and migration verification.
+
+Validation: all 663 tests and 347 packaged-source checks pass, including the
+firmware/mode gates, actual Qt confirmation, deferred save ordering/cancellation,
+asset-aware desktop save/undo, native backup rejection and oversized journal
+protection. Fresh staged Arch/wheel, CLI and isolated GUI checks pass. No live
+native save was performed during this turn. This is staged UI integration,
+not completion of the full macro/device/migration acceptance requirements.

@@ -77,6 +77,12 @@ def describe_function(function: bytes) -> str:
             return f'Stored turbo {friendly_key(key)} · raw parameter 0x{b:02x}{c:02x} (timing unverified)'
     if kind == 5 and size == 2 and not (c or d or e):
         return f'Stored toggle-macro reference 0x{a:02x}{b:02x} (content unresolved)'
+    if kind == 3 and size == 3 and not (d or e):
+        playback = 'once' if c == 1 else f'raw repeat count {c}'
+        return f'Stored macro reference 0x{a:02x}{b:02x} · {playback} (content not loaded)'
+    if kind in (4, 15) and size == 2 and not (c or d or e):
+        family = 'held' if kind == 4 else 'sequence'
+        return f'Stored {family}-macro reference 0x{a:02x}{b:02x} (content not loaded)'
     if function == bytes.fromhex("06010100000000"):
         return "DPI up"
     if function == bytes.fromhex("06010200000000"):
