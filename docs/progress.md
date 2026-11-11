@@ -1429,3 +1429,43 @@ settings and successful mode-first restoration. It does not validate the V2,
 wired V3, NVM implementation, automatic focus-switch lifecycle, or concurrent
 software-remapping/DPI integration. Production capability flags remain
 unchanged pending integration work and its acceptance checks.
+
+## Native macro implementation — 2026-11-10
+
+Implemented the pure `native_macro` compiler and bounded `macro_memory`
+packet/getter helpers from the preserved first-party Synapse bundles. The
+allocation command carries actual event length; the separate admission
+estimate includes 256-byte metadata overhead and rounds to 256-byte blocks.
+Metadata UUIDs use mixed-endian Windows bytes, event counts little-endian.
+Repeated macros expose their trailing-delay difference from software playback.
+
+The isolated `native_macro_probe` now prepares, uploads, verifies, temporarily
+binds and cleans up an exact F24-down/80-ms/F24-up experiment. It requires an
+empty catalog, already-free space and V3 receiver normal mode. Snapshots cover
+all reported controls in all six banks, including unknown controls. Normal
+side 12 is changed only after full independent metadata/event readback and
+protected-state verification. The observer reads F24 without grabbing input or
+injecting keys, requires a post-READY press/release and records actual duration.
+
+Cleanup restores original normal/HyperShift functions and reply flags before
+deleting the fully verified unreferenced test object. Lost ACKs never cause
+blind upload retries. Incomplete/unverifiable allocations are retained with
+recovery evidence. External binding/settings/catalog changes block deletion.
+Identity changes block cleanup writes until the original mouse returns.
+See `native-macro-validation.md` for exact bounds and recovery commands.
+
+Offline validation: all 589 tests pass, including interruption/ACK loss,
+partial uploads, wrong metadata echoes, unknown-control references, external
+changes, journal failure, cancellation, observer timing/event loss and
+restoration of original reply flags. All 268 packaged-source checks pass;
+Arch/wheel installation into isolated staging and native GUI smoke checks pass.
+The host installation, input-remapper and service configuration are unchanged.
+
+Read-only preparation subsequently succeeded on the awake V3, capturing all
+33 reported controls in all six banks (396 records), assigned/active bank 1,
+and an empty macro catalog with 307200 bytes free. The exact six-byte F24
+experiment is privately prepared in
+`evidence/v3-native-macro-20261110-01.local/prepared.json`. No macro allocation,
+upload, binding or deletion has been submitted. Native playback/persistence
+and production integration remain unverified. The next physical stage needs
+explicit approval for this newly prepared macro-storage experiment.

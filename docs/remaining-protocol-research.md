@@ -63,6 +63,13 @@ full original protected state. Driver-mode behavior is now physically accepted
 for this V3 receiver. V2/wired behavior, NVM implementation and automatic
 profile-switch/service integration remain separate unverified requirements.
 
+**2026-11-10 implementation follow-up:** a source-backed compiler and isolated
+V3 macro upload/bind/cleanup experiment are implemented. The exact proposal,
+packet sizes, ownership checks, recovery limits and timing evidence are in
+[native macro validation](native-macro-validation.md). No macro-storage setter
+has been run; upload/playback/persistence remain unverified, and no production
+native macro capability is enabled.
+
 ## 1. V2 stored functions
 
 ### Class `05` is a macro family, not a disabled/default marker

@@ -20,7 +20,7 @@ class MacroRead(Command):
     def matches(self, report):
         if not super().matches(report):
             return False
-        echo = {0x8B: 2, 0x88: 2, 0x89: 6}.get(self.operation, 0)
+        echo = {0x8B: 2, 0x88: 2, 0x89: 6, 0x8C: 4}.get(self.operation, 0)
         return report[0] != 2 or report[8:8 + echo] == self.payload[:echo]
 
 
@@ -46,6 +46,9 @@ def validate_request(command):
                      and 1 <= data[6] <= CHUNK_SIZE and len(data) == 7 + data[6]
                      and int.from_bytes(data[2:6], 'big') + data[6] <= MAX_MACRO_BYTES
                      and not any(data[7:]))
+        elif op == 0x8C:
+            valid = (7 <= len(data) <= 70 and 1 <= int.from_bytes(data[:2], 'big') <= MAX_ID
+                     and int.from_bytes(data[2:4], 'big') + len(data) - 6 <= 250 and not any(data[4:]))
     if not valid:
         raise ProtocolError('Only bounded candidate macro read requests are permitted')
 
