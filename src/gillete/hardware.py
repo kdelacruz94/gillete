@@ -122,6 +122,9 @@ def read_records(io, model, bank):
 
 
 def inspect(device: Device, bank: int | None = None) -> Snapshot:
+    if getattr(device, 'product_id', None) == 0xE7:
+        from .wired_backend import inspect_device
+        return inspect_device(device, bank)
     with transport(device) as io:
         io.require_normal_mode()
         serial = io.device_serial()
@@ -160,6 +163,8 @@ def inspect(device: Device, bank: int | None = None) -> Snapshot:
 
 
 def apply(device: Device, snapshot: Snapshot, profile: Profile, journal: Path) -> dict:
+    if getattr(device, 'product_id', None) == 0xE7:
+        raise ProtocolError('Wired onboard assignment writes still need hardware validation')
     plan = snapshot.plan(profile)
     if not plan.writable:
         raise ProtocolError("Onboard save is blocked: " + "; ".join(plan.issues))
@@ -176,6 +181,8 @@ def apply(device: Device, snapshot: Snapshot, profile: Profile, journal: Path) -
 
 
 def apply_settings(device: Device, snapshot: Snapshot, draft: SettingsDraft, journal: Path) -> dict:
+    if getattr(device, 'product_id', None) == 0xE7:
+        raise ProtocolError('Wired DPI and polling writes still need hardware validation')
     proposed = settings_plan(snapshot, draft)
     if snapshot.bank != snapshot.active:
         raise ProtocolError('Inspect the active onboard slot before editing device settings')
@@ -211,6 +218,9 @@ def backup(snapshot: Snapshot, path: Path):
 
 def restore(device: Device, journal: Path) -> dict:
     document = read_journal(journal)
+    if getattr(device, 'product_id', None) == 0xE7:
+        from .wired_backend import restore_mode
+        return restore_mode(device, journal)
     if document.get('kind') == 'native-macro-profile-transaction':
         from .native_profile_review import restore_review
         return restore_review(device, journal)

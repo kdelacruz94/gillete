@@ -19,6 +19,7 @@ from .profiles import ProfileStore
 from .protocol import ProtocolError
 from .reports import decode_wired
 from .service import Daemon, socket_path
+from .wired_transport import SessionHID
 
 
 def coverage(document):
@@ -83,38 +84,6 @@ def proof_from(directory):
                 (('verification', 'verification'), ('mode', 'mode'), ('capture', 'capture'))}}
     validate_proof(proof)
     return proof
-
-
-class SessionHID(capture.ModeCaptureHID):
-    """Mode-only transport bound to this isolated controller's active journal."""
-    def __init__(self, path, state, serial, firmware):
-        super().__init__(path, state / 'unclaimed-mode.json', serial)
-        self.state, self.expected_firmware = state, firmware
-
-    def __enter__(self):
-        super().__enter__()
-        try:
-            if (self.execute(wired.BOOTSTRAP['firmware']).hex() != self.expected_firmware
-                    or self.device_serial() != self.expected_serial):
-                raise ProtocolError('Wired firmware or identity changed; no mode change admitted')
-            return self
-        except BaseException:
-            self.__exit__()
-            raise
-
-    def _exchange(self, command):
-        if command.operation < 0x80:
-            candidates = []
-            for path in self.state.glob('mode-*.json'):
-                document = read_journal(path)
-                if (document.get('kind') == 'driver-mode' and document.get('product') == wired.PRODUCT
-                        and document.get('serial') == self.expected_serial
-                        and document.get('status') in ('prepared', 'driver-mode-active')):
-                    candidates.append(path)
-            if len(candidates) != 1:
-                raise ProtocolError('Exactly one active isolated wired mode journal is required')
-            self.journal = candidates[0]
-        return super()._exchange(command)
 
 
 class Hardware:

@@ -16,6 +16,7 @@ import time
 from .protocol import Command, DeviceUnavailable, ProtocolError
 
 CONFIG_INTERFACE = {0x00B4: "00", 0x00E8: "03"}  # Observed on the user's receivers.
+READ_CONFIG_INTERFACE = {**CONFIG_INTERFACE, 0x00E7: '00'}  # Wired setters stay excluded above.
 
 READ_COMMANDS = frozenset({(0, 0x81), (0, 0x82), (0, 0x84), (0, 0x85),
                            (2, 0x84), (2, 0x8C), (2, 0xB0), (4, 0x85), (4, 0x86),

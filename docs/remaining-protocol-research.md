@@ -341,10 +341,25 @@ from the completed capture and restoration proof. It reuses the receiver's
 guided source/Qt matcher through an injected hardware adapter. The wired
 decoder rejects receiver-only report IDs and differing lengths. The adapter
 uses only proven getters and an isolated, journaled mode-only transport; it
-cannot write saved bindings/settings/macros or enable the V2. Ordinary E7
-configuration admission stays disabled. The live software test needs new
-approval because it takes input ownership and generates virtual keys. Wired
-standalone writes, native macro persistence and lifecycle tests remain pending.
+cannot write saved bindings/settings/macros or enable the V2. The owner approved
+and completed the 50-tap run at `evidence/v3-wired-controls-20261111-03.local`.
+All 50 source/Qt pairs independently replay; normal mode, 50 saved descriptors,
+slot/settings/firmware and 1600 DPI were restored and independently read again.
+Six failed attempts remain retained, with successful retries. The first attempt
+at `.02.local` timed out before READY, then verified restoration; no root cause
+is asserted for its combined activation/focus timeout. The successful retry's
+bounded readiness observation records target focus and the transition to active.
+
+The main app now admits the observed E7 read/software path through a separate
+backend: exact captured descriptor hashes, hid-generic/usbhid, firmware01010000,
+sole active slot1, proven getter shapes and only journaled normal/driver mode
+setters. Shared mode/decoder code is reused by the isolated and normal sessions.
+The wired product remains absent from the onboard-writing transport table.
+GUI and hardware entry points reject saved-state writes/recovery; device-setting
+software actions are explicitly unavailable. Owned mode recovery checks the
+requested journal and cannot use a different active lease. No normal main-profile
+service was enabled and no startup/migration occurred during integration. Wired
+standalone writes, native macro persistence and wider lifecycle remain pending.
 
 ### V3 profiles: capacity is not assignment or selection
 

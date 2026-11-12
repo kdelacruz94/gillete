@@ -41,6 +41,9 @@ def retryable_session_error(error):
 class DeviceSession:
     def __init__(self, device, coordinator, state, pin_profile, *, trace_controls=False, hardware=None):
         self.device, self.coordinator = device, coordinator
+        if hardware is None and getattr(device, 'product_id', None) == 0xE7:
+            from .wired_backend import Backend
+            hardware = Backend(state)
         self.hardware = hardware
         self.state, self.pin_profile = state, pin_profile
         self.stop_requested = asyncio.Event()

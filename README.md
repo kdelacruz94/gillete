@@ -9,8 +9,10 @@ Both receivers passed side-12 onboard persistence/HyperShift tests and complete
 physical-control identification (21 V2 / 25 V3 controls). The first V3 live test
 passed chords, toggle turbo and focus cancellation; an F23 desktop-keymap issue
 was corrected and physically revalidated on the V3. Full service acceptance,
-wired operation, device-settings acceptance and migration remain unfinished. Keep your
-input-remapper configuration for rollback.
+wired onboard writes, device-settings acceptance and migration remain unfinished.
+The V3 cable passed all 50 normal/HyperShift software pairs; the main app supports
+reads and software remapping on the tested firmware1.1/hid-generic layout.
+Keep your input-remapper configuration for rollback.
 
 ## Run the editor
 
@@ -418,7 +420,8 @@ marker on the keyboard alone cannot pass. Both receivers have passed their
 complete50/42-pair suites with verified normal-mode restoration and unchanged
 saved state. It uses an isolated service and
 bounded control tracing, leaves saved bindings/settings unchanged, and restores
-normal mode on exit. This larger live test has not run yet.
+normal mode on exit. The separately documented wired V3 suite also passed all
+50 pairs; standalone writes and wider lifecycle acceptance remain separate.
 
 ```bash
 python -m gillete.guided_service prepare --product 00e8 --suite controls --directory evidence/v3-all-controls1.local
@@ -574,7 +577,7 @@ remain public contributor evidence; the private local report records the live
 measurement. Wired physical controls and write/persistence acceptance remain
 separate requirements.
 
-The next experiment requires separate approval because it changes live mode:
+The raw-mode experiment requires approval for its temporary mode/input scope:
 
 ```bash
 python -m gillete.wired_capture prepare --inspection evidence/v3-wired-reads1.local.json --directory evidence/v3-wired-capture1.local
@@ -596,14 +599,14 @@ Ctrl+C/SIGTERM runs cleanup. After interruption, retain the directory and use
 `python -m gillete.wired_capture recover --directory evidence/v3-wired-capture1.local`.
 Recovery permits a new wired enumeration only with matching descriptors, firmware
 and serial. It restores normal mode alone and reports other state differences
-without replacing current settings. The main app's wired activation and saves
-remain disabled until their own acceptance tests pass.
+without replacing current settings. Getter/mode-only helpers are shared with
+the main app's validated wired read/software path; saved-state setters remain gated.
 
 The development wired capture passed on 2026-11-11: all 25 controls and the
 ring+side12/left+side1 holds were observed, followed by verified normal mode
 and unchanged saved state at 1600 DPI. A sanitized input excerpt is bundled
-with source tests. This earns physical report coverage, while live generated
-keys and software HyperShift still need their own test:
+with source tests. The separate software experiment below subsequently passed
+all 50 control/layer pairs, with normal mode and 1600 DPI verified afterward:
 
 ```bash
 python -m gillete.wired_acceptance prepare --capture evidence/v3-wired-capture1.local --directory evidence/v3-wired-controls1.local
@@ -627,7 +630,42 @@ After interruption, stop software control before running
 Recovery accepts fresh nodes after replug only with matching descriptors,
 serial and firmware, restores only owned mode journals and verifies the saved
 snapshot without repairing unrelated state changes. Retain all evidence if
-verification fails. Main-app wired activation and onboard saving stay gated.
+verification fails. Wired onboard saving remains gated.
+
+The normal **Read mouse** flow now supports the tested V3 cable, including
+creating an inactive Linux profile from its 50 stored bindings. Software control
+uses the same validated decoder and mode guards. The backend requires the exact
+captured descriptors, hid-generic/usbhid, firmware01010000 and sole active slot1.
+Unsupported firmware/drivers fail before input ownership. Connect only one V3
+transport when enabling software control. No development proof files are needed
+for normal app use, and enabling it still requires an explicit user action.
+
+Wired binding/macro/settings writes and saved-state recovery remain unavailable.
+The DPI/polling values can be read, while their editor/save controls stay disabled.
+Existing device-setting actions must be explicitly remapped or disabled for
+software use; they cannot silently issue unverified wired setters. Host keys,
+macros, turbo, profile switching and HyperShift use the Linux service. Owned
+input-mode recovery is available through the normal recovery flow or
+`gillete recover --product 00e7 /path/to/mode-owned.json`. Source profiles,
+input-remapper and startup preferences are unchanged by this integration.
+
+The next native-writing experiment has a separate, narrow tool:
+
+```bash
+python -m gillete.wired_binding_probe prepare --directory evidence/v3-wired-binding1.local
+# Only after approval for changing one saved binding:
+python -m gillete.wired_binding_probe run --directory evidence/v3-wired-binding1.local
+```
+
+Preparation reads current state and proposes normal side12 -> F24 for up to
+180 seconds, followed by exact restoration. It requires simple keyboard originals
+with the known reply metadata. Run admits only that control/layer's F24/original
+setter and observes F24 on the selected wired mouse without grabs or injection.
+Other mappings, modes, settings and macro objects cannot be written. Interrupted
+or failed tests retain a binding journal; the dedicated `recover` operation can
+restore an owned candidate, preserving unrelated DPI edits and refusing to
+overwrite a later target edit. This initial test checks mapping/readback and a
+physical press only, not power-loss persistence. It has not run yet.
 
 Service CLI commands:
 

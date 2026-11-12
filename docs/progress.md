@@ -19,8 +19,9 @@ other side plates are deferred. Pointer-motion macros are optional.
 - Both receiver control/layer suites passed: V3 50 pairs and V2 42. The V3 native
   combined keyboard/count/shared-object/power-cycle test passed. The earlier
   F23 desktop translation issue was fixed and rechecked on the physical V3.
-- Wired V3 getters and all 25 raw controls/two held combinations passed, with
-  normal mode and saved state restored. The last fresh read confirmed 1600 DPI
+- Wired V3 getters, all 25 raw controls/two held combinations and all 50 software
+  control/layer pairs passed, with normal mode and saved state restored.
+  An independent post-test read confirmed 1600 DPI
   after the owner corrected a later stage change; preserve that setting. V2's
   last verified baseline was 1800 DPI. All owned live tests exited.
 - The user is willing to set up a Windows VM if protocol work requires it; none
@@ -29,12 +30,21 @@ other side plates are deferred. Pointer-motion macros are optional.
 
 ## Latest user interaction
 
-The latest answer is **Later — continue building** for the wired V3's 50-tap
-software test. All hardware testing remains deferred. The prepared proposal at
-`evidence/v3-wired-controls-20261111-02.local` retains the confirmed 1600-DPI
-baseline and has no run directory. Do not start it from the earlier approval
-for raw mode/input capture; input ownership and virtual-key generation are
-separate scope. Continue offline development without reopening hardware tests.
+The owner resumed and completed the wired V3's 50-tap software test. `.02.local`
+timed out before READY and verified restoration; `.03.local` passed all 50 pairs
+with independently replayed receipts, restored normal mode/settings and a fresh
+1600-DPI read. Six failed attempts remain retained with successful retries.
+All owned tests exited. The first activation/focus timeout's exact cause remains
+unknown; the successful retry's readiness trace recorded target focus and activation.
+
+The normal app now supports wired reads and software control through a separate
+backend, gated to the observed firmware01010000/hid-generic descriptors/sole slot1.
+Saved-state writes remain excluded. No main-profile service, startup preference
+or migration was enabled. A getter-only proposal for the first saved-binding test
+is prepared at `evidence/v3-wired-binding-20261111-01.local`, with no run directory.
+It targets only normal side12 -> F24 and restores its exact original bytes.
+That new saved-binding write requires separate approval; do not infer it from
+the completed software-mode/input test. Keep the V3 at 1600 DPI.
 
 The current offline change extends the V3 receiver's Keep stored bridge to
 balanced once-only keyboard sequences and counted single-key bodies, preserving
@@ -2703,3 +2713,68 @@ No hardware test, service activation, host installation or migration occurred.
 All 889 packaged-source checks pass, with successful staged Arch/wheel paths,
 CLI and isolated GUI checks. The final artifacts include the updated editor,
 checked decoder, test coverage and current handoff documentation.
+
+## Wired V3 software accepted and main read/software backend integrated — 2026-11-11
+
+The owner approved and completed the wired 50-tap test. The `.02.local` run
+timed out before READY on the combined activation/focus condition, then restored
+normal mode and verified all saved state without errors. Its incomplete report
+is retained; there is no evidence establishing that original timeout's cause.
+
+Fresh `.03.local` completed 50/50 source/Qt control/layer pairs and exited0.
+Independent replay uses the exact recipe, nonce and final trace epoch. The ring
+trigger itself was tested through trigger rotation. Six failed attempts remain:
+normal left-click saw wheel-up; normal wheel-up had a desktop order/count mismatch;
+shifted wheel-up/front-index/side6 crossed an arming boundary; shifted right tilt
+received F17. Successful retries do not erase those failures or establish causes.
+The temporary observer recorded target focus and transition to active on the
+retry, then was removed. No permanent debug instrumentation was added.
+
+Restoration verifies normal mode, all 50 original stored descriptors, slot,
+settings and firmware, with no errors/shutdown notes. The owned mode journal is
+normal-mode-restored. An independent post-test hardware read matches that baseline
+and confirms 1600×1600 DPI. All three transport suites now total 142 pairs. This
+earns wired software control/HyperShift/key-delivery evidence; native wired
+binding/macro writes, retention and broader lifecycle remain separate.
+
+The main app now admits wired reads/software control through a dedicated backend.
+It rediscovers the exact USB transport and requires captured descriptor hashes,
+hid-generic/usbhid, firmware01010000 and sole active slot1. Checked getter and
+mode-only classes are shared with the accepted isolated path. The normal service
+selects that adapter for E7, reads/validates its serial before mode ownership and
+uses the existing decoder/router/engine/input cleanup. Receiver defaults are
+unchanged. No main-profile service or startup preference was enabled.
+
+E7 is still absent from the onboard-writing transport table. Direct assignment,
+settings and saved-state recovery entry points reject it before I/O. The mode
+transport cannot issue any saved-state setter, and recovery must match the actual
+active owned journal. CLI snapshot and owned-mode recovery admit the wired product.
+GUI reads/local profile copying/backups are available, while onboard preview/save,
+settings editing and native macro management remain disabled. Device-setting
+software actions explicitly block preflight until remapped or disabled; no guessed
+firmware fallback is emitted. Mode recovery reports input mode separately from
+assignment restoration.
+
+The next experimental tool is `wired_binding_probe`. Getter-only preparation
+completed at `evidence/v3-wired-binding-20261111-01.local`, retaining normal mode,
+1600 DPI and the exact original keyboard bytes. Its first narrow validator
+rejected the older size1 keyboard form without any write; the app already supports
+that form, so the check now accepts both known size1/size2 forms and preserves the
+original verbatim. The proposal binds target/location/duration and has no run.
+It would change only normal side12 to F24, observe a press/release for up to180
+seconds and restore the original. It admits no other setter, mode change, macro
+allocation or input ownership. New approval is required for that saved-binding
+write; it is not covered by the completed software test. No wired saved binding
+has been changed yet, and this first proposed test does not establish persistence.
+
+Validation: all 1,172 automated tests pass. New backend tests exercise normal
+service selection, actual mode-lease/held-output cleanup, descriptor/firmware
+and identity gates, read/local copy, forbidden writers, exact recovery ownership
+and unavailable device-setting actions. Probe tests cover exact scope/journaling,
+legacy keyboard originals, lost acknowledgments, timeout/interruption, restoration,
+completed-journal rejection and preserving later DPI/target edits. Receiver checks
+still pass. No input-remapper, main-profile, startup or migration change occurred.
+All 924 packaged-source checks pass, including the normal wired backend, narrow
+binding experiment and GUI write gates. Staged Arch/wheel, isolated GUI and CLI
+checks pass; nothing was installed on the host. Final artifacts include these
+changes and the current handoff notes.

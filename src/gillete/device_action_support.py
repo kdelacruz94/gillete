@@ -40,6 +40,9 @@ def support(action, model, snapshot=None):
     expected = (0xB4,) if model == MODELS[0] else (0xE7, 0xE8)
     if snapshot.product not in expected:
         return Support(False, 'The mouse read does not match this model. Read the selected mouse again.')
+    if snapshot.product == 0xE7:
+        return Support(False, 'Wired DPI, wheel-mode and onboard-slot writes still need hardware validation. '
+                              'Choose a keyboard/mouse action, Linux profile switch or disable this assignment.')
     if action.kind == 'dpi':
         try:
             decode_dpi(bytes.fromhex(snapshot.settings['dpi']), snapshot.product)

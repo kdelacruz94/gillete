@@ -46,13 +46,13 @@ def test_input_discovery_distinguishes_enumeration_ambiguity_and_access(problem,
     assert checks(device)['Software input'].status == expected
 
 
-def test_accessible_wired_nodes_do_not_enable_unverified_application_capabilities():
+def test_accessible_wired_reads_do_not_enable_unverified_onboard_writes():
     device = mouse(0xE7)
     rows = checks(device, uinput_access=True)
-    assert rows['Mouse configuration'].status == 'Unavailable'
+    assert rows['Mouse configuration'].status == 'Accessible'
     assert rows['Software input'].status == 'Accessible'
     features = feature_validation(0xE7)
-    assert [row.status for row in features] == ['Live reads passed', 'Captured on device', 'Test prepared', 'Unavailable']
+    assert [row.status for row in features] == ['Live reads passed', 'Captured on device', 'Complete suite passed', 'Unavailable']
 
 
 def test_service_status_reports_exact_transport_without_serial_or_window(tmp_path):

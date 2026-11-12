@@ -203,6 +203,37 @@ new enumeration only with matching raw descriptors, serial and firmware. It
 restores owned mode journals and compares the saved snapshot, preserving any
 unrelated differences. It does not start input control or generate keys.
 
-This isolated path leaves ordinary E7 application configuration/activation and
-onboard saves gated. The guided wired software test has not run yet; standalone
-writes/persistence and disconnect/reload/suspend lifecycle need separate evidence.
+The isolated path admits no saved-state setters. The normal app now shares its
+checked decoder/mode guards through a separate wired read/software backend,
+requiring the captured hid-generic descriptors, firmware01010000 and sole slot1.
+Ordinary onboard saves/settings stay gated. Unknown/device-setting fallbacks
+need explicit software replacements or disabling. No main profile/startup choice
+was changed by integration. Standalone writes/persistence and wider lifecycle
+still need separate evidence.
+
+## Wired V3 result — 2026-11-11
+
+The first `.02.local` attempt never announced READY: activation or test-window
+focus timed out. The controller restored normal mode and verified all 50 stored
+descriptors/settings, with no errors or shutdown notes. Its incomplete coverage
+is retained. The original timeout's exact cause is unknown.
+
+The owner completed the fresh `.03.local` run. Its 50 successful receipts
+independently replay against the prepared recipe, nonce and final trace epoch.
+It includes every control on both layers and the ring trigger via trigger
+rotation. Six failed attempts remain recorded: normal left-click saw wheel-up;
+normal wheel-up had a desktop order/count mismatch; shifted wheel-up, front index
+and side6 crossed an arming/cancellation boundary; shifted right tilt received
+unexpected F17. Retries passed; no cause beyond those recorded errors is inferred.
+
+The controller exited0. Normal mode, all 50 saved descriptors, profile selection,
+settings and firmware were verified restored, with no errors or shutdown notes.
+An independent post-test read matches the baseline and confirms 1600×1600 DPI.
+Its owned mode journal is normal-mode-restored; no test daemon/window remains.
+Bounded readiness observation on this retry records target focus throughout and
+the transition from requested to active. This does not retrospectively diagnose
+the first timeout. The observer was removed after collection.
+
+All three transport suites now total 142 normal/HyperShift pairs. These results
+establish wired software input/key delivery on the observed unit; they do not
+establish wired native writes, macro storage or standalone persistence.

@@ -11,7 +11,7 @@ from . import wired_probe as wired
 from .devices import discover
 from .driver_mode import ModeLease
 from .hardware import read_journal
-from .hid import BindingHID, ReadOnlyHID
+from .wired_transport import ModeCaptureHID, read_state
 from .model import MODELS
 from .onboard import durable_json
 from .protocol import ProtocolError
@@ -56,32 +56,6 @@ def selected(inspection, *, recovery=False):
     elif current != inspection['descriptors']:
         raise ProtocolError('Wired USB enumeration, descriptor or driver identity changed; inspect again')
     return device
-
-
-class ModeCaptureHID(wired.WiredQueryHID, BindingHID):
-    def __init__(self, path, journal, serial):
-        super().__init__(path)
-        self.journal, self.expected_serial = journal, serial
-
-    def _exchange(self, command):
-        if command.operation < 0x80:
-            if ((command.category, command.operation) != (0, 4)
-                    or command.payload not in (b'\0\0', b'\3\0') or command.transaction != 0x1F):
-                raise ProtocolError('Wired capture allows only journaled normal/driver-mode changes')
-            document = read_journal(self.journal)
-            if (type(document.get('version')) is not int or document['version'] != 1
-                    or document.get('kind') != 'driver-mode' or document.get('product') != wired.PRODUCT
-                    or document.get('serial') != self.expected_serial or document.get('before') != '0000'):
-                raise ProtocolError('Wired capture allows only journaled normal/driver-mode changes')
-            if document.get('status') not in ('prepared', 'driver-mode-active'):
-                raise ProtocolError('An active wired lease is required; a completed lease cannot change modes')
-        else:
-            wired.validate_query(command)
-        return ReadOnlyHID._exchange(self, command)
-
-
-def read_state(io):
-    return wired.WiredProbe(io, {'queries': []}, max_requests=256, seconds=60).state(MODELS[1])
 
 
 @contextmanager

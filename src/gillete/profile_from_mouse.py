@@ -19,8 +19,10 @@ class MouseProfileDraft:
             self.snapshot = deepcopy(snapshot)
             snapshot = self.snapshot
             model = snapshot.model
-            if {0xB4: MODELS[0], 0xE8: MODELS[1]}.get(snapshot.product) != model:
-                raise ValueError('Use a snapshot from a supported receiver')
+            if {0xB4: MODELS[0], 0xE8: MODELS[1], 0xE7: MODELS[1]}.get(snapshot.product) != model:
+                raise ValueError('Use a snapshot from a supported mouse transport')
+            if snapshot.product == 0xE7 and snapshot.metadata.get('firmware') != '01010000':
+                raise ValueError('Wired profile copying requires a validated firmware1.1 read')
             maximum = 1 if snapshot.product == 0xB4 else 5
             if (type(snapshot.bank) is not int or snapshot.bank not in snapshot.assigned
                     or snapshot.active not in snapshot.assigned

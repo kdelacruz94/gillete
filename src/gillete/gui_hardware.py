@@ -224,10 +224,15 @@ class HardwarePanel(QWidget):
         self.slots.setCurrentIndex(self.slots.findData(snapshot.bank))
         self.slots.blockSignals(False)
         self.snapshot = snapshot
-        self.preview.setEnabled(True)
+        writable = snapshot.product in (0xB4, 0xE8)
+        self.preview.setEnabled(writable)
+        self.preview.setToolTip('Review assignments to save.' if writable else
+                               'Wired onboard writes still need validation. Create a Linux profile for software mappings.')
         self.backup_button.setEnabled(True)
         self.create_profile_button.setEnabled(True)
-        self.settings_button.setEnabled(snapshot.bank == snapshot.active)
+        self.settings_button.setEnabled(writable and snapshot.bank == snapshot.active)
+        self.settings_button.setToolTip('Edit saved device settings.' if writable else
+                                       'Wired DPI and polling reads are supported; setting writes remain unverified.')
         from .native_profile_review import eligible
         self.native_review_button.setEnabled(eligible(snapshot))
         self.native_library_button.setEnabled(eligible(snapshot) and snapshot.metadata.get('firmware') == '0101')
@@ -435,6 +440,8 @@ class HardwarePanel(QWidget):
         path = Path(filename)
         try:
             document = hardware.read_journal(path)
+            if device.product_id == 0xE7 and document.get('kind') != 'driver-mode':
+                raise ValueError('Wired onboard recovery writes remain unverified. Only input-mode recovery is available.')
             if document.get('kind') == 'driver-mode':
                 summary = 'Restore the normal input mode from this interrupted service session?'
             elif document.get('kind') in ('device-setting', 'device-settings'):
@@ -470,5 +477,7 @@ class HardwarePanel(QWidget):
             count = len(result.get('retained_macros', []))
             self.status.setText(f'Original affected mappings restored; unrelated current state preserved. '
                                 f'{count} shared or unmatched macros retained. Journal: {path}')
+        elif result and result.get('kind') == 'driver-mode':
+            self.status.setText(f'Normal input mode verified. Read the mouse again before editing. Journal: {path}')
         else:
             self.status.setText(f"Original values restored and verified. Journal: {path}")

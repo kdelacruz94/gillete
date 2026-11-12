@@ -46,6 +46,26 @@ def test_scroll_and_dpi_editors_preserve_assignments(app):
         shiboken6.delete(dialog)
 
 
+def test_wired_mouse_read_exposes_copy_and_backup_but_keeps_onboard_writes_disabled(app,monkeypatch):
+    from gillete import gui_hardware
+    from gillete.devices import Device
+    from test_guided_service import snapshot
+    source=snapshot(MODELS[1]);source.product=0xE7;source.metadata['firmware']='01010000'
+    device=Device(MODELS[1],'Test wired','USB wired',0xE7,'/test','')
+    monkeypatch.setattr(gui_hardware,'discover',lambda:[device])
+    panel=gui_hardware.HardwarePanel(lambda:Profile('default','Default'))
+    try:
+        panel.loaded(source)
+        assert panel.backup_button.isEnabled() and panel.create_profile_button.isEnabled()
+        assert not panel.preview.isEnabled() and not panel.settings_button.isEnabled()
+        assert not panel.native_review_button.isEnabled() and not panel.native_library_button.isEnabled()
+        assert 'Wired' in panel.preview.toolTip()
+        panel.restored('/test/mode-owned.json',{'kind':'driver-mode'})
+        assert 'Normal input mode verified' in panel.status.text()
+    finally:
+        panel.close();shiboken6.delete(panel)
+
+
 def test_copied_native_count_keeps_its_zero_extra_gap_in_the_editor(app):
     from gillete.stored_actions import from_snapshot
     from test_stored_native_sequences import combined

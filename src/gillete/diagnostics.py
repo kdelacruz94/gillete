@@ -7,7 +7,7 @@ Historical feature tests never certify a newly connected unit or its mappings.
 from dataclasses import dataclass
 from pathlib import Path
 
-from .hid import CONFIG_INTERFACE
+from .hid import READ_CONFIG_INTERFACE
 
 
 @dataclass(frozen=True)
@@ -48,7 +48,7 @@ def findings(device, devices, *, uinput_access=None, service=None, service_error
                         'Only one transport for this model is listed.' if len(matches) == 1 else
                         'New software activations wait for exactly one transport for this model. '
                         'Disconnect the extra receiver/cable or mouse before enabling.'))
-    config_interface = CONFIG_INTERFACE.get(device.product_id)
+    config_interface = READ_CONFIG_INTERFACE.get(device.product_id)
     config_nodes = [n for n in device.interfaces if n['kind'] == 'hidraw' and n['number'] == config_interface]
     if config_interface is None:
         rows.append(Finding('Mouse configuration', 'Unavailable',
@@ -137,9 +137,10 @@ def feature_validation(product):
                 Finding('Wired physical controls', 'Captured on device',
                         'All 25 controls and two simultaneous button combinations were captured with hid-generic. '
                         'Normal mode and unchanged saved state were verified afterward.'),
-                Finding('Wired software control and HyperShift', 'Test prepared',
-                        'An isolated 50-tap test is prepared; virtual-key delivery and both layers still need live acceptance. '
-                        'Normal application activation remains gated.'),
+                Finding('Wired software control and HyperShift', 'Complete suite passed',
+                        'All 50 normal/HyperShift pairs passed source/desktop checks, including the trigger. '
+                        'Read/software support requires the captured hid-generic descriptors and firmware1.1; '
+                        'normal mode, 50 saved bindings and 1600 DPI were verified restored. Wider lifecycle tests remain separate.'),
                 Finding('Wired onboard saves', 'Unavailable',
                         'Wired binding writes, native macros and standalone persistence still need separate hardware testing.')]
     count = 21 if product == 0xB4 else 25
