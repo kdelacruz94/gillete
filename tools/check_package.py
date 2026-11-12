@@ -40,7 +40,7 @@ def main():
                        'native_sequence_probe', 'native_sequence_pad',
                        'native_profile_undo', 'stored_native', 'memory_access',
                        'native_history', 'native_cleanup', 'gui_native_library',
-                       'descriptors', 'wired_probe', 'wired_capture', 'wired_acceptance', 'wired_transport', 'wired_backend', 'wired_binding_probe', 'diagnostics', 'gui_diagnostics',
+                       'descriptors', 'wired_probe', 'wired_capture', 'wired_acceptance', 'wired_transport', 'wired_backend', 'wired_binding_probe', 'wired_binding_replug', 'diagnostics', 'gui_diagnostics',
                        'profile_transfer', 'gui_profile_transfer', 'profile_activation', 'profile_selection',
                        'profile_from_mouse', 'gui_profile_from_mouse',
                        'control_trace', 'control_validation', 'control_pad',
@@ -73,7 +73,7 @@ def main():
         run([sys.executable, '-I', '-c',
              'import sys; from pathlib import Path; sys.path.insert(0, str(Path("src").resolve())); '
              'import gillete; assert Path(gillete.__file__).is_relative_to(Path.cwd()); '
-             'import pytest; raise SystemExit(pytest.main(["-q", "tests/test_wired_probe.py", "tests/test_wired_capture.py", "tests/test_wired_acceptance.py", "tests/test_wired_backend.py", "tests/test_wired_binding_probe.py", "tests/test_service.py", "tests/test_guided_service.py", "tests/test_reports.py", "tests/test_persistence.py", '
+             'import pytest; raise SystemExit(pytest.main(["-q", "tests/test_wired_probe.py", "tests/test_wired_capture.py", "tests/test_wired_acceptance.py", "tests/test_wired_backend.py", "tests/test_wired_binding_probe.py", "tests/test_wired_binding_replug.py", "tests/test_service.py", "tests/test_guided_service.py", "tests/test_reports.py", "tests/test_persistence.py", '
              '"tests/test_device_action_support.py", "tests/test_macro_inspection.py", '
              '"tests/test_macro_reads.py", "tests/test_firmware_probe.py", "tests/test_polling_reads.py", "tests/test_dpi_probe.py", '
              '"tests/test_native_macro.py", "tests/test_native_macro_probe.py", "tests/test_native_macro_observer.py", '
@@ -150,6 +150,8 @@ raise SystemExit(start(ProfileStore(Path(sys.argv[2]))))
         run([str(interpreter), '-I', '-m', 'gillete.wired_acceptance', '--help'],
             env=environment, stdout=subprocess.PIPE)
         run([str(interpreter), '-I', '-m', 'gillete.wired_binding_probe', '--help'],
+            env=environment, stdout=subprocess.PIPE)
+        run([str(interpreter), '-I', '-m', 'gillete.wired_binding_replug', '--help'],
             env=environment, stdout=subprocess.PIPE)
     print('PASS: source fixtures/tests, Arch paths/launcher, isolated native GUI, wheel install and CLI; no host installation or remapping.')
 

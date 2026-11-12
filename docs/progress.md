@@ -40,11 +40,14 @@ unknown; the successful retry's readiness trace recorded target focus and activa
 The normal app now supports wired reads and software control through a separate
 backend, gated to the observed firmware01010000/hid-generic descriptors/sole slot1.
 Saved-state writes remain excluded. No main-profile service, startup preference
-or migration was enabled. A getter-only proposal for the first saved-binding test
-is prepared at `evidence/v3-wired-binding-20261111-01.local`, with no run directory.
-It targets only normal side12 -> F24 and restores its exact original bytes.
-That new saved-binding write requires separate approval; do not infer it from
-the completed software-mode/input test. Keep the V3 at 1600 DPI.
+or migration was enabled. The owner approved and completed the first saved-binding
+test at `evidence/v3-wired-binding-20261111-01.local`: F24 down/up was observed
+and the original mapping/complete captured state was restored at 1600 DPI.
+No retention cycle was part of that run. A fresh getter-only power/cable retention
+proposal at `evidence/v3-wired-binding-replug-20261111-02.local` has no run directory.
+It repeats only normal side12 -> F24, asks for off/unplug/wait/on/replug and a
+tap, and restores the original. This new test is not approved yet; keep the
+V3 at 1600 DPI and leave the V2/input-remapper unchanged.
 
 The current offline change extends the V3 receiver's Keep stored bridge to
 balanced once-only keyboard sequences and counted single-key bodies, preserving
@@ -2778,3 +2781,56 @@ All 924 packaged-source checks pass, including the normal wired backend, narrow
 binding experiment and GUI write gates. Staged Arch/wheel, isolated GUI and CLI
 checks pass; nothing was installed on the host. Final artifacts include these
 changes and the current handoff notes.
+
+## Wired binding write/physical readback accepted; retention prepared — 2026-11-11
+
+The owner explicitly approved the first wired saved-binding experiment and
+reported tapping side12. `evidence/v3-wired-binding-20261111-01.local/run`
+exited0. The native F24 down/up pair was observed on the selected wired input
+with a 233ms hold. Normal mode, the exact original size1 keyboard binding and
+the complete captured state were restored and verified, including 1600×1600 DPI.
+The one-entry journal is restored-readback-verified with power_cycle_verified
+false. Health records 348 exchanges/replies, no malformed reports and exactly
+two setting commands: candidate F24 and the original function. No macro object,
+profile, DPI, mode or other-button write occurred; V2/input-remapper stayed intact.
+This establishes the one normal wired binding write/readback and physical action,
+not retention or the full writable capability matrix.
+
+`wired_binding_replug` now prepares the next bounded experiment, with the same
+single normal-side12 candidate/original setter guard. It requires a fresh normal
+snapshot and pinned USB route. Run closes old HID handles before prompting for
+mouse off, cable unplug/five-second wait, mouse on and same-port replug. Actual
+USB removal and a changed bus/dev address must be observed; then fresh-node
+getters verify identity/firmware and retained candidate/protected state before
+the F24 observer is armed. A second TAP READY prompt prevents an early press
+from being mistaken for post-cycle evidence. User confirmation is still needed
+for the physical switch sequence; raw USB evidence alone does not establish it.
+
+Getter readiness retries are bounded and outside the yielded setter path, so
+uncertain acknowledgments never replay F24. Cleanup reopens by identity and
+restores the owned original; interruptions retain recovery data. Known size1/2
+keyboard encodings can represent the same bare F24: encoding differences are
+recorded, while flags/other bindings/settings stay strict and restoration keeps
+the original bytes. Completed journals cannot claim a later target edit. The
+ordinary one-press runner rejects a cable-cycle proposal, preventing a successful
+single tap from being reported as retention. Both paths reject setters outside
+their fixed scopes.
+
+The getter-only power/cable proposal is prepared at
+`evidence/v3-wired-binding-replug-20261111-02.local`, with normal mode and 1600 DPI;
+it has no run directory. The earlier `.01.local` cable-only preparation is retained
+but superseded by the explicit physical off/on request. No retention write
+has run. Normal wired onboard saving remains gated until retention and further
+families are accepted. No NVM technology/battery-removal claim is made.
+
+Validation: all 1,181 automated tests pass, including nine retention cases for
+observed removal/new enumeration, candidate loss, protected-state drift, port
+mismatch, missing key events, cancellation, bounded access readiness, uncertain
+setter acknowledgments and both known keyboard encodings. Getter retries never
+replay the setter. No retention run, startup change, main-profile activation,
+input-remapper handoff or migration occurred.
+
+All 933 packaged-source checks also pass, including the retention runner's
+shipped tests, isolated Arch launcher/GUI and separate wheel CLI installation.
+No package was installed on the host. Final archives are rebuilt after this
+handoff update; source-module bytes are checked against the checkout.

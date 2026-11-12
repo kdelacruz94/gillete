@@ -665,7 +665,35 @@ Other mappings, modes, settings and macro objects cannot be written. Interrupted
 or failed tests retain a binding journal; the dedicated `recover` operation can
 restore an owned candidate, preserving unrelated DPI edits and refusing to
 overwrite a later target edit. This initial test checks mapping/readback and a
-physical press only, not power-loss persistence. It has not run yet.
+physical press only, not power-loss persistence. The development run passed on
+2026-11-11: F24 down/up was observed, and normal mode, original bindings/settings
+and 1600 DPI were restored with exactly two setting commands.
+
+Power/cable retention has a separately prepared experiment:
+
+```bash
+python -m gillete.wired_binding_replug prepare --directory evidence/v3-wired-retention1.local
+# After approval for a fresh temporary F24 binding and the physical cycle:
+python -m gillete.wired_binding_replug run --directory evidence/v3-wired-retention1.local
+```
+
+After REPLUG READY, switch the V3 off, unplug its USB cable, wait five seconds,
+switch it on and reconnect to the same port. Keep the V2 available. Wait for
+TAP READY before pressing/releasing side12. There is a three-minute replug
+window and a separate three-minute key observation window; preparation/recovery
+have their own bounded getter retries. Old HID handles close before unplugging.
+The tool requires observed removal/new enumeration, checks identity/firmware
+and retained F24/protected state, then restores the exact original binding.
+It retries only getter readiness, including transient access failures; it never
+replays the setter path. Known keyboard-size encoding differences are recorded
+and compared semantically for F24; other state stays strict.
+
+After interruption, retain the directory and use the module's `recover`
+operation once the wired mouse is connected again. Current unrelated edits are
+preserved; a changed target is not overwritten. Raw USB evidence establishes
+re-enumeration, while the physical off/on sequence needs the user's confirmation.
+It does not identify NVM technology or prove battery-removal retention. This
+retention experiment has not run; normal wired onboard saves remain gated.
 
 Service CLI commands:
 

@@ -20,6 +20,11 @@ TARGET = bytes.fromhex('02020073000000')
 WHERE = Location(1, 0x4B, 0)
 
 
+def is_candidate(function):
+    # Both keyboard-size forms are already decoded as the same bare F24 key.
+    return function in (TARGET,bytes.fromhex('02010073000000'))
+
+
 def validate(document):
     try:
         before = document['before']
@@ -111,7 +116,7 @@ def restore(io,prepared,journal):
     current = io.read_binding(1,0x4B,0)
     active = io.read_binding(0,0x4B,0)
     if current == active == original: return
-    if (current not in (original,TARGET) or active not in (original,TARGET)
+    if (current != original and not is_candidate(current) or active != original and not is_candidate(active)
             or document.get('status') in ('restored-readback-verified','rolled-back-readback-verified')):
         raise ProtocolError('Wired side12 changed outside this active test; recovery retained without overwriting it')
     Programmer(io,journal,prepared['before']['serial'],set(prepared['before']['controls'])).restore()
@@ -155,6 +160,8 @@ def run(directory,*,recover=False):
     if socket_path().exists(): raise ProtocolError('Stop software control before the isolated binding experiment')
     prepared = read_journal(directory/'prepared.json')
     validate(prepared)
+    if not recover and prepared.get('purpose') not in (None,'once'):
+        raise ProtocolError('Use the prepared experiment’s specific runner')
     root = directory/'run'
     if not recover: root.mkdir(mode=0o700)
     device = selected()
