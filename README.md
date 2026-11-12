@@ -64,6 +64,16 @@ Normal or HyperShift and click the physical control. In Program profiles,
 **Choose running application…** fills a rule from an open game or program;
 select **Save rules** to apply it. Title matching is optional.
 
+**Preview rules…** predicts each mouse's profile from the rules currently shown,
+including unsaved edits. Enter a window's class/title/executable or use **Load
+running windows** and choose a game or program to treat as focused. The preview
+shows matching rules, priorities, defaults and manual pins, including what
+Automatic would choose while a pin is active. Equal priorities use the first
+matching row. **No program window is focused** checks the fallback behavior.
+The preview takes a snapshot when opened; reopen it after other configuration
+changes. It saves nothing, sends no service command and opens no mouse/input
+device. Mapping readiness is checked separately when software control is enabled.
+
 **Duplicate** keeps the selected profile's mappings, standalone choices and saved
 program rules. Buttons that select that same profile select the copy instead;
 buttons for other profiles keep their targets. Copied rules start disabled.

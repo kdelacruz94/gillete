@@ -51,13 +51,18 @@ result remains intact. Dedicated recovery exited0 and independently verified the
 original binding, normal mode and complete captured state at 1600 DPI. No owned
 test or recovery remains running. The getter-only retry proposal `.03.local`
 has no run directory; await the owner's readiness for the same physical sequence.
-Keep the V3 at 1600 DPI and leave the V2/input-remapper unchanged.
+Keep the V3 at 1600 DPI and leave the V2/input-remapper unchanged. The owner
+subsequently chose Later — continue building: physical tests remain deferred.
+Do not start the pending retry or another physical window without their readiness.
 
-The current offline change extends the V3 receiver's Keep stored bridge to
+Earlier offline work extended the V3 receiver's Keep stored bridge to
 balanced once-only keyboard sequences and counted single-key bodies, preserving
 encoded waits with zero additional macro gap. V2/wired/other firmware, counted
 multi-key and held/toggle references remain unresolved. Native save gates are
 unchanged, and the combined live native-to-software transition is still pending.
+Current offline work adds a read-only program-rule preview, including unsaved
+rows, per-mouse pins/defaults and equal-priority explanations. No live read,
+software activation, hardware write, startup or remapper change was performed.
 See the dated tail entries for checks, artifacts and individual physical results.
 
 The old V2 HyperShift+side1/2/4/10 references were MapleStory gameplay macros the
@@ -171,7 +176,10 @@ The four other opaque V2 turbo functions remain separate unresolved cases.
 
 ## Verification completed
 
-Latest completed suite: **113 tests passed**, including settings failure/recovery,
+Latest completed suites: **1,200 automated tests** and **952 packaged-source
+checks** pass. See the dated tail entries for current scope and hardware limits.
+
+The initial suite of 113 tests covered settings failure/recovery,
 startup/service recovery, real editor processes, native settings/control/application
 dialogs and tray profile changes. The native editor and validation pad
 both passed offscreen open/close smoke checks. Explicit Qt top-level deletion
@@ -2885,3 +2893,49 @@ selection or descriptor lookup and receiver-only/ambiguous routes. Packaged Arch
 launcher/GUI and independent wheel installation/CLI checks pass. Final archives
 include these notes; every shipped Python module is compared with the checkout.
 Nothing was installed on the host, and no retry write has run.
+
+## Program-rule selection preview — 2026-11-11
+
+The owner deferred the wired retention retry and requested continued building.
+Added **Preview rules…** in Program profiles. It snapshots the editor's current
+rules, including unsaved rows, and predicts the profile for each mouse using
+typed window identity or an explicitly loaded running-window list. Predictions
+show matching, disabled and other-mouse rules, priorities, tie order, defaults,
+manual pins and the automatic alternative beneath each pin. A no-focused-window
+choice exercises fallback selection. The dialog displays plain text for window
+and profile names and retains manual input when the window query fails.
+
+`Configuration.decision` is shared by the preview and the service's existing
+`select` entry point; matching and tie semantics are unchanged. Saving rules and
+previewing use the same row parser, which identifies invalid rows before opening
+a misleading preview. The dialog holds its own complete copy of profiles, rules,
+defaults and pins. A targeted regression caught and corrected mutable pin/default
+aliasing through the JSON constructor. Changes elsewhere cannot alter an open
+preview. Reopen to use a newer configuration. This predicts selection, not
+activation readiness or live service state.
+
+Window listing reuses the editor's read-only worker. Closing the preview while
+the query runs destroys its receiver safely and retains the worker until it
+finishes. No save, service command, input grab or hardware transport is used.
+An offscreen layout audit confirmed the main window still fits 1024×640 and the
+preview fits 880×560 with 256-character profile/window names; wrapping prevents
+unbroken names from expanding its minimum width. This is Qt geometry evidence,
+not a live Wayland rendering claim.
+
+Updated wired diagnostics to report the passed isolated binding test and the
+interrupted retention attempt with successful later recovery, while keeping
+ordinary onboard saving unavailable. No capability gate was relaxed. The
+original failed result/recovery remain intact. The `.03.local` retry proposal
+has not run. V3's last verified 1600 DPI and V2/input-remapper are untouched;
+physical tests remain deferred. Tests use temporary stores, inert window-query
+substitutes, recorded output and offscreen widgets; no real desktop/window,
+mouse settings or input nodes were queried during this change.
+
+Validation: all 1,200 automated tests and 952 packaged-source checks pass.
+Coverage includes priority/tie order, model-specific rules, literal wildcard
+characters, executable/title conditions, defaults/no window, persistent pins,
+frozen snapshots, unsaved/invalid rows, read-only query success/failure and closing
+the dialog with a worker outstanding. Staged Arch launcher/native GUI and separate
+wheel installation/CLI checks pass. Final archives include the new preview,
+tests and handoff notes; shipped module bytes are checked against the checkout.
+No package was installed on the host.

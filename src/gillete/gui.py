@@ -30,6 +30,7 @@ from .gui_hardware import HardwareJob, HardwarePanel
 from .gui_service import ServicePanel
 from .gui_controls import ControlSelector
 from .gui_applications import ApplicationPicker
+from .gui_rule_preview import RulePreviewDialog
 from .gui_startup import StartupPanel
 from .gui_launch import InstalledApplicationPicker
 from .gui_standalone import StandaloneDialog
@@ -462,6 +463,7 @@ class MainWindow(QMainWindow):
         self.application_button = button('Choose running application…', self.choose_application, rule_tools)
         button("Remove rule", lambda: self.rules.removeRow(self.rules.currentRow()) if self.rules.currentRow() >= 0 else None, rule_tools)
         button("Save rules", self.save_rules, rule_tools)
+        button('Preview rules…', self.preview_rules, rule_tools)
         rules_layout.addLayout(rule_tools)
         tabs.addTab(rules_page, "Program profiles")
         self.diagnostics = DiagnosticsPanel(self)
@@ -910,14 +912,37 @@ class MainWindow(QMainWindow):
         self.rules.setCellWidget(row, 6, enabled)
 
     def choose_application(self):
+        self.load_applications(self.applications_loaded,
+            lambda error: QMessageBox.warning(self, 'Cannot list applications', error))
+
+    def load_applications(self, succeeded, failed):
         if self.application_job is not None:
-            return
+            return False
         self.application_button.setEnabled(False)
         self.application_job = HardwareJob(lambda: asyncio.run(query_windows()), self)
-        self.application_job.succeeded.connect(self.applications_loaded)
-        self.application_job.failed.connect(lambda error: QMessageBox.warning(self, 'Cannot list applications', error))
+        self.application_job.succeeded.connect(succeeded)
+        self.application_job.failed.connect(failed)
         self.application_job.finished.connect(self.applications_finished)
         self.application_job.start()
+        return True
+
+    def preview_rules(self):
+        try:
+            config = deepcopy(self.config)
+            config.rules = self.edited_rules()
+            config.validate()
+        except ValueError as error:
+            QMessageBox.warning(self, 'Invalid rule', str(error))
+            return
+        dialog = RulePreviewDialog(config, self)
+        def load_windows():
+            if not self.load_applications(dialog.set_windows, dialog.windows_failed):
+                dialog.windows_failed('Another application list is still loading; retry shortly')
+        dialog.load_windows_requested.connect(load_windows)
+        try:
+            dialog.exec()
+        finally:
+            dialog.deleteLater()
 
     def applications_loaded(self, windows):
         dialog = ApplicationPicker(windows, self)
@@ -935,14 +960,23 @@ class MainWindow(QMainWindow):
         for rule in self.config.rules:
             self.add_rule(rule)
 
+    def edited_rules(self):
+        rules = []
+        for r in range(self.rules.rowCount()):
+            try:
+                rules.append(Rule(
+                    self.rules.cellWidget(r, 0).currentData(),
+                    self.rules.item(r, 1).text(), self.rules.item(r, 2).text(),
+                    self.rules.item(r, 3).text(), self.rules.cellWidget(r, 4).currentData(),
+                    int(self.rules.item(r, 5).text()), self.rules.cellWidget(r, 6).isChecked()))
+            except ValueError as error:
+                raise ConfigurationError(f'Rule {r + 1}: {error}') from error
+        return rules
+
     def save_rules(self):
         old = self.config.rules
         try:
-            self.config.rules = [Rule(self.rules.cellWidget(r, 0).currentData(),
-                                      self.rules.item(r, 1).text(), self.rules.item(r, 2).text(),
-                                      self.rules.item(r, 3).text(), self.rules.cellWidget(r, 4).currentData(),
-                                      int(self.rules.item(r, 5).text()), self.rules.cellWidget(r, 6).isChecked())
-                                 for r in range(self.rules.rowCount())]
+            self.config.rules = self.edited_rules()
             if not self.save_config():
                 self.config.rules = old
         except ValueError as error:

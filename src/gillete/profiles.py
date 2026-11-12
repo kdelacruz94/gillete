@@ -61,6 +61,13 @@ class Rule:
                                          ("title", self.title), ("executable", self.executable)))
 
 
+@dataclass(frozen=True)
+class ProfileDecision:
+    profile_id: str
+    source: str
+    rule_index: int | None = None
+
+
 @dataclass
 class Configuration:
     profiles: dict[str, Profile] = field(default_factory=lambda: {"default": Profile("default", "Default")})
@@ -95,15 +102,19 @@ class Configuration:
         if any(not isinstance(ref, str) or ref not in self.profiles for ref in references):
             raise ConfigurationError("A rule, pin, default, or action refers to a missing profile")
 
-    def select(self, model: str, window: Window) -> Profile:
+    def decision(self, model: str, window: Window, *, automatic=False) -> ProfileDecision:
+        """Explain the same choice used by the service; automatic previews ignore pins."""
         if model not in MODELS:
             raise ConfigurationError("Unknown model")
-        if model in self.pinned:
-            return self.profiles[self.pinned[model]]
-        for rule in sorted(self.rules, key=lambda r: r.priority, reverse=True):
+        if not automatic and model in self.pinned:
+            return ProfileDecision(self.pinned[model], 'pinned')
+        for index, rule in sorted(enumerate(self.rules), key=lambda pair: pair[1].priority, reverse=True):
             if rule.matches(model, window):
-                return self.profiles[rule.profile]
-        return self.profiles[self.defaults[model]]
+                return ProfileDecision(rule.profile, 'rule', index)
+        return ProfileDecision(self.defaults[model], 'default')
+
+    def select(self, model: str, window: Window) -> Profile:
+        return self.profiles[self.decision(model, window).profile_id]
 
     def json(self) -> dict:
         from dataclasses import asdict

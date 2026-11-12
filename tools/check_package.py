@@ -42,7 +42,7 @@ def main():
                        'native_history', 'native_cleanup', 'gui_native_library',
                        'descriptors', 'wired_probe', 'wired_capture', 'wired_acceptance', 'wired_transport', 'wired_backend', 'wired_binding_probe', 'wired_binding_replug', 'diagnostics', 'gui_diagnostics',
                        'profile_transfer', 'gui_profile_transfer', 'profile_activation', 'profile_selection',
-                       'profile_from_mouse', 'gui_profile_from_mouse',
+                       'profile_from_mouse', 'gui_profile_from_mouse', 'gui_rule_preview',
                        'control_trace', 'control_validation', 'control_pad',
                        'persistence', 'gui_persistence', 'device_action_support'):
             assert f'gillete/{module}.py' in archive.namelist()
@@ -83,7 +83,13 @@ def main():
              '"tests/test_native_sequence_probe.py", "tests/test_native_profile_undo.py", "tests/test_stored_native.py", "tests/test_stored_native_sequences.py", '
              '"tests/test_function_keymap.py", "tests/test_keyboard_map.py", "tests/test_memory_access.py", '
              '"tests/test_native_cleanup.py", "tests/test_native_cleanup_review.py", '
-             '"tests/test_profile_selection.py", "tests/test_profile_from_mouse.py", "tests/test_stop_shortcut.py", '
+             '"tests/test_profile_selection.py", "tests/test_rule_decisions.py", "tests/test_profile_from_mouse.py", "tests/test_stop_shortcut.py", '
+             '"tests/test_gui.py::test_rule_preview_explains_per_mouse_pins_matches_and_no_focused_window", '
+             '"tests/test_gui.py::test_rule_preview_keeps_manual_input_on_window_load_failure_or_oversized_details", '
+             '"tests/test_gui.py::test_rule_preview_uses_unsaved_rows_without_mutating_or_saving_the_editor", '
+             '"tests/test_gui.py::test_invalid_unsaved_rules_cannot_open_a_misleading_preview", '
+             '"tests/test_gui.py::test_rule_preview_loads_running_windows_through_a_read_only_worker", '
+             '"tests/test_gui.py::test_closing_rule_preview_during_window_query_keeps_worker_until_it_finishes", '
              '"tests/test_gui.py::test_emergency_shortcut_preferences_are_local_and_preserve_unrelated_edits", '
              '"tests/test_gui.py::test_software_control_displays_active_and_pending_emergency_shortcuts", '
              '"tests/test_gui.py::test_mouse_profile_review_keeps_unknowns_until_rows_are_explicitly_disabled", '

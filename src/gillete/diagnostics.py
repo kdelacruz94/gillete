@@ -142,7 +142,10 @@ def feature_validation(product):
                         'Read/software support requires the captured hid-generic descriptors and firmware1.1; '
                         'normal mode, 50 saved bindings and 1600 DPI were verified restored. Wider lifecycle tests remain separate.'),
                 Finding('Wired onboard saves', 'Unavailable',
-                        'Wired binding writes, native macros and standalone persistence still need separate hardware testing.')]
+                        'The isolated normal side12 F24 write/tap/restoration passed. A cable-cycle test '
+                        'read retained F24, then lost the device before capturing the tap; later recovery '
+                        'verified the original state and 1600 DPI. Full retention, other binding families '
+                        'and native macros remain unverified; ordinary onboard saves stay disabled.')]
     count = 21 if product == 0xB4 else 25
     return [Finding('Physical controls', 'Captured on device',
                     f'All {count} controls were identified on the development receiver. '

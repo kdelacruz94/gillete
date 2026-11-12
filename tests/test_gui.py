@@ -826,6 +826,66 @@ def test_application_picker_matches_literal_app_ids_and_optional_titles(app):
     shiboken6.delete(picker)
 
 
+def test_rule_preview_explains_per_mouse_pins_matches_and_no_focused_window(app):
+    from gillete.gui_rule_preview import RulePreviewDialog
+    from gillete.profiles import Rule
+    from PySide6.QtCore import Qt
+    config = Configuration()
+    config.profiles['game'] = Profile('game', '<Game>')
+    config.profiles['work'] = Profile('work', 'Work')
+    config.pinned[MODELS[1]] = 'default'
+    config.rules = [Rule('game', app_class='wine', title='*Warcraft*', executable='*/Wow.exe', model=MODELS[0], priority=20),
+                    Rule('work', app_class='wine'), Rule('work', app_class='wine', priority=100, enabled=False)]
+    before = deepcopy(config.json())
+    dialog = RulePreviewDialog(config)
+    try:
+        dialog.set_windows([Window('0x1','wine','World of Warcraft <raid>','/games/Wow.exe')])
+        dialog.windows.setCurrentIndex(1)
+        assert '<Game> (rule 1, priority 20)' in dialog.results[MODELS[0]].text()
+        assert 'Default (manual pin)' in dialog.results[MODELS[1]].text()
+        assert 'Automatic would choose: Work (rule 2' in dialog.results[MODELS[1]].text()
+        assert dialog.results[MODELS[0]].textFormat() == Qt.TextFormat.PlainText
+        assert dialog.rules.item(0,3).text() == 'First automatic match'
+        assert dialog.rules.item(0,4).text() == 'Other mouse'
+        assert dialog.rules.item(1,3).text().startswith('Matches;')
+        assert dialog.rules.item(2,3).text() == 'Disabled'
+        dialog.fields['title'].setText('An unrelated program')
+        assert 'Work (rule 2' in dialog.results[MODELS[0]].text()
+        dialog.no_window.setChecked(True)
+        assert 'Default (default profile)' in dialog.results[MODELS[0]].text()
+        assert 'Default (manual pin)' in dialog.results[MODELS[1]].text()
+        assert not dialog.fields['title'].isEnabled()
+        assert config.json() == before
+        config.profiles['default'].name = 'Changed after opening'
+        config.rules.clear()
+        config.pinned[MODELS[0]] = 'work'
+        config.defaults[MODELS[0]] = 'work'
+        dialog.render()
+        assert 'Default (default profile)' in dialog.results[MODELS[0]].text()
+    finally:
+        shiboken6.delete(dialog)
+
+
+def test_rule_preview_keeps_manual_input_on_window_load_failure_or_oversized_details(app):
+    from gillete.gui_rule_preview import RulePreviewDialog
+    dialog = RulePreviewDialog(Configuration())
+    try:
+        dialog.fields['app_class'].setText('code')
+        dialog.request_windows()
+        assert not dialog.load_button.isEnabled()
+        dialog.windows_failed('No desktop session')
+        assert dialog.load_button.isEnabled() and 'Manual preview remains available' in dialog.window_status.text()
+        assert dialog.fields['app_class'].text() == 'code'
+        dialog.set_windows([])
+        assert dialog.windows.count() == 1 and 'No selectable windows' in dialog.window_status.text()
+        dialog.set_windows([Window('large','game','x'*65537)])
+        dialog.windows.setCurrentIndex(1)
+        assert dialog.windows.currentIndex() == 0 and dialog.fields['app_class'].text() == 'code'
+        assert 'exceed the preview limit' in dialog.window_status.text()
+    finally:
+        shiboken6.delete(dialog)
+
+
 def test_startup_preferences_preserve_external_profile_edits_and_do_not_activate(app, tmp_path, monkeypatch):
     from gillete import service
     async def forbidden(*args, **kwargs): raise AssertionError('Preferences must not send service commands')
@@ -1240,6 +1300,107 @@ def transfer_editor(app, tmp_path, monkeypatch):
         yield window, store, warnings
     finally:
         shiboken6.delete(window)
+
+
+def test_rule_preview_uses_unsaved_rows_without_mutating_or_saving_the_editor(transfer_editor,monkeypatch):
+    from gillete.gui_rule_preview import RulePreviewDialog
+    window,store,warnings = transfer_editor
+    before = store.path.read_bytes()
+    window.rules.item(0,1).setText('game*')
+    window.rules.item(0,5).setText('42')
+    original = deepcopy(window.config.json())
+    def inspect(dialog):
+        assert dialog.config.rules[0].app_class == 'game*' and dialog.config.rules[0].priority == 42
+        assert window.config.rules[0].app_class == 'code'
+        dialog.fields['app_class'].setText('game.exe')
+        assert 'rule 1, priority 42' in dialog.results[MODELS[0]].text()
+        assert window.application_job is None
+        return dialog.DialogCode.Rejected
+    monkeypatch.setattr(RulePreviewDialog,'exec',inspect)
+    window.preview_rules()
+    assert store.path.read_bytes() == before and window.config.json() == original
+    assert window.rules.item(0,1).text() == 'game*' and not warnings
+
+
+@pytest.mark.parametrize('invalid',['priority','condition','profile'])
+def test_invalid_unsaved_rules_cannot_open_a_misleading_preview(transfer_editor,monkeypatch,invalid):
+    from gillete.gui_rule_preview import RulePreviewDialog
+    window,store,warnings = transfer_editor
+    before = store.path.read_bytes()
+    original = window.config.json()
+    if invalid == 'priority': window.rules.item(0,5).setText('not an integer')
+    elif invalid == 'condition': window.rules.item(0,1).setText('')
+    else: window.rules.cellWidget(0,0).setCurrentIndex(-1)
+    def unexpected(*_): raise AssertionError('Invalid rules must not open the preview')
+    monkeypatch.setattr(RulePreviewDialog,'exec',unexpected)
+    window.preview_rules()
+    assert len(warnings) == 1 and 'Rule 1:' in warnings[0]
+    assert store.path.read_bytes() == before and window.config.json() == original
+
+
+@pytest.mark.parametrize('failure',[False,True])
+def test_rule_preview_loads_running_windows_through_a_read_only_worker(transfer_editor,monkeypatch,app,failure):
+    from gillete import gui
+    from gillete.gui_rule_preview import RulePreviewDialog
+    window,store,warnings = transfer_editor
+    before = store.path.read_bytes()
+    calls=[]
+    async def windows():
+        calls.append(True)
+        if failure: raise RuntimeError('Desktop query failed')
+        return [Window('0x1','code','Document','/usr/bin/code')]
+    monkeypatch.setattr(gui,'query_windows',windows)
+    def inspect(dialog):
+        dialog.request_windows()
+        worker=window.application_job
+        assert worker is not None and worker.wait(2000)
+        app.processEvents()
+        assert dialog.load_button.isEnabled() and window.application_job is None
+        if failure:
+            assert 'Desktop query failed' in dialog.window_status.text()
+        else:
+            assert dialog.windows.count() == 2
+            dialog.windows.setCurrentIndex(1)
+            assert dialog.fields['app_class'].text() == 'code'
+            assert 'rule 1' in dialog.results[MODELS[0]].text()
+        return dialog.DialogCode.Rejected
+    monkeypatch.setattr(RulePreviewDialog,'exec',inspect)
+    window.preview_rules()
+    assert calls == [True] and not warnings and store.path.read_bytes() == before
+
+
+def test_closing_rule_preview_during_window_query_keeps_worker_until_it_finishes(transfer_editor,monkeypatch,app,capsys):
+    import threading
+    from PySide6.QtCore import QCoreApplication,QEvent
+    from gillete import gui
+    from gillete.gui_rule_preview import RulePreviewDialog
+    window,store,warnings = transfer_editor
+    before=store.path.read_bytes()
+    release=threading.Event()
+    dialogs=[]
+    async def windows():
+        release.wait(2)
+        return [Window('0x1','code','Document')]
+    monkeypatch.setattr(gui,'query_windows',windows)
+    def close_early(dialog):
+        dialogs.append(dialog)
+        dialog.request_windows()
+        return dialog.DialogCode.Rejected
+    monkeypatch.setattr(RulePreviewDialog,'exec',close_early)
+    worker=None
+    try:
+        window.preview_rules()
+        worker=window.application_job
+        assert worker is not None
+        QCoreApplication.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+        assert not shiboken6.isValid(dialogs[0])
+    finally:
+        release.set()
+        if worker is not None: assert worker.wait(2000)
+        app.processEvents()
+    assert window.application_job is None and window.application_button.isEnabled()
+    assert not warnings and store.path.read_bytes() == before
+    assert 'deleted' not in capsys.readouterr().err
 
 
 def test_duplicate_keeps_unsaved_rules_and_saves_copied_rules_disabled(transfer_editor):
