@@ -359,7 +359,13 @@ GUI and hardware entry points reject saved-state writes/recovery; device-setting
 software actions are explicitly unavailable. Owned mode recovery checks the
 requested journal and cannot use a different active lease. No normal main-profile
 service was enabled and no startup/migration occurred during integration. Wired
-standalone writes, native macro persistence and wider lifecycle remain pending.
+native macro persistence and wider lifecycle remain pending. The separate
+normal-side12 F24 experiment subsequently passed a physical tap and exact
+restoration. A power/cable follow-up read retained F24 and unchanged protected
+state after actual re-enumeration, but a second disconnect interrupted input
+observation. Dedicated recovery then verified the original state at 1600 DPI.
+The full retention/action test needs a repeat; ordinary onboard writes remain
+gated. See the latest dated entries in `progress.md` for the evidence limits.
 
 ### V3 profiles: capacity is not assignment or selection
 

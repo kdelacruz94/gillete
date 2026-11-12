@@ -167,8 +167,6 @@ def run(directory):
     prepared=read_journal(directory/'prepared.json');validate(prepared)
     root=directory/'run';root.mkdir(mode=0o700)
     def opening():
-        if not any(d.product_id==wired.PRODUCT for d in backend.discover()):
-            raise DeviceUnavailable('Waiting for the wired cable to return')
         device=base.selected()
         if device.usb_path!=prepared['usb_route']['usb_path']: raise ProtocolError('Wired route differs')
         return base.TestHID(backend.node(device),prepared,root/'binding.json')

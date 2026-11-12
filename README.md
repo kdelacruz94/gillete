@@ -692,8 +692,14 @@ After interruption, retain the directory and use the module's `recover`
 operation once the wired mouse is connected again. Current unrelated edits are
 preserved; a changed target is not overwritten. Raw USB evidence establishes
 re-enumeration, while the physical off/on sequence needs the user's confirmation.
-It does not identify NVM technology or prove battery-removal retention. This
-retention experiment has not run; normal wired onboard saves remain gated.
+It does not identify NVM technology or prove battery-removal retention. The first
+development attempt read back retained F24 after reconnection, then lost the
+device during key observation when a second USB disconnect occurred. No F24
+press was recorded. A later dedicated recovery restored the original binding,
+normal mode and complete captured state at 1600 DPI. The full acceptance test
+needs a repeat; normal wired onboard saves remain gated. Disappearance during
+device selection uses the existing bounded getter retries, while a receiver or
+ambiguous V3 transport is rejected without retrying or replaying a setter.
 
 Service CLI commands:
 

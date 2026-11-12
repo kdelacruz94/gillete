@@ -1,10 +1,12 @@
 from contextlib import contextmanager
+from dataclasses import replace
 import errno
 
 import pytest
 
 from gillete import wired_binding_replug as replug
 from gillete.hardware import read_journal
+from gillete.onboard import durable_json
 from gillete.protocol import ProtocolError
 from test_wired_binding_probe import experiment
 from test_wired_backend import connected
@@ -102,3 +104,63 @@ def test_same_enumeration_without_removal_cannot_count_as_retention(experiment):
                         wait=wait,now=lambda:clock[0])
     assert functions[0]==original and len(mouse.writes)==2
     assert not read_journal(root/'result.json')['usb_disconnect_observed']
+
+
+@pytest.mark.parametrize('missing_at',[1,2])
+def test_recovery_retries_disappearance_during_selection_or_descriptor_lookup(experiment,monkeypatch,missing_at):
+    device,_,_,_,_,_=experiment
+    mouse,functions,prepared,root,_=plan(experiment)
+    original=functions[0]
+    device.usb_path=prepared['usb_route']['usb_path']
+    durable_json(root.parent/'prepared.json',prepared)
+    root.rmdir()
+    recovering=[]
+    discovery_calls=[]
+    def discover():
+        if recovering:
+            discovery_calls.append(True)
+            if len(discovery_calls)==missing_at: return []
+        return [device]
+    class Observer:
+        def __init__(self,*_): pass
+        def __enter__(self): return self
+        def __exit__(self,*_): pass
+        def arm(self): pass
+        def observe(self,*_):
+            recovering.append(True)
+            raise OSError(errno.ENODEV,'No such device')
+    responsive=replug.responsive
+    def without_delay(*args,**kwargs):
+        return responsive(*args,**{**kwargs,'wait':lambda _:None})
+    monkeypatch.setattr(replug.backend,'discover',discover)
+    monkeypatch.setattr(replug,'route',loop(prepared))
+    monkeypatch.setattr(replug,'responsive',without_delay)
+    monkeypatch.setattr(replug.base,'WiredObserver',Observer)
+    with pytest.raises(ProtocolError,match='test-failed-restored'):
+        replug.run(root.parent)
+    result=read_journal(root/'result.json')
+    assert result['original_state_restored'] and not result['physical_press_observed']
+    assert functions[0]==original
+    assert [c.payload[3:] for c in mouse.writes]==[replug.base.TARGET,original]
+
+
+@pytest.mark.parametrize('connected_routes',['receiver','both'])
+def test_wrong_or_ambiguous_v3_transport_is_rejected_without_retry(experiment,monkeypatch,connected_routes):
+    device,_,_,_,_,_=experiment
+    mouse,_,prepared,root,_=plan(experiment)
+    durable_json(root.parent/'prepared.json',prepared)
+    root.rmdir()
+    receiver=replace(device,product_id=0xE8,transport='2.4 GHz')
+    calls=[]
+    def discover():
+        calls.append(True)
+        return [receiver] if connected_routes=='receiver' else [device,receiver]
+    responsive=replug.responsive
+    def without_delay(*args,**kwargs):
+        return responsive(*args,**{**kwargs,'wait':lambda _:None})
+    monkeypatch.setattr(replug.backend,'discover',discover)
+    monkeypatch.setattr(replug,'route',lambda:prepared['usb_route'])
+    monkeypatch.setattr(replug,'responsive',without_delay)
+    with pytest.raises(ProtocolError,match='Use only the wired V3'):
+        replug.run(root.parent)
+    assert len(calls)==1 and not mouse.writes

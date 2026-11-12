@@ -43,11 +43,15 @@ Saved-state writes remain excluded. No main-profile service, startup preference
 or migration was enabled. The owner approved and completed the first saved-binding
 test at `evidence/v3-wired-binding-20261111-01.local`: F24 down/up was observed
 and the original mapping/complete captured state was restored at 1600 DPI.
-No retention cycle was part of that run. A fresh getter-only power/cable retention
-proposal at `evidence/v3-wired-binding-replug-20261111-02.local` has no run directory.
-It repeats only normal side12 -> F24, asks for off/unplug/wait/on/replug and a
-tap, and restores the original. This new test is not approved yet; keep the
-V3 at 1600 DPI and leave the V2/input-remapper unchanged.
+No retention cycle was part of that run. The owner then approved and reported
+completing the power/cable test at `evidence/v3-wired-binding-replug-20261111-02.local`.
+It observed a disconnect/new enumeration and retained F24/protected state, but
+a second disconnect ended input observation without F24. Its original failed
+result remains intact. Dedicated recovery exited0 and independently verified the
+original binding, normal mode and complete captured state at 1600 DPI. No owned
+test or recovery remains running. The getter-only retry proposal `.03.local`
+has no run directory; await the owner's readiness for the same physical sequence.
+Keep the V3 at 1600 DPI and leave the V2/input-remapper unchanged.
 
 The current offline change extends the V3 receiver's Keep stored bridge to
 balanced once-only keyboard sequences and counted single-key bodies, preserving
@@ -2834,3 +2838,50 @@ All 933 packaged-source checks also pass, including the retention runner's
 shipped tests, isolated Arch launcher/GUI and separate wheel CLI installation.
 No package was installed on the host. Final archives are rebuilt after this
 handoff update; source-module bytes are checked against the checkout.
+
+## Wired retention interrupted, recovered; discovery race fixed — 2026-11-11
+
+The owner approved `evidence/v3-wired-binding-replug-20261111-02.local/run` and
+confirmed the complete off/unplug/wait/on/reconnect/tap sequence. The runner
+observed removal and a new USB address on the same port. Fresh getters verified
+retained F24 in active/stored views and unchanged protected state, including
+1600 DPI. The runner then lost the input device before observing F24. Kernel
+records confirm a second disconnect about 70 seconds after the first device
+returned; why that second disconnect occurred is unknown. The reported tap is
+preserved separately in `run/user-report.json` and cannot substitute for the
+missing captured key pair. The full physical retention/action result is
+inconclusive. Ordinary wired onboard saves remain gated.
+
+The original attempt exited1 with a recovery-required result, one recorded
+candidate setter and no malformed reports. Recovery initially lacked a wired
+route. After the cable returned, the dedicated `wired_binding_replug recover`
+exited0, restored the original side12 binding and verified the complete baseline,
+normal mode and 1600 DPI. `run/recovery.json` records saved_state_unchanged true;
+the binding journal is restored-readback-verified. The original failed result
+is retained, with the later recovery record superseding its pending-recovery
+state. No owned process remains running, and V2/input-remapper stayed unchanged.
+
+A deterministic regression through the actual runner reproduced an additional
+software failure: disappearance between the presence check and selection raised
+a permanent ProtocolError, bypassing the existing bounded getter readiness
+retry. The original regression failed twice in under a second. Empty V3
+selection now raises DeviceUnavailable, and the cable opener selects once before
+fresh descriptor/identity validation. Retry covers absence at selection and
+descriptor lookup; receiver-only and ambiguous routes still fail immediately.
+The original failed key capture remains a failed test, and uncertain setters are
+never replayed. This fixes recovery classification, not the unknown cause of
+the second physical USB disconnect. All 29 focused binding/retention checks pass.
+
+A fresh getter-only retry proposal is ready at
+`evidence/v3-wired-binding-replug-20261111-03.local`, with normal mode and 1600 DPI.
+It has no run directory and repeats the same already-approved single-binding
+scope and physical sequence. Await the owner's readiness before starting the
+next timed physical window. No startup, source-profile activation or migration
+change occurred.
+
+Validation: all 1,185 automated tests and 937 packaged-source checks pass.
+The regression covers the actual run/cleanup call chain, with absence at either
+selection or descriptor lookup and receiver-only/ambiguous routes. Packaged Arch
+launcher/GUI and independent wheel installation/CLI checks pass. Final archives
+include these notes; every shipped Python module is compared with the checkout.
+Nothing was installed on the host, and no retry write has run.

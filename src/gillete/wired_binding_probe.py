@@ -11,7 +11,7 @@ from .hardware import read_journal
 from .hid import BindingHID, ReadOnlyHID
 from .native_macro_observer import Observer
 from .onboard import Location, Programmer, durable_json
-from .protocol import ProtocolError
+from .protocol import DeviceUnavailable, ProtocolError
 from .service import socket_path
 from .wired_transport import read_state
 
@@ -86,6 +86,8 @@ class WiredObserver(Observer):
 
 def selected():
     devices = [d for d in backend.discover() if d.model == 'naga_v3_pro']
+    if not devices:
+        raise DeviceUnavailable('Wired V3 disappeared during discovery; waiting for USB reconnection')
     if len(devices) != 1 or devices[0].product_id != wired.PRODUCT:
         raise ProtocolError('Use only the wired V3 transport for this experiment')
     return devices[0]
