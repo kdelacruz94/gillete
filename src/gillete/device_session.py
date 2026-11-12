@@ -39,8 +39,9 @@ def retryable_session_error(error):
 
 
 class DeviceSession:
-    def __init__(self, device, coordinator, state, pin_profile, *, trace_controls=False):
+    def __init__(self, device, coordinator, state, pin_profile, *, trace_controls=False, hardware=None):
         self.device, self.coordinator = device, coordinator
+        self.hardware = hardware
         self.state, self.pin_profile = state, pin_profile
         self.stop_requested = asyncio.Event()
         self.ready = False
@@ -59,6 +60,12 @@ class DeviceSession:
         self.needs_mode_check = False
         from .control_trace import ControlTrace
         self.input_trace = ControlTrace() if trace_controls else None
+
+    def inspect_mouse(self):
+        return (self.hardware.inspect if self.hardware else inspect)(self.device)
+
+    def open_transport(self):
+        return (self.hardware.transport if self.hardware else transport)(self.device)
 
     def current_input(self, generation):
         return (self.engine is not None and generation == self.engine.generation
@@ -97,7 +104,8 @@ class DeviceSession:
                     raw = os.read(fd, 4096)
                 if not raw:
                     raise DeviceUnavailable('Mouse input disconnected')
-                frame = decode(self.device.model, self.fds[fd], raw)
+                decoder = self.hardware.decode if self.hardware else decode
+                frame = decoder(self.device.model, self.fds[fd], raw)
                 if frame is not None:
                     self.frames.put_nowait((time.monotonic(), self.engine.generation, frame))
                 else:
@@ -181,7 +189,7 @@ class DeviceSession:
                 continue
             if document.get('product') != self.device.product_id:
                 continue
-            with transport(self.device) as io:
+            with self.open_transport() as io:
                 if io.device_serial() == document.get('serial'):
                     ModeLease(io, path).restore()
 
@@ -273,7 +281,7 @@ class DeviceSession:
         attached = False
         try:
             await self.hardware_call(self.recover_previous_mode)
-            self.snapshot = await self.hardware_call(inspect, self.device)
+            self.snapshot = await self.hardware_call(self.inspect_mouse)
             stored, _ = from_snapshot(self.snapshot)
             # Create the engine with a fake-free output only after preflight.
             profile = self.coordinator.config.select(self.device.model, self.coordinator.window)
@@ -293,7 +301,7 @@ class DeviceSession:
             await self.output.prepare_keyboard()
             if self.stop_requested.is_set():
                 return
-            self.io = transport(self.device)
+            self.io = self.open_transport()
             self.io.__enter__()
             if await self.hardware_call(self.io.device_serial) != self.snapshot.serial:
                 raise ProtocolError('Mouse identity changed after inspection')

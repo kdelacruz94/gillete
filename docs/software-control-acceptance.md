@@ -168,3 +168,41 @@ independently rechecked RUNNING through the existing daemon proxy. Preset,
 config and xmodmap file hashes match their pre-stop values. Other devices were
 not stopped, and no preset/autostart file or permanent mouse setting was changed.
 This temporary coexistence test is not a production migration.
+
+## Wired V3 isolated acceptance path
+
+The separate 2026-11-11 wired raw capture identified all 25 controls and two
+simultaneous holds, with normal mode and saved state restored at 1600 DPI.
+It did not generate virtual keys or claim software HyperShift acceptance.
+
+`gillete.wired_acceptance prepare --capture <completed-wired-capture> --directory <new-directory>`
+requires the completed capture, matching before/after getter snapshots and
+restored mode journal. It replays the reports and requires all controls,
+both requested combinations and no held controls. Preparation then reads a
+fresh normal-mode snapshot using only getters already proven on wired E7.
+Firmware/serial and the tested assigned slot must match. It builds the same
+50-tap controls recipe with an isolated configuration, without activating it.
+
+After separate approval, `gillete.wired_acceptance run --directory <directory>`
+uses an adapter-specific daemon with this exact configuration and journal root.
+It takes input ownership and generates markers for up to 600 seconds; Escape
+ends the pad. Its runtime decoder enforces wired lengths/report IDs, rejecting
+receiver-only notifications. Its hardware transport permits only proven getters
+and normal/driver mode setters backed by exactly one active owned journal.
+Saved binding, macro, DPI, wheel and profile setters are rejected even during
+driver mode. Device-setting/unknown stored fallback actions are masked by the
+reviewed proposal. The V2 and main profiles/remapper configuration are untouched.
+Keep the V3 receiver disconnected for this software test.
+
+The same source/Qt matcher, readiness/epoch fencing, cleanup and independent
+receipt replay apply. Restoration compares the 50 known stored descriptors,
+slot, saved settings and firmware; it does not compare all flash or unsupported
+macro bodies. After interruption, with software control stopped, use
+`gillete.wired_acceptance recover --directory <directory>`. Recovery permits
+new enumeration only with matching raw descriptors, serial and firmware. It
+restores owned mode journals and compares the saved snapshot, preserving any
+unrelated differences. It does not start input control or generate keys.
+
+This isolated path leaves ordinary E7 application configuration/activation and
+onboard saves gated. The guided wired software test has not run yet; standalone
+writes/persistence and disconnect/reload/suspend lifecycle need separate evidence.

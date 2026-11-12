@@ -1,4 +1,4 @@
-"""Prepare/review, then run a bounded receiver software acceptance test."""
+"""Prepare/review, then run a bounded software acceptance test."""
 
 import argparse
 import asyncio
@@ -21,6 +21,16 @@ from .validation_plan import PRODUCT_MODELS, assert_unchanged, bind_window, buil
 from . import control_validation
 
 
+class Hardware:
+    """Default receiver adapter; experiments supply their own guarded adapter."""
+    def connected(self, product): return connected(product)
+    def inspect(self, device, bank=None): return inspect(device, bank) if bank is not None else inspect(device)
+    def transport(self, device): return transport(device)
+    def daemon_command(self, config_path, suite):
+        return [sys.executable, '-m', 'gillete.cli', '--config', str(config_path), 'daemon',
+                *(['--trace-controls'] if suite == 'controls' else [])]
+
+
 def plan(snapshot, suite):
     if suite == 'examples': return build(snapshot)
     if suite == 'controls': return control_validation.build(snapshot)
@@ -34,14 +44,15 @@ def connected(product):
     return matches[0]
 
 
-def prepare(product, directory, *, suite='examples'):
+def prepare(product, directory, *, suite='examples', hardware=None):
+    hardware = hardware or Hardware()
     if suite not in ('examples', 'controls'):
         raise ValueError('Unknown software acceptance suite')
     if directory.exists():
         raise ValueError('Choose a new acceptance-test directory')
     if socket_path().exists():
         raise RuntimeError('Stop the existing Gillete service before preparing the isolated test')
-    before = inspect(connected(product))
+    before = hardware.inspect(hardware.connected(product))
     if any(name not in before.settings for name in SPECS):
         raise RuntimeError('Could not read all saved settings; wake the mouse and prepare again')
     config, overrides = plan(before, suite)
@@ -127,16 +138,17 @@ def control_packet(status, model, device, nonce, address):
     return packet
 
 
-def recover_mode(device, before, state):
+def recover_mode(device, before, state, *, hardware=None):
+    hardware = hardware or Hardware()
     for path in sorted(state.glob('mode-*.json')):
         document = read_journal(path)
         if (document.get('serial') == before.serial and document.get('product') == before.product
                 and document.get('kind') == 'driver-mode' and document.get('status') != 'normal-mode-restored'):
-            with transport(device) as io:
+            with hardware.transport(device) as io:
                 ModeLease(io, path).restore()
 
 
-async def cleanup(directory, daemon, pad, config_path, device, before, samples):
+async def cleanup(directory, daemon, pad, config_path, device, before, samples, *, hardware=None):
     """Restoration must run even when a process or evidence write fails."""
     notes, errors = [], []
     if daemon is not None and daemon.returncode is None:
@@ -155,8 +167,8 @@ async def cleanup(directory, daemon, pad, config_path, device, before, samples):
     try:
         if daemon is not None and daemon.returncode is None:
             raise RuntimeError('Service is still alive; retain the mode recovery journal')
-        await asyncio.to_thread(recover_mode, device, before, directory / 'state/gillete/onboard')
-        after = await asyncio.to_thread(inspect, device, before.bank)
+        await asyncio.to_thread(recover_mode, device, before, directory / 'state/gillete/onboard', hardware=hardware)
+        after = await asyncio.to_thread((hardware or Hardware()).inspect, device, before.bank)
         assert_unchanged(before, after)
         restored = True
     except Exception as error:
@@ -177,7 +189,8 @@ async def cleanup(directory, daemon, pad, config_path, device, before, samples):
         raise RuntimeError('; '.join(errors) + f'. Retain test data in {directory}')
 
 
-async def run(directory, seconds):
+async def run(directory, seconds, *, hardware=None):
+    hardware = hardware or Hardware()
     if not 30 <= seconds <= 600:
         raise ValueError('Duration must be 30..600 seconds')
     directory = directory.resolve()
@@ -195,8 +208,8 @@ async def run(directory, seconds):
         raise ValueError('Prepared test lacks original saved settings')
     if socket_path().exists():
         raise RuntimeError('Stop the existing Gillete service before the isolated test')
-    device = connected(before.product)
-    current = await asyncio.to_thread(inspect, device, before.bank)
+    device = hardware.connected(before.product)
+    current = await asyncio.to_thread(hardware.inspect, device, before.bank)
     assert_unchanged(before, current)
     # Atomic claim prevents two controllers from sharing a config identity or
     # reusing stale readiness/evidence files after an interrupted run.
@@ -239,9 +252,7 @@ async def run(directory, seconds):
             config, before.model, window['class'], title)
         ProfileStore(config_path).save(config, expected_revision=0)
         env = {**os.environ, 'XDG_STATE_HOME': str(directory / 'state')}
-        daemon = await asyncio.create_subprocess_exec(sys.executable, '-m', 'gillete.cli',
-                         '--config', str(config_path), 'daemon',
-                         *(['--trace-controls'] if suite == 'controls' else []), env=env)
+        daemon = await asyncio.create_subprocess_exec(*hardware.daemon_command(config_path, suite), env=env)
 
         async def command(name, **kwargs):
             check_running(stop, pad, daemon)
@@ -309,7 +320,7 @@ async def run(directory, seconds):
         pass
     finally:
         try:
-            await cleanup(directory, daemon, pad, config_path, device, before, samples)
+            await cleanup(directory, daemon, pad, config_path, device, before, samples, hardware=hardware)
         finally:
             for sig, handler in previous_handlers.items():
                 loop.remove_signal_handler(sig)
@@ -333,7 +344,7 @@ async def run(directory, seconds):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=('prepare', 'run'))
-    parser.add_argument('--product', type=lambda x: int(x, 16), choices=tuple(PRODUCT_MODELS))
+    parser.add_argument('--product', type=lambda x: int(x, 16), choices=(0xB4, 0xE8))
     parser.add_argument('--directory', type=Path, required=True)
     parser.add_argument('--seconds', type=int, default=300)
     parser.add_argument('--suite', choices=('examples', 'controls'), help='Select the plan when preparing; default examples')

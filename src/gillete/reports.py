@@ -1,8 +1,8 @@
-"""Physical controls from B4/E8 receiver reports in verified driver mode.
+"""Physical controls from verified B4/E8 receiver and E7 wired driver reports.
 
 Both receiver control inventories were captured locally on the 12-button sides.
-Similar E7 wired report sizes do not establish its physical button correlations;
-wired driver-mode activation remains gated independently of these decoders.
+E7 wired controls were separately captured on 2026-11-11. Its decoder enforces
+the wired report layout; normal wired activation and saves remain gated.
 """
 
 from dataclasses import dataclass
@@ -29,6 +29,14 @@ TRANSLATED = {0x68: 'dpi_up', 0x69: 'dpi_down', 0x6A: 'wheel_tilt_left', 0x6B: '
 BUTTONS = {1: 'left_click', 2: 'right_click', 4: 'wheel_click',
            0x20: 'wheel_tilt_left', 0x40: 'wheel_tilt_right'}
 V3_ONLY = {'ring_finger', 'top_front', 'top_rear', 'profile_button'}
+
+
+def decode_wired(model, interface, raw):
+    if (model != MODELS[1] or interface not in ('00', '01', '02')
+            or len(raw) != (16 if interface == '01' else 8)
+            or interface == '01' and raw[0] not in range(1, 6)):
+        raise ProtocolError('Input does not match the captured V3 wired report layout')
+    return decode(model, interface, raw)
 
 
 def mapped(usages, mapping, model):

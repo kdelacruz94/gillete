@@ -1,4 +1,4 @@
-"""Complete receiver control/layer recipe and strict, inert evidence matching."""
+"""Complete control/layer recipe and strict, inert evidence matching."""
 
 from copy import deepcopy
 import math

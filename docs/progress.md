@@ -2614,3 +2614,66 @@ status label; it now checks the live getter evidence without enabling activation
 All813 packaged-source checks, staged Arch/wheel paths, isolated GUI and CLI
 checks pass. Nothing was installed on the host. The retained live proposal was
 revalidated against current USB metadata without opening HID or creating a run.
+
+## V3 wired controls captured; isolated software acceptance implemented — 2026-11-11
+
+The owner approved the three-minute wired mode/input capture and confirmed the
+requested sequence. `evidence/v3-wired-capture-20261111-01.local/run` completed
+with exit0. All 78 retained reports replay through the strict wired decoder:
+all 25 controls have complete press/release or wheel pairs; ring+side12 and
+left+side1 holds cross interfaces correctly, and no controls remain held.
+Extra clicks/scrolls remain in the trace. Interface00 tilt bits20/40 and wheel
+signs, interface01 vendor buttons and interface02 side usages agree with the
+receiver decoder on the observed hid-generic binding. Receiver-only report IDs
+are explicitly rejected by the new wired decoder.
+
+The mode journal is normal-mode-restored. Before/after verification confirms
+the same known active/stored descriptors, inventory, slot, firmware and saved
+settings, including 1600×1600 DPI. Health records 331 exchanges/replies, zero
+malformed reports and exactly two setting commands: enter and restore mode.
+No binding, macro, DPI, polling or profile setter was admitted; no input grab
+or virtual output was used. The V2 and input-remapper were untouched.
+
+The full private trace and a 58-report excerpt independently replay to the same
+control/combination coverage. The bundled excerpt contains original input bytes
+with rebased times, public descriptors and provenance; private hardware identity,
+device paths and saved assignments are excluded. This is physical wired input
+evidence, not software HyperShift/key delivery or standalone write acceptance.
+
+`gillete.wired_acceptance` implements the next isolated 50-tap software test.
+The existing receiver controller/session/daemon accept an explicit adapter;
+their defaults and normal E7 configuration gate remain unchanged. The wired
+adapter requires successful capture/restoration proof, only the cable transport,
+matching serial/firmware and the tested assigned slot. It reads only proven
+getters, uses the strict wired decoder and an isolated mode-only transport.
+That transport requires exactly one active owned journal for each mode setter
+and rejects all saved-state setters even in driver mode. The daemon is bound
+to its run's configuration and journal directory and cannot enable the V2.
+
+After separate approval, the same guided window/source/Qt matcher can exercise
+all 50 normal/HyperShift pairs, including trigger rotation. It takes mouse
+input ownership and generates virtual markers, so the earlier capture approval
+does not authorize running it. Cleanup verifies the 50 known stored descriptors,
+slot, settings and firmware. Explicit recovery supports new enumeration with
+matching raw descriptors, serial and firmware, restores owned mode alone and
+reports/preserves unrelated changes. Ordinary wired activation, onboard writes
+and lifecycle acceptance remain gated.
+
+Read-only preparation completed at `evidence/v3-wired-controls-20261111-01.local`
+with no run directory. Its fresh snapshot reports 3200 DPI/stage4, after the
+capture cleanup verified 1600 DPI/stage3. The stage values, stored bindings,
+firmware, serial and polling are otherwise unchanged. No cause is inferred;
+no DPI setter was used. The owner was asked whether to keep 3200 or return to
+1600 with the mouse buttons. Keep this actual snapshot intact; a changed DPI
+requires a fresh proposal rather than replacing current settings. No wired
+software test or normal application control has started.
+
+Validation: all 1,126 automated tests pass, including 27 new wired acceptance
+cases. Tests replay the physical trace through the real router/engine, verify
+factory/adapter selection and reject stale settings before any subprocess.
+They also cover missing controls/releases/combinations, invalid layouts and
+identity/proof, unowned/ambiguous journals, forbidden setters, recovery after
+replug, mismatched live firmware/serial, wrong config/state roots and preserving
+external DPI changes. All existing receiver controller/session checks pass.
+All 878 packaged-source checks, staged Arch/wheel paths, isolated GUI and CLI
+checks pass. No host installation, migration or startup change occurred.

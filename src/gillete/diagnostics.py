@@ -134,10 +134,14 @@ def feature_validation(product):
         return [Finding('Wired read-only inspection', 'Live reads passed',
                         'Development cable interface00 returned unchanged firmware, inventory, bindings and settings. '
                         'This is getter evidence only.'),
-                Finding('Wired controls and HyperShift', 'Capture prepared',
-                        'A separately approved temporary driver-mode capture is prepared; wired button reports remain unverified.'),
-                Finding('Wired saves and software control', 'Unavailable',
-                        'Normal application activation and writes remain gated until wired testing passes.')]
+                Finding('Wired physical controls', 'Captured on device',
+                        'All 25 controls and two simultaneous button combinations were captured with hid-generic. '
+                        'Normal mode and unchanged saved state were verified afterward.'),
+                Finding('Wired software control and HyperShift', 'Test prepared',
+                        'An isolated 50-tap test is prepared; virtual-key delivery and both layers still need live acceptance. '
+                        'Normal application activation remains gated.'),
+                Finding('Wired onboard saves', 'Unavailable',
+                        'Wired binding writes, native macros and standalone persistence still need separate hardware testing.')]
     count = 21 if product == 0xB4 else 25
     return [Finding('Physical controls', 'Captured on device',
                     f'All {count} controls were identified on the development receiver. '

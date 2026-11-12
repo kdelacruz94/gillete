@@ -10,7 +10,7 @@ from .shortcuts import friendly_key
 
 
 RETIRED_V2_MACROS = frozenset({'side_1', 'side_2', 'side_4', 'side_10'})
-PRODUCT_MODELS = {0xB4: MODELS[0], 0xE8: MODELS[1]}
+PRODUCT_MODELS = {0xB4: MODELS[0], 0xE8: MODELS[1], 0xE7: MODELS[1]}
 
 
 def controls(model):
@@ -37,7 +37,7 @@ def build(snapshot):
     """
     model = snapshot.model
     if PRODUCT_MODELS.get(snapshot.product) != model or snapshot.bank != snapshot.active:
-        raise ValueError('Software validation requires an active slot on a verified receiver')
+        raise ValueError('Software validation requires an active slot on a verified input transport')
     expected = {Location(snapshot.bank, c, layer) for c in CONTROL_IDS[model].values() for layer in (0, 1)}
     if (set(snapshot.records) != expected or not set(CONTROL_IDS[model].values()) <= snapshot.controls
             or any(len(raw) != 10 or raw[:2] != bytes((where.bank, where.control)) or raw[2] not in (0, 1)

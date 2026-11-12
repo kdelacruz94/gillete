@@ -591,6 +591,36 @@ and serial. It restores normal mode alone and reports other state differences
 without replacing current settings. The main app's wired activation and saves
 remain disabled until their own acceptance tests pass.
 
+The development wired capture passed on 2026-11-11: all 25 controls and the
+ring+side12/left+side1 holds were observed, followed by verified normal mode
+and unchanged saved state at 1600 DPI. A sanitized input excerpt is bundled
+with source tests. This earns physical report coverage, while live generated
+keys and software HyperShift still need their own test:
+
+```bash
+python -m gillete.wired_acceptance prepare --capture evidence/v3-wired-capture1.local --directory evidence/v3-wired-controls1.local
+# After separate approval for input ownership and virtual-key generation:
+python -m gillete.wired_acceptance run --directory evidence/v3-wired-controls1.local
+```
+
+Preparation is getter-only and opens no window or input grab. For software
+testing, connect only the V3 cable transport; unplug its receiver if present.
+The V2 stays available. The isolated window guides 50 taps over both layers,
+including the HyperShift trigger through an alternate trigger, for up to ten
+minutes. F13–F24 markers with Shift/Ctrl/Alt may reach desktop shortcuts.
+Escape stops the test. Cleanup restores normal mode and checks the 50 captured
+stored descriptors, settings, assigned slot and firmware. No native object,
+binding, DPI, polling or wheel setter is permitted. Unknown stored actions and
+device-setting actions are temporarily masked outside the pad too, as listed
+in the proposal; main profiles and input-remapper stay untouched.
+
+After interruption, stop software control before running
+`python -m gillete.wired_acceptance recover --directory evidence/v3-wired-controls1.local`.
+Recovery accepts fresh nodes after replug only with matching descriptors,
+serial and firmware, restores only owned mode journals and verifies the saved
+snapshot without repairing unrelated state changes. Retain all evidence if
+verification fails. Main-app wired activation and onboard saving stay gated.
+
 Service CLI commands:
 
 ```bash

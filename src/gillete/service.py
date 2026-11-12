@@ -29,8 +29,9 @@ def socket_path():
 
 
 class Daemon:
-    def __init__(self, store, *, trace_controls=False):
+    def __init__(self, store, *, trace_controls=False, session_factory=None):
         self.store = store
+        self.session_factory = session_factory
         self.trace_controls = trace_controls
         self.coordinator = ProfileCoordinator(store.read())
         self.focus = HyprlandWatcher(self.coordinator)
@@ -229,7 +230,7 @@ class Daemon:
             if len(matches) != 1:
                 self.errors[model] = 'Connect exactly one transport for this mouse' if matches else 'Mouse not connected'
                 continue
-            session = DeviceSession(matches[0], self.coordinator, journal_directory(), self.pin,
+            session = (self.session_factory or DeviceSession)(matches[0], self.coordinator, journal_directory(), self.pin,
                                     trace_controls=self.trace_controls)
             self.sessions[model] = session
             self.tasks[model] = asyncio.create_task(session.run())

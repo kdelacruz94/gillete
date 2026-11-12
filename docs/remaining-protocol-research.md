@@ -317,15 +317,34 @@ not read. DPI remained1600×1600, with unchanged stages and ordinary polling
 readback01. This does not establish polling cadence, any setter, native macro
 execution or driver-mode input behavior.
 
-An offline-tested `gillete.wired_capture` proposal is prepared at
-`evidence/v3-wired-capture-20261111-01.local`. Its separate command guard allows
-only journaled driver/normal mode changes plus the proven getters. A fresh full
-snapshot must match before taking ownership. Cleanup restores normal mode and
-compares the same captured saved state; recovery checks fresh nodes, raw
-descriptors, firmware and serial after a replug. It never repairs changed DPI
-or writes assignments. No wired mode change or input capture has run yet;
-that requires separate owner approval. Normal wired software activation and
-saves remain gated.
+The owner separately approved the temporary driver-mode capture at
+`evidence/v3-wired-capture-20261111-01.local`. It completed with exit0 after
+the owner confirmed the requested sequence. Its 78 retained reports decode to
+all 25 controls with complete down/up or wheel pairs and both cross-interface
+holds: ring+side12 and left+side1. No controls remain held. Wheel signs, tilt
+bits20/40, vendor codes20/21/54/d2/59/50 and side usages1e..27/2d/2e match the
+receiver decoder on this hid-generic unit. This is physical input evidence;
+it does not establish host HyperShift mappings or native HyperShift execution
+over the cable. The trace includes a few extra clicks/scrolls, all retained.
+
+Restoration verifies normal mode and the same known saved state, including
+1600×1600 DPI. Transport health records331 exchanges,331 replies, no malformed
+reports and exactly two setting commands: enter/restore mode. No binding,
+macro, DPI, polling or slot setter was admitted. A 58-report excerpt of the
+requested sequence is retained in `tests/fixtures/naga_v3_wired_controls.json`;
+it removes private identity/paths/bindings and rebases elapsed times without
+changing raw input frames. Both the full private trace and excerpt replay to
+the same complete control/combination coverage.
+
+`gillete.wired_acceptance` now prepares a separately gated 50-tap software test
+from the completed capture and restoration proof. It reuses the receiver's
+guided source/Qt matcher through an injected hardware adapter. The wired
+decoder rejects receiver-only report IDs and differing lengths. The adapter
+uses only proven getters and an isolated, journaled mode-only transport; it
+cannot write saved bindings/settings/macros or enable the V2. Ordinary E7
+configuration admission stays disabled. The live software test needs new
+approval because it takes input ownership and generates virtual keys. Wired
+standalone writes, native macro persistence and lifecycle tests remain pending.
 
 ### V3 profiles: capacity is not assignment or selection
 
@@ -338,8 +357,9 @@ Naga metadata rejection is observed even though the Basilisk CRUD spec describes
 successful metadata/create/delete on other hardware. [P1][P2]
 
 Use count/list/active as an internally consistent inventory, retaining Gillete's
-narrow zero-declared-size response exception. Query these again on wired;
-the wired capture does not establish its assigned list or profile switching.
+narrow zero-declared-size response exception. Local wired getters now establish
+assigned/active slot1, as recorded above. They do not establish profile switching
+or slot creation/removal; no such setter has been tested on this cable transport.
 Expose selection only for assigned IDs, after a separate authorized selection
 test verifies ACK, active getter and effective bank0 bindings. Do not implement
 Naga profile creation/deletion by treating the Basilisk spec as portability
