@@ -2677,3 +2677,11 @@ replug, mismatched live firmware/serial, wrong config/state roots and preserving
 external DPI changes. All existing receiver controller/session checks pass.
 All 878 packaged-source checks, staged Arch/wheel paths, isolated GUI and CLI
 checks pass. No host installation, migration or startup change occurred.
+
+The owner returned the V3 to 1600 DPI and requested another read. Fresh getter-only
+preparation at `evidence/v3-wired-controls-20261111-02.local` confirms 1600×1600,
+stage3, normal mode and all 50 known stored descriptors. Its 50-tap proposal has
+no run directory. The earlier 3200-DPI proposal remains intact as observed
+history; use only the refreshed proposal for the next approved software test.
+No DPI setter was used, and no live wired software control has started. Source
+code is unchanged from the passing 1,126-test/878-packaged-check validation.
