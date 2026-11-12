@@ -246,16 +246,24 @@ backup. DPI/polling settings and opaque native data are not imported.
 The mouse-memory view now identifies stored turbo parameters and macro
 references, while marking unverified timing and unavailable macro content.
 On the V3 receiver with firmware1.1, **Read mouse** also retrieves supported
-once-only, single-key keyboard macro bodies. It requires the reference to be in
-the catalog, reads the complete bytes twice and rechecks the referring bindings.
+once-only keyboard sequences and counted single-key macro bodies. It requires
+the reference to be in the catalog, reads the complete bytes twice and rechecks
+the referring bindings.
 **Keep stored** can then reproduce that exact key/delay sequence through the
 Linux service; the virtual keyboard handles its base function-key mapping.
 Activation rechecks bodies required by selectable profiles before input ownership.
 Explicit host overrides do not depend on unused native bodies. Missing, changed,
-multi-key, mouse, held/toggle and repeated native macros remain unresolved.
+mouse, held/toggle and counted multi-key native macros remain unresolved.
 This integration is tested in simulation; its combined live acceptance is pending.
 It does not upload, alter or delete any macro, and an inspection snapshot remains
 insufficient for a complete native macro backup.
+Counted bodies retain their encoded delays, including the final iteration's
+trailing wait. Their Linux action uses zero **extra macro gap**, so playback
+does not add another delay between iterations. Creating a Linux profile from
+the read preserves the count, timing and both layers; the editor accepts a zero
+extra gap for macros while keeping turbo's positive interval requirement.
+Software focus/profile changes and Stop still cancel these stored macros and
+release their keys. Native firmware playback continues to use its own lifecycle.
 The [remaining protocol research](docs/remaining-protocol-research.md) records
 the REA capture analysis and the evidence still needed for those actions and
 the V3 wired transport.

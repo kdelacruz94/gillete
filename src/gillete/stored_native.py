@@ -1,12 +1,13 @@
-"""Read and resolve only the physically accepted once-only keyboard family.
+"""Read checked keyboard sequences and counted-key bodies for software playback.
 
 This does not infer sequences from a reference or enable firmware setters.
-V2, missing objects, repeated/held/toggled actions and opaque event streams
+V2, missing objects, counted multi-key/held/toggled actions and opaque streams
 remain unresolved. Ordinary hardware transport keeps its existing allowlist.
 """
 
 import time
 from copy import copy
+from dataclasses import replace
 
 from .compile_onboard import CONTROL_IDS, USAGES
 from .macro_inspection import inspect
@@ -24,14 +25,14 @@ def eligible(snapshot):
 
 def reference(function):
     if (len(function) != 7 or function[:2] != b'\3\3'
-            or function[4:] != b'\1\0\0'):
+            or not 1 <= function[4] <= 255 or function[5:] != bytes(2)):
         return None
     identifier = int.from_bytes(function[2:4], 'big')
     return identifier if 1 <= identifier <= 32767 else None
 
 
 def decode_once(data):
-    """One balanced keyboard press with bounded delays; no generic execution."""
+    """A balanced known keyboard sequence with bounded delays, played once."""
     try:
         parsed = inspect(data)
         if (parsed['status'] != 'decoded' or parsed['warnings']
@@ -46,7 +47,7 @@ def decode_once(data):
                 steps.append(Step('down' if record['pressed'] else 'up', names[record['hid_usage']]))
             else:
                 return None
-        if sum(s.kind == 'down' for s in steps) != 1:
+        if not any(s.kind == 'down' for s in steps):
             return None
         return Action('macro', steps=tuple(steps))
     except (TypeError, ValueError):
@@ -161,6 +162,13 @@ def action(snapshot, function):
     if not eligible(snapshot) or (identifier := reference(function)) is None:
         return None
     try:
-        return decode_once(bytes.fromhex(snapshot.native_macros[identifier]))
+        result = decode_once(bytes.fromhex(snapshot.native_macros[identifier]))
+        if result is None or function[4] == 1:
+            return result
+        if sum(s.kind == 'down' for s in result.steps) != 1:
+            return None
+        # The object already contains its per-iteration trailing delay, including
+        # the final iteration. Do not add the host runner's default gap again.
+        return replace(result, playback='count', count=function[4], interval_ms=0)
     except (KeyError, TypeError, ValueError, AttributeError):
         return None

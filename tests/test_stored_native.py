@@ -56,16 +56,16 @@ def test_single_keyboard_press_preserves_exact_delays_and_snapshot_round_trip():
 
 @pytest.mark.parametrize('data', [b'', b'\1', b'\xff\0', b'\1\0\2\0', b'\1\x73',
     b'\2\x73', b'\1\x73\1\x73\2\x73', b'\1\x73\2\x72',
-    b'\1\x73\2\x73\1\x72\2\x72', b'\x08\1\x08\0', b'\x0a\1',
+    b'\x08\1\x08\0', b'\x0a\1',
     b'\x15\0\0\0\0', b'\1\xff\2\xff', b'\1\x73\x14\x80\0\0\0\2\x73',
     b'\1\x73\x14\0\x36\xee\x81\2\x73'])
-def test_opaque_unbalanced_multi_key_mouse_and_unsafe_delays_stay_unresolved(data):
+def test_opaque_unbalanced_mouse_and_unsafe_delays_stay_unresolved(data):
     assert native.decode_once(data) is None
 
 
-@pytest.mark.parametrize('binding', ['03030000010000', '03030007000000', '03030007030000',
+@pytest.mark.parametrize('binding', ['03030000010000', '03030007000000',
     '03030007010001', '03038000010000', '04020007000000', '05020007000000', '0f020007000000'])
-def test_only_nonzero_fifteen_bit_counted_once_references_are_admitted(binding):
+def test_invalid_ids_counts_padding_and_unaccepted_reference_families_stay_unresolved(binding):
     assert native.reference(bytes.fromhex(binding)) is None
 
 

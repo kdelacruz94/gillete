@@ -56,7 +56,9 @@ def describe(action) -> str:
         chord = "+".join(friendly_key(k) for k in action.keys)
         return chord if action.kind == "keys" else f"Turbo {chord} · {action.playback} · {action.interval_ms} ms"
     if action.kind == "macro":
-        return f"Macro · {len(action.steps)} steps · {action.playback}"
+        playback = (f'{action.count} time' + ('' if action.count == 1 else 's')
+                    if action.playback == 'count' else action.playback)
+        return f"Macro · {len(action.steps)} steps · {playback}"
     if action.kind == "hypershift":
         return f"HyperShift · {action.playback}"
     if action.kind == "launch":

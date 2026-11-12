@@ -262,7 +262,7 @@ class HardwarePanel(QWidget):
         lines.extend(f"{k.removesuffix('_error')}: {v}" for k, v in settings.items() if k.endswith('_error'))
         lines.append('\nCurrent stored assignments:')
         if snapshot.native_macros:
-            lines.append(f'{len(snapshot.native_macros)} once-only single-key native macro bodies read and verified '
+            lines.append(f'{len(snapshot.native_macros)} keyboard native macro bodies read and verified '
                          'for Keep stored playback through the Linux service.')
         for control, identifier in CONTROL_IDS[snapshot.model].items():
             from .onboard import Location

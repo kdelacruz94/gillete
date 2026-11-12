@@ -12,65 +12,41 @@ other side plates are deferred. Pointer-motion macros are optional.
 - The V2 has custom assignments saved by Synapse on Windows. Original means the
   actual captured assignments, never factory defaults. Several firmware actions
   are not yet decoded for software execution. Preserve their raw bytes.
-- During the first V2 driver-mode capture, the user manually stopped/suspended
-  input-remapper's V2 mappings and requested a restart. The second capture passed.
-  Gillete did not stop, resume, remove or migrate input-remapper. Leave the user's
-  suspended state alone unless instructed otherwise.
-- Both physical mice are restored to normal mode. No guided capture or Gillete
-  service is running. The first live V3 test passed normal F24, Ctrl+K then M,
-  toggle-1 and focus-loss cancellation. Shifted F23 exposed a desktop keymap
-  problem; the correction now passes both an isolated real Wayland test and
-  the user's physical V3 recheck.
+- The later V2 all-controls test used an explicitly approved temporary handoff
+  from input-remapper. Its exact original preset was restored and independently
+  verified RUNNING with unchanged files. No migration occurred. Do not infer
+  that input-remapper remains suspended from the early capture notes below.
+- Both receiver control/layer suites passed: V3 50 pairs and V2 42. The V3 native
+  combined keyboard/count/shared-object/power-cycle test passed. The earlier
+  F23 desktop translation issue was fixed and rechecked on the physical V3.
+- Wired V3 getters and all 25 raw controls/two held combinations passed, with
+  normal mode and saved state restored. The last fresh read confirmed 1600 DPI
+  after the owner corrected a later stage change; preserve that setting. V2's
+  last verified baseline was 1800 DPI. All owned live tests exited.
 - The user is willing to set up a Windows VM if protocol work requires it; none
   has been provisioned. REA has now inspected upstream recorded captures; no
   native binary target has been opened. See `remaining-protocol-research.md`.
 
 ## Latest user interaction
 
-The user has now answered both outstanding questions: **Later — continue building**
-for the V2 hardware session, and the old HyperShift+side1/2/4/10 bindings were
-MapleStory gameplay macros that **do not need to be kept**. They will recreate
-those macros once the tool is confirmed working. Do not ask again what those
-four macros did or require recovering reference 0000 before V2 software validation.
-The next isolated V2 validation profile should explicitly disable those four
-shifted assignments; original device bytes still belong in the test-restoration
-backup. This does not retire the four other opaque V2 turbo functions or authorize
-inventing their timing. Physical tests remain deferred; neither mouse was changed.
-Earlier notes below about unanswered questions describe older checkpoints.
+The latest answer is **Later — continue building** for the wired V3's 50-tap
+software test. All hardware testing remains deferred. The prepared proposal at
+`evidence/v3-wired-controls-20261111-02.local` retains the confirmed 1600-DPI
+baseline and has no run directory. Do not start it from the earlier approval
+for raw mode/input capture; input ownership and virtual-key generation are
+separate scope. Continue offline development without reopening hardware tests.
 
-The user approved and completed the live V3 software test, initially reporting
-all steps worked, then noting F23 appeared as Qt key 16777490 instead of F23.
-That value is TouchpadOff. It was an actual desktop translation issue, not just
-a missing label. The fix is implemented and the user confirmed both F24 and F23
-on the physical V3 recheck. Test3 exited 0; normal mode and all 50 saved
-descriptors were verified unchanged. No guided test is running. A later async
-question to wake the V2 for settings preparation was answered Later, as noted above.
+The current offline change extends the V3 receiver's Keep stored bridge to
+balanced once-only keyboard sequences and counted single-key bodies, preserving
+encoded waits with zero additional macro gap. V2/wired/other firmware, counted
+multi-key and held/toggle references remain unresolved. Native save gates are
+unchanged, and the combined live native-to-software transition is still pending.
+See the dated tail entries for checks, artifacts and individual physical results.
 
-Future software tests now require separate preparation and execution (the old
-single-command V3 harness used for test3 has been replaced):
-
-```sh
-.venv/bin/python -m gillete.guided_service prepare --product 00b4 --directory evidence/v2-software-test1.local
-# Review the printed overrides with the user before starting live control.
-.venv/bin/python -u -m gillete.guided_service run --directory evidence/v2-software-test1.local --seconds 180
-```
-
-Use a new directory per attempt and product00e8 for the V3 receiver. Preparation
-only reads; execution checks the prepared mouse state before starting an isolated
-service. The pad's countdown starts after actual activation in that focused window.
-On both mice, side12 = F24, HyperShift+side12 = F23, side11 = Ctrl+K then M.
-The V2 front index button is the trigger and rear index button toggles repeated1;
-V3 uses the ring button and rear button behind the wheel. Leaving the window
-cancels repetition; returning requires a fresh press. Known stored actions remain
-outside the pad, with explicit unknown/settings masks documented in the preview.
-Both original layers, profile inventory/selection and saved DPI/stage/polling
-values are compared after mode restoration. No regular profile file is changed.
-
-Inspect output before claiming READY or success. The V3 often sleeps: timeout on initial read means no change;
-ask the user to wake it when they resume the deferred physical session. Commands
-are bound to the test's configuration identity, mode journals are isolated under
-its run/state directory, and evidence failures cannot skip recovery. Do not kill
-a service without checking/restoring its mode journal afterward.
+The old V2 HyperShift+side1/2/4/10 references were MapleStory gameplay macros the
+owner explicitly does not need preserved as executable behavior. Keep original
+bytes in backups; do not ask what they did or invent behavior for reference0000.
+The four other opaque V2 turbo functions remain separate unresolved cases.
 
 ## Installed development build
 
@@ -2685,3 +2661,45 @@ no run directory. The earlier 3200-DPI proposal remains intact as observed
 history; use only the refreshed proposal for the next approved software test.
 No DPI setter was used, and no live wired software control has started. Source
 code is unchanged from the passing 1,126-test/878-packaged-check validation.
+
+## Stored native keyboard sequences and counts in Linux profiles — 2026-11-11
+
+The owner deferred the prepared wired software test and asked to continue
+building. No mouse, input-remapper or desktop setting was queried or changed
+during this offline work. The fresh wired proposal remains unrun at its confirmed
+1600-DPI baseline. The top-of-file handoff now reflects that deferral and the
+already restored V2 preset rather than the early suspended-state checkpoint.
+
+The V3 receiver's Keep stored bridge now decodes balanced keyboard sequences
+played once and counted single-key bodies. This closes the gap where the native
+save admitted the accepted Ctrl+K, M/count-three F24 shapes but the ordinary
+software reader could execute only a single key played once. References still
+require function03/size3, a nonzero 15-bit catalog ID, count1–255 and zero padding.
+Only E8/firmware0101 is eligible. Catalog membership, complete body double reads
+and referring-binding rechecks remain required; changed counts fail readback too.
+
+Every encoded wait is preserved, including the counted body's final trailing
+delay. The host action uses zero extra repeat gap rather than adding another
+default delay or expanding repeated bodies into a large event list. The model
+and action editor allow zero extra gap for macros; turbo still requires a positive
+interval longer than its press. Macro summaries show the actual repeat count.
+Mouse-read profile copying, JSON persistence and editing retain count/timing
+across normal/HyperShift layers. Recompiling the copied count shape preserves
+its existing native bytes.
+
+Counted multi-key/multi-press bodies, mouse/cursor data, unknown/opaque/unbalanced
+streams, unsafe delays, held/toggle references and missing objects stay unresolved.
+V2/wired/other firmware make no new macro queries, and native write admission
+and normal hardware allowlists are unchanged. Software focus loss still cancels
+these actions, releases held outputs and requires a fresh press after return.
+This does not claim combined live native-to-software acceptance.
+
+Validation: all 1,137 automated tests pass. New timelines independently check
+Ctrl+K, M at the encoded20/40/80ms waits and three F24 iterations at40/150ms,
+including the final wait and no doubled gap. Tests also cover shared reads,
+count bounds, unsupported count bodies, changed repeat bindings, zero-gap loop
+cancellation, focus loss, local copying/JSON persistence and editor round trips.
+No hardware test, service activation, host installation or migration occurred.
+All 889 packaged-source checks pass, with successful staged Arch/wheel paths,
+CLI and isolated GUI checks. The final artifacts include the updated editor,
+checked decoder, test coverage and current handoff documentation.

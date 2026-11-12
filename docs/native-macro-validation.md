@@ -7,10 +7,13 @@ The same macro and stored/active binding also survived the user's reported
 off/on cycle, with 81.001-ms observed playback and complete cleanup afterward.
 Shared once-only macro playback on normal/HyperShift sides11/12 has also been
 observed; originals and the empty catalog were verified after recovery from
-a malformed-reply cleanup error. Production native save is gated to the V3
-receiver firmware1.1 and once-only single-key keyboard macros. Multi-key
-sequences, repetition, physical F13–F23 desktop mapping, and battery-removal
-retention remain unverified. Later sections record these results and gates.
+a malformed-reply cleanup error. The later combined experiment accepted once-only
+keyboard sequences and counted single-key macros on the V3 receiver firmware1.1,
+sole assigned active slot1. Held/toggle/turbo, counted multi-key, physical
+F13–F23 desktop mapping and battery-removal retention remain unverified.
+Keep stored software decoding now handles the accepted sequence/count families;
+its combined live transition still needs acceptance. Later sections record the
+individual results and gates.
 
 ## First-party wire findings
 
@@ -421,7 +424,8 @@ single-key macros on E8/firmware0101/sole assigned slot1. The count byte permits
 held/toggle/turbo, mouse/movement and native F13–F23 remain separate gates.
 The old unsuccessful combined run remains a failure; its missing raw event
 cannot be reconstructed from the later success. Keep-stored software decoding
-retains its narrower single-key once-only gate.
+now handles these keyboard families as described below, without changing native
+save gates or claiming combined live transition acceptance.
 
 ## Scoped desktop undo
 
@@ -452,11 +456,14 @@ mapping differences that cannot be reversibly restored through bank1 writes.
 
 `stored_native` supplies the narrow execution bridge missing after a native
 save. V3 E8/firmware0101 inspection recognizes only exact function03/size3,
-nonzero15-bit ID, count1, zero padding. It enumerates the bounded catalog before
+nonzero15-bit ID, count1–255 and zero padding. It enumerates the bounded catalog before
 dereferencing an ID, reads complete event data, admits only one balanced known
-keyboard press with bounded delays and no parser warnings, then independently
+keyboard sequence with bounded delays and no parser warnings, then independently
 reads that body's size/data again. Referring binding records must still match.
-No unknown opcode, mouse/cursor event, multi-key body or repetition is executed.
+Once-only sequences may contain known keys/modifiers and multiple chords.
+Counted references require exactly one press/release in their body; counted
+multi-key/multi-press sequences stay unresolved. No unknown opcode, mouse/cursor
+event, held/toggle reference, empty/keyless stream or unsafe delay is executed.
 
 The adapter accepts only identity-validating `MacroRead` getters. Normal
 transport execute allowlists remain unchanged. The pass is bounded to384 queries,
@@ -479,3 +486,20 @@ Offline tests cover simulated getters, normal/shifted shared references, exact
 delays, ordinary output cancellation, service preflight, missing/changed objects,
 unsupported streams, failed reads and old/new snapshot round trips. No real
 mouse query/write or service activation was performed for this implementation.
+
+The sequence/count extension preserves every delay in the stored body, including
+its trailing wait after the last iteration. Counted Linux actions set their
+additional repeat gap to zero; the runner neither adds its old default 100ms
+nor flattens repeated bodies into a large step list. The action model/editor
+allow zero additional gap for macros only. Turbo still requires a positive
+interval longer than its press duration. Profile copying and JSON round trips
+preserve count/delays, and summaries show the actual repeat count.
+
+Deterministic software timelines check the accepted Ctrl+K, M byte shape and
+three F24 iterations with 40ms holds/150ms trailing waits, including the final
+wait and no doubled gap. Ordinary engine/coordinator tests cancel these actions
+on focus loss with balanced outputs and no automatic resume. Zero-gap loops
+still yield and cancel. Getters still double-read body data and recheck referring
+bindings, including changes to the repeat byte. Missing/changed/unsupported
+objects remain unresolved. Other receiver/firmware/wired routes make no new
+macro queries, and the normal hardware allowlist/native write gates are unchanged.

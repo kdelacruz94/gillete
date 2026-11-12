@@ -46,6 +46,24 @@ def test_scroll_and_dpi_editors_preserve_assignments(app):
         shiboken6.delete(dialog)
 
 
+def test_copied_native_count_keeps_its_zero_extra_gap_in_the_editor(app):
+    from gillete.stored_actions import from_snapshot
+    from test_stored_native_sequences import combined
+    _,source=combined()
+    action=from_snapshot(source)[0]['side_12',True]
+    dialog=ActionDialog(action,{})
+    try:
+        assert dialog.interval.minimum()==0 and dialog.interval.value()==0
+        assert dialog.count.value()==3
+        dialog.save()
+        assert dialog.result()==dialog.DialogCode.Accepted and dialog.action==action
+        dialog.kind.setCurrentIndex(dialog.kind.findData('turbo'))
+        assert dialog.interval.minimum()==1 and dialog.interval.value()==1
+    finally:
+        dialog.close()
+        shiboken6.delete(dialog)
+
+
 def test_mouse_profile_review_keeps_unknowns_until_rows_are_explicitly_disabled(app):
     from gillete.gui_profile_from_mouse import MouseProfileReview
     from gillete.profile_from_mouse import MouseProfileDraft

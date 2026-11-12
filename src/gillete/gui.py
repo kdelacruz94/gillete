@@ -113,10 +113,12 @@ class ActionDialog(QDialog):
         self.playback.setCurrentIndex(self.playback.findData(action.playback))
         form.addRow("Playback", self.playback)
         self.count = spin(action.count, 1, 1000000)
-        self.interval = spin(action.interval_ms)
+        self.interval = spin(action.interval_ms, 0 if action.kind == 'macro' else 1)
         self.press = spin(action.press_ms, 1, 60000)
         form.addRow("Repeat count", self.count)
-        form.addRow("Repeat interval / macro gap (ms)", self.interval)
+        self.interval.setToolTip('Turbo uses the full press interval. Macros add this gap between iterations, '
+                                 'after their existing wait steps. Zero adds no extra macro delay.')
+        form.addRow("Turbo interval / extra macro gap (ms)", self.interval)
         form.addRow("Turbo press duration (ms)", self.press)
         self.target = QComboBox()
         for profile in profiles.values():
@@ -225,6 +227,7 @@ class ActionDialog(QDialog):
         self.playback.setEnabled(kind in {"macro", "turbo", "hypershift"})
         self.count.setEnabled(kind == "macro")
         self.interval.setEnabled(kind in {"macro", "turbo"})
+        self.interval.setMinimum(0 if kind == 'macro' else 1)
         self.press.setEnabled(kind == "turbo")
         if kind in {"turbo", "hypershift"} and self.playback.currentData() not in {"held", "toggle"}:
             self.playback.setCurrentIndex(self.playback.findData("held"))

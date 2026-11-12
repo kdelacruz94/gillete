@@ -102,7 +102,7 @@ class Action:
         if self.playback not in {"once", "count", "held", "toggle"}:
             raise ConfigurationError("Unknown playback mode")
         integer(self.count, "Repeat count", 1, 1_000_000)
-        integer(self.interval_ms, "Interval", 1, 3_600_000)
+        integer(self.interval_ms, "Interval", 0 if self.kind == 'macro' else 1, 3_600_000)
         integer(self.press_ms, "Press duration", 1, 60_000)
         if len(self.keys) > 32 or len(set(self.keys)) != len(self.keys):
             raise ConfigurationError("Keys must be distinct (maximum 32)")
