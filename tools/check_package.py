@@ -83,7 +83,7 @@ def main():
              '"tests/test_native_sequence_probe.py", "tests/test_native_profile_undo.py", "tests/test_stored_native.py", "tests/test_stored_native_sequences.py", '
              '"tests/test_function_keymap.py", "tests/test_keyboard_map.py", "tests/test_memory_access.py", '
              '"tests/test_native_cleanup.py", "tests/test_native_cleanup_review.py", '
-             '"tests/test_profile_selection.py", "tests/test_rule_decisions.py", "tests/test_profile_from_mouse.py", "tests/test_stop_shortcut.py", '
+             '"tests/test_profile_selection.py", "tests/test_rule_decisions.py", "tests/test_shortcut_roundtrip.py", "tests/test_profile_from_mouse.py", "tests/test_stop_shortcut.py", '
              '"tests/test_gui.py::test_rule_preview_explains_per_mouse_pins_matches_and_no_focused_window", '
              '"tests/test_gui.py::test_rule_preview_keeps_manual_input_on_window_load_failure_or_oversized_details", '
              '"tests/test_gui.py::test_rule_preview_uses_unsaved_rows_without_mutating_or_saving_the_editor", '

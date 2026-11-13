@@ -176,7 +176,7 @@ The four other opaque V2 turbo functions remain separate unresolved cases.
 
 ## Verification completed
 
-Latest completed suites: **1,200 automated tests** and **952 packaged-source
+Latest completed suites: **1,210 automated tests** and **962 packaged-source
 checks** pass. See the dated tail entries for current scope and hardware limits.
 
 The initial suite of 113 tests covered settings failure/recovery,
@@ -2956,3 +2956,12 @@ must be rebuilt before distribution.
 The complete suite passes: 1,210 tests. An additional offscreen real-editor
 load/save audit verified six auxiliary mouse-button macros retain their event
 codes and balanced down/up sequence. No physical input or output was used.
+
+## Mouse-button fix packaged — 2026-11-12
+
+Rebuilt the Arch package, wheel and source archive with the event-identity fix.
+The packaged-source suite now includes all ten shortcut round-trip checks and
+passes 962 tests. Isolated Arch launcher/GUI and wheel install/CLI checks pass.
+Final artifacts include these notes; all shipped Python modules are compared
+with the checkout. No package was installed on the host. Physical validation
+remains deferred and the prepared wired retry has not run.
