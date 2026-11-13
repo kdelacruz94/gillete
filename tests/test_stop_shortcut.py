@@ -28,7 +28,9 @@ def test_old_configuration_defaults_and_new_preferences_roundtrip_without_other_
 
 @pytest.mark.parametrize('value', [None, True, 8, [], {}, '', 'Ctrl++F8', 'Ctrl+Ctrl+F8',
     'Alt+Ctrl', 'F8+Ctrl', 'F1+F2', 'Ctrl+KEY_A', 'Ctrl+F25', 'Ctrl+F8;exec',
-    'CTRL, Pause, exec, anything', 'Ctrl+\nF8\nkeyword anything'])
+    'CTRL, Pause, exec, anything', 'Ctrl+\nF8\nkeyword anything',
+    # A bare Escape would swallow every Escape press on the desktop.
+    'Escape', ' escape ', 'Ctrl+Esc', 'Escape+Ctrl'])
 def test_invalid_or_injected_shortcuts_cannot_enter_saved_configuration(value):
     data = Configuration().json()
     data['emergency_shortcut'] = value
@@ -76,7 +78,7 @@ class Desktop:
 
 
 @pytest.mark.parametrize('backend', ['lua', 'legacy'])
-@pytest.mark.parametrize('preference', ['Ctrl+Shift+F8', 'Super+F12', 'F10'])
+@pytest.mark.parametrize('preference', ['Ctrl+Shift+F8', 'Super+F12', 'F10', 'Ctrl+Alt+Escape'])
 def test_custom_shortcut_installs_recovers_and_removes_exact_chord(tmp_path, backend, preference):
     async def check():
         shortcut = EmergencyShortcut(SimpleNamespace(signature='test'), tmp_path / 'stop.json', shortcut=preference)
@@ -93,6 +95,31 @@ def test_custom_shortcut_installs_recovers_and_removes_exact_chord(tmp_path, bac
         await recovered.remove()
         assert desktop.bindings == user and not shortcut.receipt.exists()
         assert not recovered.installed
+    asyncio.run(check())
+
+
+def test_escape_needs_a_modifier_and_uses_the_linux_esc_keycode():
+    chord = StopShortcut.parse(' alt + ctrl + escape ')
+    assert chord.label == 'Ctrl+Alt+Escape' and chord.lua == 'CTRL + ALT + Escape'
+    assert chord.legacy == 'CTRL ALT, Escape' and chord.mask == 12
+    assert chord.keycodes == {9}  # KEY_ESC (1) plus the XKB offset
+    assert chord.matches({'key': 'Escape', 'modmask': 12})
+    assert chord.matches({'key': '', 'keycode': 9, 'modmask': 12})
+    assert not chord.matches({'key': 'Escape', 'modmask': 64})  # Super+Escape stays the user's
+    assert StopShortcut.parse('Shift+Escape').label == 'Shift+Escape'
+
+
+def test_escape_conflict_with_an_existing_binding_is_refused(tmp_path):
+    async def check():
+        shortcut = EmergencyShortcut(SimpleNamespace(signature='test'), tmp_path / 'stop.json',
+                                     shortcut='Ctrl+Alt+Escape')
+        desktop = Desktop(shortcut)
+        desktop.bindings.append({'key': '', 'keycode': 9, 'modmask': 12, 'arg': 'user'})
+        before = deepcopy(desktop.bindings)
+        shortcut.hyprctl = desktop
+        with pytest.raises(RuntimeError, match=r'Ctrl\+Alt\+Escape is already bound'):
+            await shortcut.install()
+        assert desktop.bindings == before and not shortcut.installed
     asyncio.run(check())
 
 

@@ -151,14 +151,14 @@ def feature_validation(product):
                     f'All {count} controls were identified on the development receiver. '
                     'Software mapping and saved-mapping acceptance are reported separately below.'),
             Finding('Every-control software mapping', 'Live test passed',
-                    f'All{count * 2} normal/HyperShift control pairs passed with routed mouse edges and desktop key pairs, '
+                    f'All {count * 2} normal/HyperShift control pairs passed with routed mouse edges and desktop key pairs, '
                     'including the trigger through an alternate trigger. Original state restoration verified. '
                     'Native saves and wider lifecycle acceptance remain separate.'),
             Finding('Saved mappings and held HyperShift', 'Partially verified',
                     'Side 12 F24/F23 tests survived a mouse power cycle. Receiver replug and broader assignment tests remain pending.'),
             Finding('Program profiles, macros and turbo', 'Live examples passed' if product == 0xE8 else 'Live test pending',
                     'V3 examples passed F24/F23, Ctrl+K then M, toggle-1 and focus cancellation. Full lifecycle acceptance remains pending.'
-                    if product == 0xE8 else 'All42 control/layer mappings passed; V2 live macro/turbo and focus-cancellation examples remain pending.'),
+                    if product == 0xE8 else 'All 42 control/layer mappings passed; V2 live macro/turbo and focus-cancellation examples remain pending.'),
             Finding('Macro recording and program launches', 'Implemented',
                     'Linux service features; full desktop acceptance is pending.'),
             Finding('DPI stages and polling rate', 'Live write test pending',

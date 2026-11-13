@@ -28,6 +28,128 @@ other side plates are deferred. Pointer-motion macros are optional.
   has been provisioned. REA has now inspected upstream recorded captures; no
   native binary target has been opened. See `remaining-protocol-research.md`.
 
+## Priority decision — 2026-11-12 (supersedes the order below)
+
+After a review of the Codex work, the owner chose **daily use first**: software
+remapping on both mice with their real profiles, starting at login, then
+switching off input-remapper. Onboard/Synapse-parity work (wired retention retry,
+DPI/polling writes, slots, native held/toggle macros) waits until after cutover.
+Physical tests are batched into one planned session with a single approval
+covering a written checklist; don't ask for one-off tests or "proceed?".
+
+- The four remaining V2 Synapse turbo bindings are **retired** (owner decision):
+  normal tilt left/right PgUp/PgDn turbo, HyperShift left-click turbo and
+  HyperShift side7 Y turbo. Like the MapleStory macros, original bytes stay in
+  backups and the Linux profiles give those rows explicit actions. No V2 stored
+  function is unresolved any more.
+- The first real configuration is `~/.config/gillete/profiles.json` (revision 1):
+  **Everyday** (default on both mice), **World of Warcraft** (title `World of
+  Warcraft` or class `wow.exe`), plus inactive Excel/VS Code examples (neither
+  app is installed here). No pins, no startup mice, no service, no autostart.
+  - V2 Everyday reproduces the active input-remapper preset "Browsing copy" on
+    top of the Synapse layout: side1 Ctrl+W, side2 F9, side3 F5, side4
+    Ctrl+Shift+Tab, side5 Ctrl+Tab, side7 Enter, side8 Super+Alt+D, side10
+    Ctrl+V, side11 Alt+Left; side6/9/12 keep stored 6/9/=; tilt PgUp/PgDn
+    (held), HyperShift tilt Home/End, HyperShift left click = left click.
+    DPI-up HyperShift and DPI-down held Ctrl stay as stored.
+  - V2 WoW keeps stored side keys (the input-remapper WoW preset is empty);
+    retired HyperShift side rows become Shift+number like the other shifted rows.
+  - V3 keeps its stored factory layout. DPI up/down and top-front wheel-mode are
+    **disabled** in every profile until those software-mode mouse writes pass a
+    deliberate hardware test (owner wants 1600 DPI kept). The underside
+    profile button is disabled too (one slot; refused on the cable).
+  - WoW toggle-repeat `1`: V3 top-rear, V2 HyperShift+side1.
+  - herdr: no profile yet. herdr's new desktop app (window class `herdr-app`)
+    dropped the TUI's Ctrl+B prefix, so the owner will revisit those bindings.
+- All profiles pass offline checks against the Nov 11 V2/V3 reads: no
+  unresolved stored rows, no mouse-writing actions, HyperShift reachable.
+
+Next: one daily-use hardware session (about 25 minutes, one approval). Scope:
+stop only the V2's input-remapper preset; run `gillete daemon` on the real config
+and enable both mice; check Everyday on V2/V3, WoW switching by window title,
+toggle-1 start/stop and cancel on focus loss, tray pin/Automatic, emergency stop,
+V3 receiver unplug/replug, one suspend/resume and one recorded macro. Before
+enabling, re-read both mice to confirm stored layouts still match the Nov 11
+reads. No writes to saved mouse memory. End with rollback (restart the V2
+preset) or keep-running, as the owner chooses. Install the Arch package and
+remove input-remapper's V2 autoload only at the later cutover.
+
+### Daily-use session result — 2026-11-12
+
+Ran with the real config on the V2 receiver and the **V3 cable** (00e7; the
+V3 receiver was not connected). Both live reads matched the Nov 11 layouts row
+for row. The V3 read 800 DPI (an owner DPI-button press); the owner returned it
+to 1600 and a re-read confirmed it before Gillete took over. Because the cable
+refuses onboard-slot actions, V3 `profile_button` is now also disabled in every
+profile (a no-op with one slot anyway). Outputs were logged by a focused Qt
+key-logger window rather than judged by eye.
+
+- Passed: V2 Everyday, all 12 sides, tilt hold with repeat, HyperShift tilt
+  Home/End and left click, DPI-down Ctrl plus scroll; V3 sides, ring HyperShift,
+  disabled DPI/top-front/underside buttons silent.
+- Passed: switching to WoW by window title (both mice); V2 sides give plain
+  numbers; toggle-1 at about 10/s on V3 top-rear and V2 HyperShift+side1; a
+  focus change cancels within one interval and nothing restarts on return.
+- Passed: tray pin/Automatic round trip (saved durably), pin holds outside
+  the matching window, `control stop-actions` stops a running repeat at once.
+- Passed: V3 cable unplug/replug; the service re-enumerated and recovered by
+  itself; all mode journals ended `normal-mode-restored`.
+- Not tested: Ctrl+Alt+Pause (the owner's keyboard has no Pause key; choose
+  another emergency shortcut in Startup), suspend/resume (skipped), the macro
+  recorder, and login startup.
+
+The owner chose to keep Gillete running as a trial. The service and tray run as
+transient user units `gillete-trial` and `gillete-trial-tray` (dev build,
+`startup_models` both mice, config revision 8). input-remapper's V2 preset
+"Browsing copy" is stopped (files unchanged); its autoload is untouched, so a
+logout or reboot returns the V2 to input-remapper and Gillete does not start.
+Rollback: `systemctl --user stop gillete-trial gillete-trial-tray`, then
+`input-remapper-control --config-dir ~/.config/input-remapper-2 --command start
+--device "Razer Razer Naga V2 HyperSpeed" --preset "Browsing copy"`.
+
+Remaining before cutover: suspend/resume, a physical press of the emergency
+shortcut, one recorded macro, login startup and package install/uninstall.
+
+Emergency shortcut: the owner's Glove80 has Pause only on its System layer, and
+its base-layer Ctrl+Alt+Super+F11/F12 keys switch monitor inputs. `stop_shortcut`
+now also accepts Escape, but only with at least one modifier (a bare Escape bind
+would swallow Escape desktop-wide), mapping it to evdev `KEY_ESC`. The owner's
+config uses **Ctrl+Alt+Escape** (revision 9; Hyprland had no Ctrl+Alt+Escape
+bind). After restarting `gillete-trial`, the service installed it and re-enabled
+both mice from `startup_models`. 1,218 tests pass. `dist/` was rebuilt the same
+evening (also fixing the run-together "All42"/"All50" diagnostics text); all
+970 packaged-source checks, the isolated GUI and the wheel/CLI checks pass. Nothing
+was installed on the host.
+
+### Suspend preparation — 2026-11-12 (evening, no physical test)
+
+- **The PC cannot suspend while `agent-awake.service` runs.** That user unit
+  (terminal-config) holds a logind *block* inhibitor on sleep. The suspend test
+  must start with `systemctl --user stop agent-awake.service` and end with
+  `systemctl --user start agent-awake.service`.
+- The sleep watcher's `dbus-monitor --system` is refused new-style monitoring
+  and falls back to eavesdropping. On this dbus-broker system bus that fallback
+  still receives broadcast signals (verified with NameOwnerChanged), so logind's
+  broadcast PrepareForSleep should arrive. Not yet observed for real.
+- Software rehearsal on the live trial: a PrepareForSleep `true`/`false` signal
+  sent only to Gillete's own watcher connection. On `true` both sessions stopped
+  and both mode journals read `normal-mode-restored` within the same second. On
+  `false` the V2 returned after about 4 s and the V3 after about 7 s (the 5 s
+  retry delay), no errors. Expect 5–10 s without mappings after a real wake.
+- Other apps already hold logind *delay* inhibitors (NetworkManager, UPower,
+  noctalia, T3), so logind waits up to 5 s before sleeping. That covers
+  Gillete's sub-second release in practice; Gillete takes no delay inhibitor of
+  its own (hardening follow-up).
+- Hardening follow-up: the watcher does not check the signal's sender, so any
+  local process can send it a fake PrepareForSleep. The effect is limited to
+  releasing the mice until a `false` arrives.
+
+Tomorrow's suspend test: stop `agent-awake`, confirm both mice active, suspend
+normally, wake, wait about 10 s, check V2 side1 = Ctrl+W and V3 side1 = 1 in a
+text field, confirm status shows both active with no errors, then start
+`agent-awake` again. If mappings don't return within about 30 s, run
+`systemctl --user restart gillete-trial`; if that fails, use the rollback above.
+
 ## Latest user interaction
 
 The owner resumed and completed the wired V3's 50-tap software test. `.02.local`
@@ -68,7 +190,8 @@ See the dated tail entries for checks, artifacts and individual physical results
 The old V2 HyperShift+side1/2/4/10 references were MapleStory gameplay macros the
 owner explicitly does not need preserved as executable behavior. Keep original
 bytes in backups; do not ask what they did or invent behavior for reference0000.
-The four other opaque V2 turbo functions remain separate unresolved cases.
+The four other opaque V2 turbo functions were retired by the owner on
+2026-11-12 (see the priority decision above); keep their bytes in backups only.
 
 ## Installed development build
 
@@ -301,8 +424,9 @@ Files produced by sudo were chowned back to the checkout owner, staying 0600.
 
 1. Broader service acceptance beyond the completed V3 core test; all callbacks,
    virtual-input exclusion, focus transitions, launch, sleep, disconnect/reconnect.
-2. Preserve/interpret or explicitly map remaining V2 Synapse firmware actions;
-   live V2 acceptance without silently losing them.
+2. ~~Preserve/interpret or explicitly map remaining V2 Synapse firmware actions.~~
+   Resolved 2026-11-12: all eight retired by the owner and explicitly mapped in
+   the real profiles. Still needed: live V2 macro/turbo/focus acceptance.
 3. Physical DPI/stage/polling acceptance (editing/recovery are implemented); slot
    selection/CRUD evidence; wired transport; receiver unplug/replug persistence.
 4. Real recorder acceptance, real-login startup acceptance,

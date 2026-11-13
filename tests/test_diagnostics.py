@@ -125,10 +125,10 @@ def test_development_validation_remains_distinct_from_implemented_or_pending_wor
         assert rows['Per-program hardware DPI'].status == 'Unavailable'
         assert rows['DPI stages and polling rate'].status == 'Live write test pending'
     assert v2['Every-control software mapping'].status == 'Live test passed'
-    assert 'All42' in v2['Every-control software mapping'].detail
+    assert 'All 42 normal' in v2['Every-control software mapping'].detail
     assert 'macro/turbo' in v2['Program profiles, macros and turbo'].detail
     assert v3['Every-control software mapping'].status == 'Live test passed'
-    assert 'All50' in v3['Every-control software mapping'].detail
+    assert 'All 50 normal' in v3['Every-control software mapping'].detail
     assert 'restoration verified' in v3['Every-control software mapping'].detail
     assert v2['Native onboard macros and turbo'].status == 'Unavailable'
     assert 'references do not' in v2['Native onboard macros and turbo'].detail
