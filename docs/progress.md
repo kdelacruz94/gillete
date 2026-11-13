@@ -2939,3 +2939,20 @@ the dialog with a worker outstanding. Staged Arch launcher/native GUI and separa
 wheel installation/CLI checks pass. Final archives include the new preview,
 tests and handoff notes; shipped module bytes are checked against the checkout.
 No package was installed on the host.
+
+## Mouse-button macro labels preserve Linux identity — 2026-11-12
+
+Physical testing remains deferred. Fixed the shortcut formatter used by the
+key/chord and macro editors: stripping BTN_ made BTN_SIDE/EXTRA unparseable,
+changed BTN_BACK/FORWARD into different buttons, and changed BTN_0 into KEY_0.
+Friendly labels now undergo an event-code round-trip check and retain the full
+Linux name when shortening would lose identity. Existing readable modifier and
+primary-click names remain available. No configuration, hardware or service
+mutation occurred. All 85 focused shortcut/editor checks pass, including a sweep
+of every accepted Linux key/button name. Full-suite results are retained in
+/tmp/gillete-shortcut-full.log; packaged artifacts predate this checkpoint and
+must be rebuilt before distribution.
+
+The complete suite passes: 1,210 tests. An additional offscreen real-editor
+load/save audit verified six auxiliary mouse-button macros retain their event
+codes and balanced down/up sequence. No physical input or output was used.

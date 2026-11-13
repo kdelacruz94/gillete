@@ -41,7 +41,14 @@ def friendly_key(key: str) -> str:
     common = {"KEY_LEFTCTRL": "Ctrl", "KEY_LEFTALT": "Alt", "KEY_LEFTSHIFT": "Shift",
               "KEY_LEFTMETA": "Super", "BTN_LEFT": "LeftClick", "BTN_RIGHT": "RightClick",
               "BTN_MIDDLE": "MiddleClick"}
-    return common.get(key, key.removeprefix("KEY_").removeprefix("BTN_").title())
+    candidate = common.get(key, key.removeprefix("KEY_").removeprefix("BTN_").title())
+    # Display aliases must preserve the exact Linux event code when edited.
+    try:
+        if key_code(parse_key(candidate)) == key_code(key):
+            return candidate
+    except ConfigurationError:
+        pass
+    return key
 
 
 def describe(action) -> str:
