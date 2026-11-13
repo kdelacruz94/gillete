@@ -150,6 +150,15 @@ text field, confirm status shows both active with no errors, then start
 `agent-awake` again. If mappings don't return within about 30 s, run
 `systemctl --user restart gillete-trial`; if that fails, use the rollback above.
 
+Session helpers (committed): `tools/keycheck_window.py` (focused logging window;
+title it "World of Warcraft" to exercise that rule), `tools/remapper_handoff.py`
+(stop/restore only the V2 preset with file fingerprints) and
+`tools/compare_saved_layout.py` (getter-only comparison with an earlier
+snapshot; run with the service stopped). Tonight's raw logs and the handoff
+receipt are in `evidence/daily-use-20261112-01.local/`; restore the V2 preset
+with `tools/remapper_handoff.py restore` on that receipt. The review that led
+to the daily-use priority is `docs/codex-review-2026-11-12.md`.
+
 ## Latest user interaction
 
 The owner resumed and completed the wired V3's 50-tap software test. `.02.local`
